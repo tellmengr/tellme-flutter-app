@@ -1,0 +1,71 @@
+{
+  "project_info": {
+    "project_number": "484492060714",
+    "firebase_url": "https://tellme-65fdf-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "tellme-65fdf",
+    "storage_bucket": "tellme-65fdf.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:484492060714:android:8a5da7792a8d5a73d0fb53",
+        "android_client_info": {
+          "package_name": "com.mstoreapp.tellme"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "484492060714-3k3dgq2cfh5in7mdkdjdtb1qsh81hd08.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mstoreapp.tellme",
+            "certificate_hash": "3227ab5bdc65126ec2ea8dc938a37c96f72c7eb1"
+          }
+        },
+        {
+          "client_id": "484492060714-m8m1ln71o077qouth5bqh7ed7epvgo3k.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mstoreapp.tellme",
+            "certificate_hash": "48aafc2111ddc15739b044b1a5bccfd3db218771"
+          }
+        },
+        {
+          "client_id": "484492060714-q3ap6fohkb57qhsqlb70eout8fe9shq2.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mstoreapp.tellme",
+            "certificate_hash": "f5e40fd2ed1718cf6c2b8c3026e5321236baa010"
+          }
+        },
+        {
+          "client_id": "484492060714-4nc7ladthrs5egoa1ltog52iqvm04st7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBqSRFERvB60xti6kfXj3rmrsGLR5ccNy4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "484492060714-4nc7ladthrs5egoa1ltog52iqvm04st7.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "484492060714-c247i6mferrs0s7q5jtto30n6djnsa39.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.mstoreapp.tellme"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

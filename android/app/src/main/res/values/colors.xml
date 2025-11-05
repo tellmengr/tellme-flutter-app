@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Use your brand color here -->
+    <color name="notification_color">#1E88E5</color>
+	<color name="ic_launcher_background">#FFFFFF</color>
+</resources>

@@ -1,0 +1,41 @@
+// -------------------------------
+// android/settings.gradle
+// -------------------------------
+pluginManagement {
+    // Load Flutter SDK path from local.properties
+    def localProps = new Properties()
+    def localPropsFile = new File(rootDir, "local.properties")
+    if (localPropsFile.exists()) {
+        localPropsFile.withReader("UTF-8") { r -> localProps.load(r) }
+    }
+    def flutterSdkPath = localProps.getProperty("flutter.sdk")
+    assert flutterSdkPath != null : "Flutter SDK not found. Define flutter.sdk in local.properties."
+
+    // Let Flutter inject its build logic (correct path)
+    includeBuild("${flutterSdkPath}/packages/flutter_tools/gradle")
+
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+
+    plugins {
+        // Keep this loader as-is for Flutter
+        id "dev.flutter.flutter-plugin-loader" version "1.0.0"
+        // ✅ Bumped to AGP 8.6.x and Kotlin 2.1.x to match new Firebase/Play Services
+        id "com.android.application" version "8.6.1"
+        id "org.jetbrains.kotlin.android" version "2.1.0"
+        id "com.google.gms.google-services" version "4.4.2"
+    }
+}
+
+// Use the plugins defined above; no versions here, they’re resolved by pluginManagement.plugins
+plugins {
+    id "dev.flutter.flutter-plugin-loader"
+    id "com.android.application" apply false
+    id "org.jetbrains.kotlin.android" apply false
+    id "com.google.gms.google-services" apply false
+}
+
+include(":app")

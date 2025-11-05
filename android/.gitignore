@@ -1,0 +1,23 @@
+# Flutter & build artifacts
+build/
+**/build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Android Gradle & CMake build outputs
+android/.gradle/
+android/app/.cxx/
+
+# Local config (DO NOT COMMIT)
+android/local.properties
+android/key.properties
+
+# Keystores & certificates (DO NOT COMMIT)
+android/app/debug.keystore
+upload-keystore.jks
+upload_certificate.pem
+
+# Misc
+*.jks
+*.pem
