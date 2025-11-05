@@ -46,7 +46,10 @@ dependencies:
   flutter_staggered_grid_view: ^0.7.0
   flutter_facebook_auth: ^7.1.2
   sign_in_with_apple: ^7.0.1
-  google_sign_in: ^7.2.0
+
+  # ⬇️ Downgraded to be compatible with Dart 3.5.0 in CI
+  google_sign_in: ^6.2.2
+
   animations: ^2.0.11
   flutter_blurhash: ^0.9.1
   platform: ^3.1.0
@@ -55,7 +58,6 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
-  # ⬇️ Downgraded to keep CI SDK (meta/path) happy
   flutter_native_splash: ^2.4.6
   flutter_launcher_icons: ^0.13.1
 
