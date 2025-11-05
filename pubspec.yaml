@@ -55,7 +55,8 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
-  flutter_native_splash: ^2.4.7
+  # ⬇️ Downgraded to keep CI SDK (meta/path) happy
+  flutter_native_splash: ^2.4.6
   flutter_launcher_icons: ^0.13.1
 
 flutter:
@@ -67,8 +68,7 @@ flutter:
 
 dependency_overrides:
   http: ^1.2.2
-  # CI Dart SDK pins path to 1.9.0, flutter_native_splash needs >=1.9.1
-  # This keeps them compatible.
+  # Keep path aligned with flutter_native_splash + CI SDK constraints
   path: 1.9.1
 
 # =========================================
