@@ -54,7 +54,6 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  # Use v5 so it's compatible with Dart 3.5 on CI
   flutter_lints: ^5.0.0
   flutter_native_splash: ^2.4.7
   flutter_launcher_icons: ^0.13.1
@@ -68,6 +67,9 @@ flutter:
 
 dependency_overrides:
   http: ^1.2.2
+  # CI Dart SDK pins path to 1.9.0, flutter_native_splash needs >=1.9.1
+  # This keeps them compatible.
+  path: 1.9.1
 
 # =========================================
 # 🚀 Native Splash Configuration
