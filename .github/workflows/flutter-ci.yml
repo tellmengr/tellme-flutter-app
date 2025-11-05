@@ -18,7 +18,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'   # or your Flutter version
+          flutter-version: '3.35.6'   # 👈 match your local flutter --version
           channel: stable
           cache: true
 
@@ -46,7 +46,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
+          flutter-version: '3.35.6'   # 👈 same version here
           channel: stable
           cache: true
 
