@@ -26,30 +26,27 @@ dependencies:
   photo_view: ^0.15.0
   html_unescape: ^2.0.0
 
-  # ✅ Firebase (kept on the 2.x/10.x/14.x line to match core 2.24.0)
-  firebase_core: ^2.24.0
-  firebase_auth: ^4.16.0
+  # ✅ Firebase (now on the newer 4.x/6.x/12.x line to match latest iOS pods)
+  firebase_core: ^4.2.1
+  firebase_auth: ^6.1.2
 
   # ✅ Firestore for admin verification
-  cloud_firestore: ^4.13.6
+  cloud_firestore: ^6.0.3
 
-  # ✅ Use Realtime Database for celebration toggle
-  firebase_database: ^10.5.7
+  # ✅ Realtime Database for celebration toggle
+  firebase_database: ^12.0.4
 
-  firebase_messaging: ^14.6.1
-  firebase_analytics: ^10.6.1
-  firebase_app_installations: ^0.2.1
+  firebase_messaging: ^16.0.4
+  firebase_analytics: ^12.0.4
+  firebase_app_installations: ^0.4.0+4
   # (Optional) If you use FIAM in code
-  firebase_in_app_messaging: ^0.7.4+9
+  firebase_in_app_messaging: ^0.9.0+4
 
   flutter_local_notifications: ^17.2.4
   flutter_staggered_grid_view: ^0.7.0
   flutter_facebook_auth: ^7.1.2
   sign_in_with_apple: ^7.0.1
-
-  # ⬇️ Downgraded to be compatible with Dart 3.5.0 in CI
-  google_sign_in: ^6.2.2
-
+  google_sign_in: ^7.2.0
   animations: ^2.0.11
   flutter_blurhash: ^0.9.1
   platform: ^3.1.0
@@ -58,7 +55,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
-  flutter_native_splash: ^2.4.6
+  flutter_native_splash: ^2.4.7
   flutter_launcher_icons: ^0.13.1
 
 flutter:
@@ -70,7 +67,8 @@ flutter:
 
 dependency_overrides:
   http: ^1.2.2
-  # Keep path aligned with flutter_native_splash + CI SDK constraints
+  # CI Dart SDK pins path to 1.9.0, flutter_native_splash needs >=1.9.1
+  # This keeps them compatible.
   path: 1.9.1
 
 # =========================================
