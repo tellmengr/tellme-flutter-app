@@ -1,6 +1,6 @@
 # Podfile for Flutter iOS app
 
-platform :ios, '13.0'
+platform :ios, '15.0'
 
 # CocoaPods analytics can slow down Flutter builds.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
