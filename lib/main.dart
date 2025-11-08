@@ -149,7 +149,9 @@ Future<void> _handlePushData(Map<String, dynamic> data) async {
         final product = await svc.searchProductById(id);
         if (product != null) {
           navigatorKey.currentState?.push(
-            MaterialPageRoute(builder: (_) => ProductDetailPage(product: product)),
+            MaterialPageRoute(
+              builder: (_) => ProductDetailPage(product: product),
+            ),
           );
           await AnalyticsHelper.logViewProduct(id, product['name'] ?? 'Unknown');
           return;
@@ -240,6 +242,10 @@ class _Bootstrap extends StatefulWidget {
 }
 
 class _BootstrapState extends State<_Bootstrap> {
+  // Keep these so we can still navigate even if boot fails / times out
+  UserSettingsProvider? _userSettings;
+  CelebrationThemeProvider? _themeProvider;
+
   @override
   void initState() {
     super.initState();
@@ -249,7 +255,53 @@ class _BootstrapState extends State<_Bootstrap> {
   Future<void> _bootAsync() async {
     final t0 = DateTime.now();
 
-    // ✅ Initialize Firebase using google-services.json on Android
+    try {
+      // ⏱️ Give all boot steps at most 15 seconds in total.
+      await _doBootSteps().timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          debugPrint(
+              '⚠️ Boot timed out after 15s, continuing to app anyway (failing open).');
+          return;
+        },
+      );
+    } catch (e, st) {
+      debugPrint('⚠️ Boot failed unexpectedly: $e');
+      debugPrint('$st');
+      // We swallow errors so the app still moves past splash.
+    }
+
+    if (!mounted) return;
+
+    // Keep your minimum splash time
+    await _ensureMinSplash(t0, const Duration(seconds: 3));
+
+    final userSettings = _userSettings ?? UserSettingsProvider();
+    final themeProvider = _themeProvider ?? CelebrationThemeProvider();
+
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 300),
+        pageBuilder: (_, __, ___) => MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (_) => NotificationProvider()..load()),
+            ChangeNotifierProvider(create: (_) => CartProvider()),
+            ChangeNotifierProvider(create: (_) => WishlistProvider()),
+            ChangeNotifierProvider.value(value: userSettings),
+            ChangeNotifierProvider(create: (_) => UserProvider()..initialize()),
+            ChangeNotifierProvider.value(value: themeProvider),
+          ],
+          child: const MyApp(),
+        ),
+        transitionsBuilder: (_, anim, __, child) =>
+            FadeTransition(opacity: anim, child: child),
+      ),
+    );
+  }
+
+  /// 🔧 All heavy startup work moved here so we can wrap it with timeout/try-catch.
+  Future<void> _doBootSteps() async {
+    // ✅ Initialize Firebase
     await guard(Firebase.initializeApp(), label: 'Firebase.initializeApp');
 
     // (Optional) projectId log
@@ -340,31 +392,10 @@ class _BootstrapState extends State<_Bootstrap> {
     // 🔧 Load user settings + celebration theme
     final userSettings = UserSettingsProvider();
     await guard(userSettings.loadSettings(), label: 'userSettings.loadSettings');
+    _userSettings = userSettings;
 
     final themeProvider = CelebrationThemeProvider();
-
-    if (!mounted) return;
-
-    await _ensureMinSplash(t0, const Duration(seconds: 3));
-
-    Navigator.of(context).pushReplacement(
-      PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 300),
-        pageBuilder: (_, __, ___) => MultiProvider(
-          providers: [
-            ChangeNotifierProvider(create: (_) => NotificationProvider()..load()),
-            ChangeNotifierProvider(create: (_) => CartProvider()),
-            ChangeNotifierProvider(create: (_) => WishlistProvider()),
-            ChangeNotifierProvider.value(value: userSettings),
-            ChangeNotifierProvider(create: (_) => UserProvider()..initialize()),
-            ChangeNotifierProvider.value(value: themeProvider),
-          ],
-          child: const MyApp(),
-        ),
-        transitionsBuilder: (_, anim, __, child) =>
-            FadeTransition(opacity: anim, child: child),
-      ),
-    );
+    _themeProvider = themeProvider;
   }
 
   @override
@@ -427,7 +458,8 @@ class _FiamBootstrapper extends StatefulWidget {
   State<_FiamBootstrapper> createState() => _FiamBootstrapperState();
 }
 
-class _FiamBootstrapperState extends State<_FiamBootstrapper> with WidgetsBindingObserver {
+class _FiamBootstrapperState extends State<_FiamBootstrapper>
+    with WidgetsBindingObserver {
   bool _bootstrapped = false;
 
   @override
@@ -506,11 +538,13 @@ class MyApp extends StatelessWidget {
               final List<dynamic> cartItems =
                   (args?['cartItems'] as List?)?.cast<dynamic>() ?? const <dynamic>[];
 
-              final double subtotal =
-                  (args?['subtotal'] is num) ? (args!['subtotal'] as num).toDouble() : 0.0;
+              final double subtotal = (args?['subtotal'] is num)
+                  ? (args!['subtotal'] as num).toDouble()
+                  : 0.0;
 
-              final double shipping =
-                  (args?['shipping'] is num) ? (args!['shipping'] as num).toDouble() : 0.0;
+              final double shipping = (args?['shipping'] is num)
+                  ? (args!['shipping'] as num).toDouble()
+                  : 0.0;
 
               final double total = (args?['total'] is num)
                   ? (args!['total'] as num).toDouble()
