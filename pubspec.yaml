@@ -2,7 +2,7 @@ name: hello_app
 description: "TellMe.ng Flutter E-commerce App"
 publish_to: 'none'
 
-version: 1.0.2+7
+version: 1.0.4+15
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -10,46 +10,50 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
+  # 🧩 Core UI & Utilities
   cupertino_icons: ^1.0.8
   google_fonts: ^6.3.2
   shimmer: ^3.0.0
-  woocommerce_api: ^0.1.0
-  provider: ^6.1.5
-  shared_preferences: ^2.3.2
+  cached_network_image: ^3.3.1
   intl: ^0.20.2
   http: ^1.2.2
-  cached_network_image: ^3.3.1
   crypto: ^3.0.3
+  platform: ^3.1.0
+  animations: ^2.0.11
+  shared_preferences: ^2.3.2
+  provider: ^6.1.5
   email_validator: ^3.0.0
   url_launcher: ^6.2.1
-  webview_flutter: ^4.4.2
   photo_view: ^0.15.0
-  html_unescape: ^2.0.0
+  flutter_blurhash: ^0.9.1
+  flutter_staggered_grid_view: ^0.7.0
 
-  # ✅ Firebase (now on the newer 4.x/6.x/12.x line to match latest iOS pods)
+  # 🌐 WooCommerce API
+  woocommerce_api: ^0.1.0
+
+  # 🪄 Web & HTML rendering (for Blog)
+  flutter_html: ^3.0.0-alpha.6
+  html_unescape: ^2.0.0
+  webview_flutter: ^4.4.2
+
+  # 🔥 Firebase Suite
   firebase_core: ^4.2.1
   firebase_auth: ^6.1.2
-
-  # ✅ Firestore for admin verification
   cloud_firestore: ^6.0.3
-
-  # ✅ Realtime Database for celebration toggle
   firebase_database: ^12.0.4
-
   firebase_messaging: ^16.0.4
   firebase_analytics: ^12.0.4
   firebase_app_installations: ^0.4.0+4
-  # (Optional) If you use FIAM in code
   firebase_in_app_messaging: ^0.9.0+4
 
-  flutter_local_notifications: ^17.2.4
-  flutter_staggered_grid_view: ^0.7.0
+  # 🧑‍💼 Social Sign-in
+  google_sign_in: ^7.2.0
   flutter_facebook_auth: ^7.1.2
   sign_in_with_apple: ^7.0.1
-  google_sign_in: ^7.2.0
-  animations: ^2.0.11
-  flutter_blurhash: ^0.9.1
-  platform: ^3.1.0
+
+  # 🔔 Notifications
+  flutter_local_notifications: ^17.2.4
 
 dev_dependencies:
   flutter_test:
@@ -67,9 +71,7 @@ flutter:
 
 dependency_overrides:
   http: ^1.2.2
-  # CI Dart SDK pins path to 1.9.0, flutter_native_splash needs >=1.9.1
-  # This keeps them compatible.
-  path: 1.9.1
+  path: 1.9.1  # required for flutter_native_splash compatibility
 
 # =========================================
 # 🚀 Native Splash Configuration
@@ -77,20 +79,15 @@ dependency_overrides:
 flutter_native_splash:
   color: "#000000"
   color_dark: "#000000"
-
   background_image: assets/images/splash_bg_android.png
   background_image_dark: assets/images/splash_bg_android.png
   background_image_ios: assets/images/splash_bg_android.png
   background_image_dark_ios: assets/images/splash_bg_android.png
-
   image: assets/images/tellme_logo.png
   image_dark: assets/images/tellme_logo.png
-
   android: true
   ios: true
   web: false
-
-  # ANDROID 12+: invisible icon + transparent bg
   android_12:
     image: assets/images/transparent_1x1.png
     icon_background_color: "#00000000"
@@ -101,13 +98,9 @@ flutter_native_splash:
 flutter_launcher_icons:
   android: "ic_launcher"
   ios: true
-
   image_path_android: assets/icons/app_icon.png
   image_path_ios: assets/icons/app_icon.png
   remove_alpha_ios: true
-
-  # Adaptive (Android)
   adaptive_icon_foreground: assets/icons/icon_foreground_padded.png
   adaptive_icon_background: assets/icons/icon_bg.png
-
   min_sdk_android: 21
