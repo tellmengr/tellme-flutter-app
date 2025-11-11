@@ -1,6 +1,8 @@
 # ios/Podfile — Flutter iOS
+
 platform :ios, '15.0'       # You can lower to '13.0' if you want wider device support
 
+# CocoaPods analytics can slow down CI slightly
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
 project 'Runner', {
@@ -14,6 +16,7 @@ def flutter_root
   unless File.exist?(generated_xcode_build_settings_path)
     raise "#{generated_xcode_build_settings_path} must exist. If you're running pod install manually, make sure `flutter pub get` is executed first"
   end
+
   File.foreach(generated_xcode_build_settings_path) do |line|
     matches = line.match(/FLUTTER_ROOT\=(.*)/)
     return matches[1].strip if matches
@@ -25,7 +28,7 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 
 flutter_ios_podfile_setup
 
-# ✅ Use static frameworks with plugins (recommended for Flutter/Firebase)
+# ✅ Prefer static frameworks with Flutter/Firebase plugins
 use_frameworks! :linkage => :static
 install! 'cocoapods', :generate_multiple_pod_projects => true
 
@@ -34,14 +37,15 @@ target 'Runner' do
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
+# ✅ Guard against nil/unsupported targets during post-install
 post_install do |installer|
-  installer.pods_project.targets.each do |target|
+  installer.pods_project.targets.compact.each do |target|
+    next unless target.respond_to?(:build_configurations)
     flutter_additional_ios_build_settings(target)
 
-    # Optional: if you ever hit a failing simulator arch with a third-party pod,
-    # uncomment the next two lines to exclude arm64 on simulator Macs:
-    # if target.respond_to?(:build_configurations)
-    #   target.build_configurations.each { |config| config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64' }
+    # Optional: if you ever hit a failing simulator arch with a third-party pod, you can exclude arm64 on simulator:
+    # target.build_configurations.each do |config|
+    #   config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
     # end
   end
 end
