@@ -14,6 +14,8 @@ import 'payment_integration.dart';
 import 'order_confirmation_page.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'profile_page.dart'; // or wherever your ProfilePage is located
+import 'loyalty_service.dart'; // same file we used in cart
+
 
 // ============================================================
 // 🚨 ENHANCED PAYSTACK ERROR HANDLING - ENUMS AND EXCEPTIONS
@@ -43,9 +45,12 @@ class CheckoutPage extends StatefulWidget {
   final double shipping;
   final double total;
 
-  // 💰 NEW: Wallet top-up parameters
+  // 💰 Wallet top-up parameters
   final bool isWalletTopUp;
   final double? walletTopUpAmount;
+
+  // ✅ NEW: Loyalty coming from the cart
+  final LoyaltyDiscount? loyalty;
 
   const CheckoutPage({
     Key? key,
@@ -55,6 +60,7 @@ class CheckoutPage extends StatefulWidget {
     required this.total,
     this.isWalletTopUp = false,
     this.walletTopUpAmount,
+    this.loyalty, // ✅ NEW (optional)
   }) : super(key: key);
 
   @override
@@ -66,7 +72,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   bool _isLoading = false;
   bool _shipToSameAddress = true;
 
-  // 🆕 ADD ONLY THIS SINGLE METHOD
+  // 🆕 Buy Now / normal cart helper
   List<Map<String, dynamic>> _getCartItems() {
     try {
       final routeArgs = ModalRoute.of(context)?.settings.arguments;
@@ -82,14 +88,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
     return List<Map<String, dynamic>>.from(widget.cartItems);
   }
 
-  // 🆕 ADD THESE 2 SIMPLE GETTERS
+  // 🆕 Smart subtotal for Buy Now vs normal cart
   double get _getSubtotal {
     try {
       final routeArgs = ModalRoute.of(context)?.settings.arguments;
       if (routeArgs is Map && routeArgs['is_buy_now'] == true) {
         final buyNowItem = routeArgs['buy_now_item'];
         if (buyNowItem is Map) {
-          return ((buyNowItem['price'] ?? 0.0) as double) * ((buyNowItem['quantity'] ?? 1) as int);
+          final price = (buyNowItem['price'] ?? 0.0);
+          final qty = (buyNowItem['quantity'] ?? 1);
+          final double p = price is num ? price.toDouble() : double.tryParse(price.toString()) ?? 0.0;
+          final int q = qty is int ? qty : int.tryParse(qty.toString()) ?? 1;
+          return p * q;
         }
       }
     } catch (e) {
@@ -98,9 +108,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
     return widget.subtotal;
   }
 
-  double get _getTotal {
-    return _getSubtotal + 2500.0;
-  }
+  // If you still use this anywhere, just point it to the real final total
+  double get _getTotal => _calculateFinalTotal();
 
   // 💳 ENHANCED: Payment Method Selection
   String _selectedPaymentMethod = 'paystack'; // Default to Paystack
@@ -262,6 +271,37 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
   }
 
+  // 🔢 NEW: How much loyalty discount to apply to this checkout
+  double _getLoyaltyDiscountAmount() {
+    // Loyalty never applies to wallet top-ups
+    if (widget.isWalletTopUp) return 0.0;
+
+    final LoyaltyDiscount? loyalty = widget.loyalty;
+    if (loyalty == null) return 0.0;
+    if (!loyalty.eligible) return 0.0;
+    if (loyalty.discount <= 0) return 0.0;
+
+    return loyalty.discount;
+  }
+
+  // 🧮 NEW: Single source of truth for final total
+  double _calculateFinalTotal() {
+    // 💰 Wallet top-up: ignore shipping & loyalty
+    if (widget.isWalletTopUp) {
+      return widget.walletTopUpAmount ?? 0.0;
+    }
+
+    final double shippingCost = _calculatedShippingCost ?? 0.0;
+    final double loyaltyDiscount = _getLoyaltyDiscountAmount();
+
+    double total = widget.subtotal + shippingCost - loyaltyDiscount;
+
+    // Just in case, never go below zero
+    if (total < 0) total = 0.0;
+
+    return total;
+  }
+
   // 🧩 ADD THIS MISSING FUNCTION TO FIX THE BUILD ERROR
   void _showLoadingDialog(String title, String message) {
     showDialog(
@@ -286,9 +326,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
       },
     );
   }
-
-  // (continue with rest of your file's methods — no change)
-
 
   // ============================================================
   // 🔄 ENHANCED: Combined Data Loading with TellMe Plugin Endpoints
@@ -386,81 +423,81 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
   }
 
- // ============================================================
- // ✨ NEW: Dynamic Shipping Cost Calculation
- // ============================================================
- Future<void> _calculateDynamicShippingCost() async {
-   // 🔒 Wallet top-up: never calculate shipping
-   if (widget.isWalletTopUp) {
-     setState(() {
-       _calculatedShippingCost = 0.0;
-       _shippingCalculationError = null;
-       _isCalculatingShipping = false;
-     });
-     return;
-   }
+  // ============================================================
+  // ✨ NEW: Dynamic Shipping Cost Calculation
+  // ============================================================
+  Future<void> _calculateDynamicShippingCost() async {
+    // 🔒 Wallet top-up: never calculate shipping
+    if (widget.isWalletTopUp) {
+      setState(() {
+        _calculatedShippingCost = 0.0;
+        _shippingCalculationError = null;
+        _isCalculatingShipping = false;
+      });
+      return;
+    }
 
-   // Determine which city to use for shipping calculation
-   String? targetCity  = _shipToSameAddress ? _selectedBillingCity  : _selectedShippingCity;
-   String? targetState = _shipToSameAddress ? _selectedBillingState : _selectedShippingState;
+    // Determine which city to use for shipping calculation
+    String? targetCity  = _shipToSameAddress ? _selectedBillingCity  : _selectedShippingCity;
+    String? targetState = _shipToSameAddress ? _selectedBillingState : _selectedShippingState;
 
-   if (targetCity == null || targetState == null) {
-     print('🚚 Cannot calculate shipping: City or state not selected');
-     setState(() {
-       _calculatedShippingCost = null;
-       _shippingCalculationError = null;
-     });
-     return;
-   }
+    if (targetCity == null || targetState == null) {
+      print('🚚 Cannot calculate shipping: City or state not selected');
+      setState(() {
+        _calculatedShippingCost = null;
+        _shippingCalculationError = null;
+      });
+      return;
+    }
 
-   try {
-     setState(() {
-       _isCalculatingShipping = true;
-       _shippingCalculationError = null;
-     });
+    try {
+      setState(() {
+        _isCalculatingShipping = true;
+        _shippingCalculationError = null;
+      });
 
-     print('🚚 Calculating dynamic shipping cost for city: $targetCity, state: $targetState');
+      print('🚚 Calculating dynamic shipping cost for city: $targetCity, state: $targetState');
 
-     // Find the selected city data
-     final selectedCityData = _cities.firstWhere(
-       (city) => city['code'] == targetCity,
-       orElse: () => {
-         'code': targetCity,
-         'name': targetCity,
-         'state': targetState,
-         'country': 'NG',
-       },
-     );
+      // Find the selected city data
+      final selectedCityData = _cities.firstWhere(
+        (city) => city['code'] == targetCity,
+        orElse: () => {
+          'code': targetCity,
+          'name': targetCity,
+          'state': targetState,
+          'country': 'NG',
+        },
+      );
 
-     print('🎯 Selected city data: $selectedCityData');
+      print('🎯 Selected city data: $selectedCityData');
 
-     // Get cart provider and calculate shipping
-     final cartProvider = Provider.of<CartProvider>(context, listen: false);
-     final shippingResult = await cartProvider.calculateShippingForCity(selectedCityData);
+      // Get cart provider and calculate shipping
+      final cartProvider = Provider.of<CartProvider>(context, listen: false);
+      final shippingResult = await cartProvider.calculateShippingForCity(selectedCityData);
 
-     setState(() {
-       if (shippingResult['success'] == true) {
-         _calculatedShippingCost =
-             (shippingResult['shipping_cost'] as num?)?.toDouble() ?? 0.0;
-       } else {
-         _calculatedShippingCost = null;
-         _shippingCalculationError =
-             shippingResult['error'] ?? 'Unknown shipping calculation error';
-       }
-       _isCalculatingShipping = false;
-     });
+      setState(() {
+        if (shippingResult['success'] == true) {
+          _calculatedShippingCost =
+              (shippingResult['shipping_cost'] as num?)?.toDouble() ?? 0.0;
+        } else {
+          _calculatedShippingCost = null;
+          _shippingCalculationError =
+              shippingResult['error'] ?? 'Unknown shipping calculation error';
+        }
+        _isCalculatingShipping = false;
+      });
 
-     print('✅ Dynamic shipping cost calculated: ₦$_calculatedShippingCost');
-   } catch (e) {
-     print('❌ Error calculating dynamic shipping: $e');
-     setState(() {
-       _calculatedShippingCost = null;
-       _shippingCalculationError =
-           'Failed to calculate shipping cost: ${e.toString()}';
-       _isCalculatingShipping = false;
-     });
-   }
- }
+      print('✅ Dynamic shipping cost calculated: ₦$_calculatedShippingCost');
+    } catch (e) {
+      print('❌ Error calculating dynamic shipping: $e');
+      setState(() {
+        _calculatedShippingCost = null;
+        _shippingCalculationError =
+            'Failed to calculate shipping cost: ${e.toString()}';
+        _isCalculatingShipping = false;
+      });
+    }
+  }
 
   // ============================================================
   // 🔍 ENHANCED: Data Deduplication & Filtering
@@ -594,15 +631,24 @@ class _CheckoutPageState extends State<CheckoutPage> {
         throw PaymentException('User not logged in', PaymentErrorType.userError);
       }
 
-      double shippingCost = _calculatedShippingCost ?? 0.0;
-      final finalTotal = widget.isWalletTopUp
-        ? widget.walletTopUpAmount!
-        : widget.subtotal + shippingCost;
+      // Shipping cost (for metadata only – amount itself comes from _calculateFinalTotal)
+      final double shippingCost = _calculatedShippingCost ?? 0.0;
+
+      // 💚 Loyalty info (for metadata)
+      final LoyaltyDiscount? loyalty = widget.loyalty;
+      final double loyaltyDiscount = _getLoyaltyDiscountAmount();
+
+      // 💸 This is the amount Paystack must actually charge
+      final double finalTotal = _calculateFinalTotal();
 
       // Generate unique reference
       final reference = 'TM_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(1000)}';
 
       print('🔄 Attempting Paystack payment initialization (attempt ${_paystackRetryCount + 1}/$_maxRetryAttempts)');
+      print('   Subtotal: ${widget.subtotal}');
+      print('   Shipping: $shippingCost');
+      print('   Loyalty discount: $loyaltyDiscount');
+      print('   Final total to charge: $finalTotal');
 
       // Enhanced payment initialization with comprehensive error handling
       final paymentData = await _initializePaystackWithTimeout(
@@ -620,9 +666,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
           'shipping_method': 'dynamic_calculation',
           'shipping_cost': shippingCost.toString(),
           'shipping_address': '${_billingAddressController.text}, ${_selectedBillingCity}, ${_selectedBillingState}',
+
           // 💰 Wallet top-up metadata
           'is_wallet_topup': widget.isWalletTopUp.toString(),
           'wallet_amount': widget.walletTopUpAmount?.toString() ?? '0',
+
+          // 💚 Loyalty metadata
+          'loyalty_eligible': (loyalty?.eligible ?? false).toString(),
+          'loyalty_label': loyalty?.label ?? 'TellMe Loyalty',
+          'loyalty_discount': loyaltyDiscount.toString(),
         },
       );
 
@@ -794,7 +846,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
   }
 
-
   /// 🚨 Comprehensive error handling with user-friendly messages and recovery options
   Future<void> _handlePaymentError(dynamic error) async {
     print('❌ Payment error: $error');
@@ -859,7 +910,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 color: _getErrorColor(errorType),
                 size: 28,
               ),
-              SizedBox(width: 12),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   _getErrorTitle(errorType),
@@ -878,17 +929,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
             children: [
               Text(
                 message,
-                style: TextStyle(fontSize: 16),
+                style: const TextStyle(fontSize: 16),
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
 
               // Show specific troubleshooting tips based on error type
               _buildTroubleshootingTips(errorType),
 
               if (_paystackRetryCount >= _maxRetryAttempts) ...[
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 Container(
-                  padding: EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: Colors.orange.shade50,
                     borderRadius: BorderRadius.circular(8),
@@ -900,7 +951,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       Row(
                         children: [
                           Icon(Icons.lightbulb_outline, color: Colors.orange, size: 20),
-                          SizedBox(width: 8),
+                          const SizedBox(width: 8),
                           Text(
                             'Alternative Payment Option',
                             style: TextStyle(
@@ -910,7 +961,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           ),
                         ],
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       Text(
                         'You can use Bank Transfer to complete your order. You\'ll receive bank details after placing the order.',
                         style: TextStyle(color: Colors.orange.shade700),
@@ -930,7 +981,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   _showPaymentMethodAlternatives = _paystackRetryCount >= _maxRetryAttempts;
                 });
               },
-              child: Text('Cancel'),
+              child: const Text('Cancel'),
             ),
 
             // Retry button (if retries available)
@@ -940,7 +991,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   Navigator.of(context).pop();
                   _processPaystackPayment(); // Retry the payment
                 },
-                icon: Icon(Icons.refresh),
+                icon: const Icon(Icons.refresh),
                 label: Text('Try Again (${_maxRetryAttempts - _paystackRetryCount} left)'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
@@ -950,14 +1001,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
               // Network diagnostics button for network errors
               if (errorType == PaymentErrorType.networkError) ...[
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 OutlinedButton.icon(
                   onPressed: () {
                     Navigator.of(context).pop();
                     _runNetworkDiagnostics();
                   },
-                  icon: Icon(Icons.network_check),
-                  label: Text('Test Network'),
+                  icon: const Icon(Icons.network_check),
+                  label: const Text('Test Network'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.orange,
                   ),
@@ -976,8 +1027,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   });
                   _showBankTransferConfirmationDialog();
                 },
-                icon: Icon(Icons.account_balance),
-                label: Text('Use Bank Transfer'),
+                icon: const Icon(Icons.account_balance),
+                label: const Text('Use Bank Transfer'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                   foregroundColor: Colors.white,
@@ -995,7 +1046,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     switch (errorType) {
       case PaymentErrorType.networkError:
         return Container(
-          padding: EdgeInsets.all(12),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.blue.shade50,
             borderRadius: BorderRadius.circular(8),
@@ -1007,7 +1058,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
               Row(
                 children: [
                   Icon(Icons.wifi_off, color: Colors.blue, size: 20),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Text(
                     'Network Troubleshooting',
                     style: TextStyle(
@@ -1017,7 +1068,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   ),
                 ],
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Text('• Check your internet connection', style: TextStyle(color: Colors.blue.shade700)),
               Text('• Try switching between WiFi and mobile data', style: TextStyle(color: Colors.blue.shade700)),
               Text('• Restart your internet connection', style: TextStyle(color: Colors.blue.shade700)),
@@ -1028,7 +1079,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
       case PaymentErrorType.networkTimeout:
         return Container(
-          padding: EdgeInsets.all(12),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.amber.shade50,
             borderRadius: BorderRadius.circular(8),
@@ -1040,7 +1091,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
               Row(
                 children: [
                   Icon(Icons.timer_off, color: Colors.amber.shade700, size: 20),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Text(
                     'Connection Timeout',
                     style: TextStyle(
@@ -1050,7 +1101,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   ),
                 ],
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Text('• Your connection may be slow', style: TextStyle(color: Colors.amber.shade700)),
               Text('• Try again with a stronger internet connection', style: TextStyle(color: Colors.amber.shade700)),
               Text('• Wait a moment before retrying', style: TextStyle(color: Colors.amber.shade700)),
@@ -1060,7 +1111,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
       case PaymentErrorType.paystackError:
         return Container(
-          padding: EdgeInsets.all(12),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.red.shade50,
             borderRadius: BorderRadius.circular(8),
@@ -1072,7 +1123,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
               Row(
                 children: [
                   Icon(Icons.payment, color: Colors.red, size: 20),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Text(
                     'Payment Service Issue',
                     style: TextStyle(
@@ -1082,7 +1133,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   ),
                 ],
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Text('• The payment service may be temporarily unavailable', style: TextStyle(color: Colors.red.shade700)),
               Text('• Try again in a few minutes', style: TextStyle(color: Colors.red.shade700)),
               Text('• Use Bank Transfer as an alternative', style: TextStyle(color: Colors.red.shade700)),
@@ -1091,16 +1142,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
         );
 
       default:
-        return SizedBox.shrink();
+        return const SizedBox.shrink();
     }
   }
-
-
-
-///////////WHERE I AM FIXING
-
-
-
 
   /// 📱 Bank Transfer confirmation dialog
   Future<void> _showBankTransferConfirmationDialog() async {
@@ -1111,8 +1155,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
-              Icon(Icons.account_balance, color: Colors.green, size: 28),
-              SizedBox(width: 12),
+              const Icon(Icons.account_balance, color: Colors.green, size: 28),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   'Switch to Bank Transfer',
@@ -1129,13 +1173,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              const Text(
                 'You\'ve chosen to pay via Bank Transfer.',
                 style: TextStyle(fontSize: 16),
               ),
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
               Container(
-                padding: EdgeInsets.all(12),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.green.shade50,
                   borderRadius: BorderRadius.circular(8),
@@ -1151,7 +1195,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         color: Colors.green.shade800,
                       ),
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Text('1. Complete your order', style: TextStyle(color: Colors.green.shade700)),
                     Text('2. You\'ll receive bank account details', style: TextStyle(color: Colors.green.shade700)),
                     Text('3. Transfer the total amount to the provided account', style: TextStyle(color: Colors.green.shade700)),
@@ -1170,15 +1214,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   _showPaymentMethodAlternatives = false;
                 });
               },
-              child: Text('Back to Paystack'),
+              child: const Text('Back to Paystack'),
             ),
             ElevatedButton.icon(
               onPressed: () {
                 Navigator.of(context).pop();
                 _processPayment(); // Process the order with bank transfer
               },
-              icon: Icon(Icons.check),
-              label: Text('Continue with Bank Transfer'),
+              icon: const Icon(Icons.check),
+              label: const Text('Continue with Bank Transfer'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
                 foregroundColor: Colors.white,
@@ -1236,229 +1280,268 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
   }
 
-// ============================================================
-// 💳 ENHANCED: Multi-Payment Method Processing
-// ============================================================
-Future<void> _processPayment() async {
-  // 💰 SPECIAL HANDLING FOR WALLET TOP-UP - FIXED DETECTION
-  final isWalletTopUp = widget.isWalletTopUp == true && widget.walletTopUpAmount != null;
+  // ============================================================
+  // 💳 ENHANCED: Multi-Payment Method Processing
+  // ============================================================
+  Future<void> _processPayment() async {
+    // 💰 SPECIAL HANDLING FOR WALLET TOP-UP - FIXED DETECTION
+    final isWalletTopUp = widget.isWalletTopUp == true && widget.walletTopUpAmount != null;
 
-  if (isWalletTopUp) {
-    await _processWalletTopUpPayment();
-    return;
-  }
-
-  if (!_formKey.currentState!.validate()) {
-    _showErrorDialog('Form Error', 'Please fill in all required fields correctly.');
-    return;
-  }
-
-  // If Paystack has failed multiple times, guide user to Bank Transfer
-  if (_selectedPaymentMethod == 'paystack' && _paystackRetryCount >= _maxRetryAttempts) {
-    _showBankTransferSuggestionDialog();
-    return;
-  }
-
-  switch (_selectedPaymentMethod) {
-    case 'wallet':
-      await _processWalletPayment();
-      break;
-    case 'paystack':
-      await _processPaystackPayment();
-      break;
-    case 'bank_transfer':
-      await _processBankTransferOrder();
-      break;
-    default:
-      _showErrorDialog('Payment Error', 'Please select a valid payment method.');
-  }
-}
-
-// 💰 NEW: Dedicated Wallet Top-Up Payment Processing
-Future<void> _processWalletTopUpPayment() async {
-  try {
-    setState(() => _isLoading = true);
-
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final user = userProvider.currentUser;
-
-    if (user == null) {
-      throw Exception('User not logged in');
+    if (isWalletTopUp) {
+      await _processWalletTopUpPayment();
+      return;
     }
 
-    _showProgressDialog('Processing Top-Up', 'Setting up your wallet top-up...');
+    if (!_formKey.currentState!.validate()) {
+      _showErrorDialog('Form Error', 'Please fill in all required fields correctly.');
+      return;
+    }
 
-    // ✅ DIRECT PAYSTACK PAYMENT FOR WALLET TOP-UP (no order creation)
-    final reference =
-        'TM_WALLET_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(1000)}';
+    // If Paystack has failed multiple times, guide user to Bank Transfer
+    if (_selectedPaymentMethod == 'paystack' && _paystackRetryCount >= _maxRetryAttempts) {
+      _showBankTransferSuggestionDialog();
+      return;
+    }
 
-    print('💰 Processing wallet top-up: ₦${widget.walletTopUpAmount}');
+    switch (_selectedPaymentMethod) {
+      case 'wallet':
+        await _processWalletPayment();
+        break;
+      case 'paystack':
+        await _processPaystackPayment();
+        break;
+      case 'bank_transfer':
+        await _processBankTransferOrder();
+        break;
+      default:
+        _showErrorDialog('Payment Error', 'Please select a valid payment method.');
+    }
+  }
 
-    final paymentData = await _initializePaystackWithTimeout(
-      authService: authService,
-      email: user['email'],
-      amount: widget.walletTopUpAmount!,
-      reference: reference,
-      metadata: {
-        'customer_id': user['id'],
-        'customer_name': '${user['first_name']} ${user['last_name']}',
-        'app_name': 'TellMe.ng',
-        'platform': 'flutter_app',
-        'is_wallet_topup': 'true',
-        'wallet_amount': widget.walletTopUpAmount!.toString(),
-        'transaction_type': 'wallet_topup',
-      },
-    );
+  // 💰 NEW: Dedicated Wallet Top-Up Payment Processing
+  Future<void> _processWalletTopUpPayment() async {
+    try {
+      setState(() => _isLoading = true);
 
-    if (paymentData['status'] == true) {
-      // 👇👇 IMPORTANT: close the "Processing Top-Up" dialog BEFORE WebView
-      if (Navigator.of(context, rootNavigator: true).canPop()) {
-        Navigator.of(context, rootNavigator: true).pop();
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final user = userProvider.currentUser;
+
+      if (user == null) {
+        throw Exception('User not logged in');
       }
 
-      setState(() {
-        _paystackReference = reference;
-        _paymentInitialized = true;
-      });
+      _showProgressDialog('Processing Top-Up', 'Setting up your wallet top-up...');
 
-      // Launch Paystack payment
-      final paymentUrl = paymentData['data']['authorization_url'];
-      await _launchWalletTopUpPayment(paymentUrl, reference);
-    } else {
-      // Also ensure dialog is closed on failure
-      if (Navigator.of(context, rootNavigator: true).canPop()) {
-        Navigator.of(context, rootNavigator: true).pop();
-      }
-      throw Exception(paymentData['message'] ?? 'Top-up initialization failed');
-    }
+      // ✅ DIRECT PAYSTACK PAYMENT FOR WALLET TOP-UP (no order creation)
+      final reference =
+          'TM_WALLET_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(1000)}';
 
-  } catch (e) {
-    // ✅ FIX: Ensure dialog is dismissed on error
-    if (Navigator.of(context, rootNavigator: true).canPop()) {
-      Navigator.of(context, rootNavigator: true).pop();
-    }
-    print('❌ Wallet top-up error: $e');
-    _showErrorDialog('Top-Up Error', e.toString());
-  } finally {
-    if (mounted) {
-      setState(() => _isLoading = false);
-    }
-  }
-}
+      print('💰 Processing wallet top-up: ₦${widget.walletTopUpAmount}');
 
-
-// 💰 NEW: Dedicated Wallet Top-Up Payment Launch
-Future<void> _launchWalletTopUpPayment(String paymentUrl, String reference) async {
-  print('🚀 Launching Paystack WebView for wallet top-up: $reference');
-
-  setState(() {
-    _awaitingPaymentConfirmation = true;
-  });
-
-  await _showWalletTopUpWebView(paymentUrl, reference);
-}
-
-// 💰 NEW: Dedicated Wallet Top-Up WebView
-Future<void> _showWalletTopUpWebView(String paymentUrl, String reference) async {
-  if (!mounted) return;
-
-  return showDialog<void>(
-    context: context,
-    barrierDismissible: false,
-    builder: (BuildContext context) {
-      return PaystackWebViewDialog(
-        paymentUrl: paymentUrl,
+      final paymentData = await _initializePaystackWithTimeout(
+        authService: authService,
+        email: user['email'],
+        amount: widget.walletTopUpAmount!,
         reference: reference,
-        onPaymentComplete: (bool success, String? transactionReference) async {
-          Navigator.of(context).pop(); // Close WebView dialog
+        metadata: {
+          'customer_id': user['id'],
+          'customer_name': '${user['first_name']} ${user['last_name']}',
+          'app_name': 'TellMe.ng',
+          'platform': 'flutter_app',
+          'is_wallet_topup': 'true',
+          'wallet_amount': widget.walletTopUpAmount!.toString(),
+          'transaction_type': 'wallet_topup',
+        },
+      );
 
-          if (success && transactionReference != null) {
-            print('✅ Wallet top-up payment completed: $transactionReference');
-            setState(() {
-              _paystackReference = transactionReference;
-            });
+      if (paymentData['status'] == true) {
+        // 👇👇 IMPORTANT: close the "Processing Top-Up" dialog BEFORE WebView
+        if (Navigator.of(context, rootNavigator: true).canPop()) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
 
-            // Automatically verify payment and credit wallet
-            await _verifyWalletTopUpPayment();
-          } else {
-            print('❌ Wallet top-up payment failed or was cancelled');
+        setState(() {
+          _paystackReference = reference;
+          _paymentInitialized = true;
+        });
+
+        // Launch Paystack payment
+        final paymentUrl = paymentData['data']['authorization_url'];
+        await _launchWalletTopUpPayment(paymentUrl, reference);
+      } else {
+        // Also ensure dialog is closed on failure
+        if (Navigator.of(context, rootNavigator: true).canPop()) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+        throw Exception(paymentData['message'] ?? 'Top-up initialization failed');
+      }
+
+    } catch (e) {
+      // ✅ FIX: Ensure dialog is dismissed on error
+      if (Navigator.of(context, rootNavigator: true).canPop()) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+      print('❌ Wallet top-up error: $e');
+      _showErrorDialog('Top-Up Error', e.toString());
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  // 💰 NEW: Dedicated Wallet Top-Up Payment Launch
+  Future<void> _launchWalletTopUpPayment(String paymentUrl, String reference) async {
+    print('🚀 Launching Paystack WebView for wallet top-up: $reference');
+
+    setState(() {
+      _awaitingPaymentConfirmation = true;
+    });
+
+    await _showWalletTopUpWebView(paymentUrl, reference);
+  }
+
+  // 💰 NEW: Dedicated Wallet Top-Up WebView
+  Future<void> _showWalletTopUpWebView(String paymentUrl, String reference) async {
+    if (!mounted) return;
+
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return PaystackWebViewDialog(
+          paymentUrl: paymentUrl,
+          reference: reference,
+          onPaymentComplete: (bool success, String? transactionReference) async {
+            Navigator.of(context).pop(); // Close WebView dialog
+
+            if (success && transactionReference != null) {
+              print('✅ Wallet top-up payment completed: $transactionReference');
+              setState(() {
+                _paystackReference = transactionReference;
+              });
+
+              // Automatically verify payment and credit wallet
+              await _verifyWalletTopUpPayment();
+            } else {
+              print('❌ Wallet top-up payment failed or was cancelled');
+              setState(() {
+                _paymentInitialized = false;
+                _paystackReference = null;
+                _awaitingPaymentConfirmation = false;
+              });
+
+              _showErrorDialog('Top-Up Failed', 'Payment was not completed. Please try again.');
+            }
+          },
+          onCancel: () {
+            Navigator.of(context).pop(); // Close WebView dialog
             setState(() {
               _paymentInitialized = false;
               _paystackReference = null;
               _awaitingPaymentConfirmation = false;
             });
+          },
+        );
+      },
+    );
+  }
 
-            _showErrorDialog('Top-Up Failed', 'Payment was not completed. Please try again.');
-          }
-        },
-        onCancel: () {
-          Navigator.of(context).pop(); // Close WebView dialog
+  // 💰 FIXED: Wallet Top-Up Verification - NO MORE PERPETUAL LOADING
+  Future<void> _verifyWalletTopUpPayment() async {
+    if (_paystackReference == null) return;
+
+    try {
+      setState(() {
+        _isLoading = true;
+        _awaitingPaymentConfirmation = false;
+      });
+
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final user = userProvider.currentUser;
+
+      if (user == null) {
+        throw Exception('User not logged in');
+      }
+
+      // Show verification progress
+      _showProgressDialog('Verifying Payment', 'Please wait while we confirm your top-up...');
+
+      // ✅ STEP 1: Verify payment with Paystack
+      final verification = await authService.verifyPaystackTransaction(_paystackReference!);
+      print('🔍 Verification response: ${verification['data']['status']}');
+
+      if (verification['data']['status'] != 'success') {
+        Navigator.of(context, rootNavigator: true).pop(); // Close progress dialog
+        throw Exception('Payment verification failed. Please contact support if amount was debited.');
+      }
+
+      // Update progress
+      Navigator.of(context, rootNavigator: true).pop(); // Close verification dialog
+      _showProgressDialog('Crediting Wallet', 'Payment confirmed! Adding funds to your wallet...');
+
+      // ✅ STEP 2: Credit the wallet directly
+      final creditResult = await authService.creditWallet(
+        int.parse(user['id'].toString()),
+        widget.walletTopUpAmount!,
+        'Wallet top-up via Paystack - Reference: $_paystackReference',
+      );
+
+      print('💳 Credit wallet response: ${creditResult['success']}');
+
+      // ✅ STEP 3: Close ALL dialogs BEFORE navigation
+      if (Navigator.of(context, rootNavigator: true).canPop()) {
+        Navigator.of(context, rootNavigator: true).pop(); // Close credit dialog
+      }
+
+      // ✅ STEP 4: Add delay to ensure clean state transition
+      await Future.delayed(Duration(milliseconds: 500));
+
+      if (creditResult['success'] == true) {
+        print('💰 Wallet credited successfully!');
+
+        // ✅ STEP 5: SUCCESS - Clear states and navigate
+        if (mounted) {
           setState(() {
-            _paymentInitialized = false;
+            _isLoading = false;
             _paystackReference = null;
+            _paymentInitialized = false;
             _awaitingPaymentConfirmation = false;
           });
-        },
-      );
-    },
-  );
-}
 
-// 💰 FIXED: Wallet Top-Up Verification - NO MORE PERPETUAL LOADING
-Future<void> _verifyWalletTopUpPayment() async {
-  if (_paystackReference == null) return;
+          // ✅ FIXED: Use simpler navigation approach
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => ProfilePage()),
+            (route) => false,
+          );
 
-  try {
-    setState(() {
-      _isLoading = true;
-      _awaitingPaymentConfirmation = false;
-    });
+          // ✅ FIXED: Show success message with proper timing
+          await Future.delayed(Duration(milliseconds: 300));
 
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final user = userProvider.currentUser;
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('💰 Wallet topped up successfully! ₦${widget.walletTopUpAmount} added'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 4),
+              ),
+            );
+          }
+        }
+      } else {
+        throw Exception('Wallet credit failed: ${creditResult['error'] ?? 'Unknown error'}');
+      }
 
-    if (user == null) {
-      throw Exception('User not logged in');
-    }
+    } catch (e) {
+      print('❌ Wallet top-up verification error: $e');
 
-    // Show verification progress
-    _showProgressDialog('Verifying Payment', 'Please wait while we confirm your top-up...');
-
-    // ✅ STEP 1: Verify payment with Paystack
-    final verification = await authService.verifyPaystackTransaction(_paystackReference!);
-    print('🔍 Verification response: ${verification['data']['status']}');
-
-    if (verification['data']['status'] != 'success') {
-      Navigator.of(context, rootNavigator: true).pop(); // Close progress dialog
-      throw Exception('Payment verification failed. Please contact support if amount was debited.');
-    }
-
-    // Update progress
-    Navigator.of(context, rootNavigator: true).pop(); // Close verification dialog
-    _showProgressDialog('Crediting Wallet', 'Payment confirmed! Adding funds to your wallet...');
-
-    // ✅ STEP 2: Credit the wallet directly
-    final creditResult = await authService.creditWallet(
-      int.parse(user['id'].toString()),
-      widget.walletTopUpAmount!,
-      'Wallet top-up via Paystack - Reference: $_paystackReference',
-    );
-
-    print('💳 Credit wallet response: ${creditResult['success']}');
-
-    // ✅ STEP 3: Close ALL dialogs BEFORE navigation
-    if (Navigator.of(context, rootNavigator: true).canPop()) {
-      Navigator.of(context, rootNavigator: true).pop(); // Close credit dialog
-    }
-
-    // ✅ STEP 4: Add delay to ensure clean state transition
-    await Future.delayed(Duration(milliseconds: 500));
-
-    if (creditResult['success'] == true) {
-      print('💰 Wallet credited successfully!');
-
-      // ✅ STEP 5: SUCCESS - Clear states and navigate
+      // ✅ FIXED: ERROR - Clean up but DON'T navigate away
       if (mounted) {
+        // Close any progress dialogs
+        if (Navigator.of(context, rootNavigator: true).canPop()) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+
         setState(() {
           _isLoading = false;
           _paystackReference = null;
@@ -1466,381 +1549,339 @@ Future<void> _verifyWalletTopUpPayment() async {
           _awaitingPaymentConfirmation = false;
         });
 
-        // ✅ FIXED: Use simpler navigation approach
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => ProfilePage()),
-          (route) => false,
+        // Show error message but stay on current page
+        _showErrorDialog(
+          'Top-Up Issue',
+          'Payment was successful but we encountered an issue: ${e.toString()}\n\nYour funds are safe. Please contact support if this persists.'
         );
-
-        // ✅ FIXED: Show success message with proper timing
-        await Future.delayed(Duration(milliseconds: 300));
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('💰 Wallet topped up successfully! ₦${widget.walletTopUpAmount} added'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 4),
-            ),
-          );
-        }
       }
-    } else {
-      throw Exception('Wallet credit failed: ${creditResult['error'] ?? 'Unknown error'}');
+    } finally {
+      // ✅ FIXED: FINALLY - Only update state if still mounted
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _awaitingPaymentConfirmation = false;
+        });
+      }
     }
+  }
 
-  } catch (e) {
-    print('❌ Wallet top-up verification error: $e');
+  /// 📱 Show suggestion dialog when Paystack fails repeatedly
+  Future<void> _showBankTransferSuggestionDialog() async {
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.info_outline, color: Colors.orange, size: 28),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Payment Method Suggestion',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.orange,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Paystack payment has failed multiple times. This is usually due to network connectivity issues.',
+                style: TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Recommended: Use Bank Transfer',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green.shade800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Bank Transfer is reliable and doesn\'t depend on network connectivity for payment processing.',
+                      style: TextStyle(color: Colors.green.shade700),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                // Reset and try Paystack again
+                setState(() {
+                  _paystackRetryCount = 0;
+                  _lastPaymentError = null;
+                  _lastErrorType = null;
+                });
+                _processPaystackPayment();
+              },
+              child: const Text('Try Paystack Again'),
+            ),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(context).pop();
+                setState(() {
+                  _selectedPaymentMethod = 'bank_transfer';
+                });
+                _processPayment();
+              },
+              icon: const Icon(Icons.account_balance),
+              label: const Text('Use Bank Transfer'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
-    // ✅ FIXED: ERROR - Clean up but DON'T navigate away
-    if (mounted) {
-      // Close any progress dialogs
+  // 💰 FIXED: Wallet Payment Processing with guaranteed navigation
+  Future<void> _processWalletPayment() async {
+    try {
+      setState(() => _isLoading = true);
+
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final user = userProvider.currentUser;
+
+      if (user == null) {
+        throw Exception('User not logged in');
+      }
+
+      // Check wallet balance again
+      if (_hasInsufficientWalletBalance()) {
+        throw Exception('Insufficient wallet balance for this purchase');
+      }
+
+      _showProgressDialog('Processing Wallet Payment', 'Deducting amount from your wallet...');
+
+      // ✅ NEW: Pass real customer data to PaymentIntegration
+      final result = await paymentIntegration.processPayment(
+        paymentMethod: 'wallet',
+        cartItems: widget.cartItems,
+        totalAmount: _calculateFinalTotal(),
+        context: context,
+        customerData: {
+          'id': user['id'],
+          'email': user['email'],
+        },
+        billingAddress: _buildBillingAddressData(),
+        shippingAddress: _shipToSameAddress ? null : _buildShippingAddressData(),
+      );
+
+      // ✅ FIX: Use rootNavigator to ensure dialog dismissal
       if (Navigator.of(context, rootNavigator: true).canPop()) {
         Navigator.of(context, rootNavigator: true).pop();
       }
 
-      setState(() {
-        _isLoading = false;
-        _paystackReference = null;
-        _paymentInitialized = false;
-        _awaitingPaymentConfirmation = false;
-      });
+      // ✅ ENHANCED: Check for explicit order creation flags
+      if (result != null && result['success'] == true &&
+          (result['order_created'] == true || result['orderData'] != null)) {
 
-      // Show error message but stay on current page
-      _showErrorDialog(
-        'Top-Up Issue',
-        'Payment was successful but we encountered an issue: ${e.toString()}\n\nYour funds are safe. Please contact support if this persists.'
-      );
-    }
-  } finally {
-    // ✅ FIXED: FINALLY - Only update state if still mounted
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-        _awaitingPaymentConfirmation = false;
-      });
+        print('💰 Wallet payment successful, refreshing balance...');
+        await _loadWalletBalance();
+        print('💰 Wallet balance refreshed!');
+
+        // Clear cart
+        final cartProvider = Provider.of<CartProvider>(context, listen: false);
+        cartProvider.clearCart();
+
+        // ✅ FIX: Use pushAndRemoveUntil to completely clear navigation stack
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OrderConfirmationPage(
+              orderDetails: result['orderData'] ?? result,
+            ),
+          ),
+          (route) => false, // Remove all previous routes
+        );
+
+        return; // Exit early to avoid finally block
+
+      } else {
+        throw Exception(result?['message'] ?? 'Wallet payment failed');
+      }
+
+    } catch (e) {
+      // ✅ FIX: Use rootNavigator for error dismissal too
+      if (Navigator.of(context, rootNavigator: true).canPop()) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+      print('❌ Wallet payment error: $e');
+      _showErrorDialog('Wallet Payment Error', e.toString());
+    } finally {
+      // Only update state if we haven't navigated away
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
-}
 
-/// 📱 Show suggestion dialog when Paystack fails repeatedly
-Future<void> _showBankTransferSuggestionDialog() async {
-  return showDialog<void>(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Icon(Icons.info_outline, color: Colors.orange, size: 28),
-            SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Payment Method Suggestion',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.orange,
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Paystack payment has failed multiple times. This is usually due to network connectivity issues.',
-              style: TextStyle(fontSize: 16),
-            ),
-            SizedBox(height: 12),
-            Container(
-              padding: EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.green.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.green.shade200),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Recommended: Use Bank Transfer',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green.shade800,
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Bank Transfer is reliable and doesn\'t depend on network connectivity for payment processing.',
-                    style: TextStyle(color: Colors.green.shade700),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              // Reset and try Paystack again
-              setState(() {
-                _paystackRetryCount = 0;
-                _lastPaymentError = null;
-                _lastErrorType = null;
-              });
-              _processPaystackPayment();
-            },
-            child: Text('Try Paystack Again'),
-          ),
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.of(context).pop();
-              setState(() {
-                _selectedPaymentMethod = 'bank_transfer';
-              });
-              _processPayment();
-            },
-            icon: Icon(Icons.account_balance),
-            label: Text('Use Bank Transfer'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
+  // 🏦 FIXED: Bank Transfer Processing with guaranteed navigation
+  Future<void> _processBankTransferOrder() async {
+    try {
+      setState(() => _isLoading = true);
+
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final user = userProvider.currentUser;
+
+      if (user == null) {
+        throw Exception('User not logged in');
+      }
+
+      _showProgressDialog('Creating Order', 'Setting up your bank transfer order...');
+
+      // ✅ NEW: Pass real customer data to PaymentIntegration
+      final result = await paymentIntegration.processPayment(
+        paymentMethod: 'bank_transfer',
+        cartItems: widget.cartItems,
+        totalAmount: _calculateFinalTotal(),
+        context: context,
+        customerData: {
+          'id': user['id'],
+          'email': user['email'],
+        },
+        billingAddress: _buildBillingAddressData(),
+        shippingAddress: _shipToSameAddress ? null : _buildShippingAddressData(),
       );
-    },
-  );
-}
 
-// 💰 FIXED: Wallet Payment Processing with guaranteed navigation
-Future<void> _processWalletPayment() async {
-  try {
-    setState(() => _isLoading = true);
+      // ✅ FIX: Use rootNavigator to ensure dialog dismissal
+      if (Navigator.of(context, rootNavigator: true).canPop()) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
 
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final user = userProvider.currentUser;
+      // ✅ ENHANCED: Check for explicit order creation flags
+      if (result != null && result['success'] == true &&
+          (result['order_created'] == true || result['orderData'] != null)) {
 
-    if (user == null) {
-      throw Exception('User not logged in');
+        print('✅ Bank transfer order created successfully, navigating to confirmation...');
+
+        // Clear cart
+        final cartProvider = Provider.of<CartProvider>(context, listen: false);
+        cartProvider.clearCart();
+
+        // ✅ FIX: Use pushAndRemoveUntil to completely clear navigation stack
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OrderConfirmationPage(
+              orderDetails: result['orderData'] ?? result,
+            ),
+          ),
+          (route) => false, // Remove all previous routes
+        );
+
+        return; // Exit early to avoid finally block
+
+      } else {
+        throw Exception(result?['message'] ?? 'Bank transfer order failed');
+      }
+
+    } catch (e) {
+      // ✅ FIX: Use rootNavigator for error dismissal too
+      if (Navigator.of(context, rootNavigator: true).canPop()) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+      print('❌ Bank Transfer order error: $e');
+      _showErrorDialog('Order Error', e.toString());
+    } finally {
+      // Only update state if we haven't navigated away
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
+  }
 
-    // Check wallet balance again
-    if (_hasInsufficientWalletBalance()) {
-      throw Exception('Insufficient wallet balance for this purchase');
+  String _getPaymentMethodTitle() {
+    switch (_selectedPaymentMethod) {
+      case 'wallet': return 'TeraWallet';
+      case 'bank_transfer': return 'Bank Transfer';
+      case 'paystack': return 'Paystack';
+      default: return 'Paystack';
     }
+  }
 
-    _showProgressDialog('Processing Wallet Payment', 'Deducting amount from your wallet...');
+  Future<void> _launchPaymentWithTracking(String url, String reference) async {
+    print('🚀 Launching Paystack WebView for payment: $reference');
 
-    // ✅ NEW: Pass real customer data to PaymentIntegration
-    final result = await paymentIntegration.processPayment(
-      paymentMethod: 'wallet',
-      cartItems: widget.cartItems,
-      totalAmount: _calculateFinalTotal(),
+    setState(() {
+      _awaitingPaymentConfirmation = true;
+    });
+
+    // Open payment in WebView instead of external browser
+    await _showPaystackWebView(url, reference);
+  }
+
+  // ✅ ADD THE _showPaystackWebView METHOD RIGHT HERE:
+  Future<void> _showPaystackWebView(String paymentUrl, String reference) async {
+    if (!mounted) return;
+
+    return showDialog<void>(
       context: context,
-      customerData: {
-        'id': user['id'],
-        'email': user['email'],
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return PaystackWebViewDialog(
+          paymentUrl: paymentUrl,
+          reference: reference,
+          onPaymentComplete: (bool success, String? transactionReference) async {
+            Navigator.of(context).pop(); // Close WebView dialog
+
+            if (success && transactionReference != null) {
+              print('✅ Payment completed successfully: $transactionReference');
+              setState(() {
+                _paystackReference = transactionReference;
+              });
+
+              // Automatically verify payment and create order
+              await _verifyPaymentAndCreateOrder();
+            } else {
+              print('❌ Payment failed or was cancelled');
+              setState(() {
+                _paymentInitialized = false;
+                _paystackReference = null;
+                _awaitingPaymentConfirmation = false;
+              });
+
+              _showErrorDialog('Payment Failed', 'Payment was not completed. Please try again.');
+            }
+          },
+          onCancel: () {
+            Navigator.of(context).pop(); // Close WebView dialog
+            setState(() {
+              _paymentInitialized = false;
+              _paystackReference = null;
+              _awaitingPaymentConfirmation = false;
+            });
+          },
+        );
       },
-      billingAddress: _buildBillingAddressData(),
-      shippingAddress: _shipToSameAddress ? null : _buildShippingAddressData(),
     );
-
-    // ✅ FIX: Use rootNavigator to ensure dialog dismissal
-    if (Navigator.of(context, rootNavigator: true).canPop()) {
-      Navigator.of(context, rootNavigator: true).pop();
-    }
-
-    // ✅ ENHANCED: Check for explicit order creation flags
-    if (result != null && result['success'] == true &&
-        (result['order_created'] == true || result['orderData'] != null)) {
-
-      print('💰 Wallet payment successful, refreshing balance...');
-      await _loadWalletBalance();
-      print('💰 Wallet balance refreshed!');
-
-      // Clear cart
-      final cartProvider = Provider.of<CartProvider>(context, listen: false);
-      cartProvider.clearCart();
-
-      // ✅ FIX: Use pushAndRemoveUntil to completely clear navigation stack
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-          builder: (context) => OrderConfirmationPage(
-            orderDetails: result['orderData'] ?? result,
-          ),
-        ),
-        (route) => false, // Remove all previous routes
-      );
-
-      return; // Exit early to avoid finally block
-
-    } else {
-      throw Exception(result?['message'] ?? 'Wallet payment failed');
-    }
-
-  } catch (e) {
-    // ✅ FIX: Use rootNavigator for error dismissal too
-    if (Navigator.of(context, rootNavigator: true).canPop()) {
-      Navigator.of(context, rootNavigator: true).pop();
-    }
-    print('❌ Wallet payment error: $e');
-    _showErrorDialog('Wallet Payment Error', e.toString());
-  } finally {
-    // Only update state if we haven't navigated away
-    if (mounted) {
-      setState(() => _isLoading = false);
-    }
   }
-}
-
-
- // 🏦 FIXED: Bank Transfer Processing with guaranteed navigation
- Future<void> _processBankTransferOrder() async {
-   try {
-     setState(() => _isLoading = true);
-
-     final userProvider = Provider.of<UserProvider>(context, listen: false);
-     final user = userProvider.currentUser;
-
-     if (user == null) {
-       throw Exception('User not logged in');
-     }
-
-     _showProgressDialog('Creating Order', 'Setting up your bank transfer order...');
-
-     // ✅ NEW: Pass real customer data to PaymentIntegration
-     final result = await paymentIntegration.processPayment(
-       paymentMethod: 'bank_transfer',
-       cartItems: widget.cartItems,
-       totalAmount: _calculateFinalTotal(),
-       context: context,
-       customerData: {
-         'id': user['id'],
-         'email': user['email'],
-       },
-       billingAddress: _buildBillingAddressData(),
-       shippingAddress: _shipToSameAddress ? null : _buildShippingAddressData(),
-     );
-
-     // ✅ FIX: Use rootNavigator to ensure dialog dismissal
-     if (Navigator.of(context, rootNavigator: true).canPop()) {
-       Navigator.of(context, rootNavigator: true).pop();
-     }
-
-     // ✅ ENHANCED: Check for explicit order creation flags
-     if (result != null && result['success'] == true &&
-         (result['order_created'] == true || result['orderData'] != null)) {
-
-       print('✅ Bank transfer order created successfully, navigating to confirmation...');
-
-       // Clear cart
-       final cartProvider = Provider.of<CartProvider>(context, listen: false);
-       cartProvider.clearCart();
-
-       // ✅ FIX: Use pushAndRemoveUntil to completely clear navigation stack
-       Navigator.pushAndRemoveUntil(
-         context,
-         MaterialPageRoute(
-           builder: (context) => OrderConfirmationPage(
-             orderDetails: result['orderData'] ?? result,
-           ),
-         ),
-         (route) => false, // Remove all previous routes
-       );
-
-       return; // Exit early to avoid finally block
-
-     } else {
-       throw Exception(result?['message'] ?? 'Bank transfer order failed');
-     }
-
-   } catch (e) {
-     // ✅ FIX: Use rootNavigator for error dismissal too
-     if (Navigator.of(context, rootNavigator: true).canPop()) {
-       Navigator.of(context, rootNavigator: true).pop();
-     }
-     print('❌ Bank Transfer order error: $e');
-     _showErrorDialog('Order Error', e.toString());
-   } finally {
-     // Only update state if we haven't navigated away
-     if (mounted) {
-       setState(() => _isLoading = false);
-     }
-   }
- }
-
- String _getPaymentMethodTitle() {
-   switch (_selectedPaymentMethod) {
-     case 'wallet': return 'TeraWallet';
-     case 'bank_transfer': return 'Bank Transfer';
-     case 'paystack': return 'Paystack';
-     default: return 'Paystack';
-   }
- }
-
- Future<void> _launchPaymentWithTracking(String url, String reference) async {
-   print('🚀 Launching Paystack WebView for payment: $reference');
-
-   setState(() {
-     _awaitingPaymentConfirmation = true;
-   });
-
-   // Open payment in WebView instead of external browser
-   await _showPaystackWebView(url, reference);
- }
-
- // ✅ ADD THE _showPaystackWebView METHOD RIGHT HERE:
-
- Future<void> _showPaystackWebView(String paymentUrl, String reference) async {
-   if (!mounted) return;
-
-   return showDialog<void>(
-     context: context,
-     barrierDismissible: false,
-     builder: (BuildContext context) {
-       return PaystackWebViewDialog(
-         paymentUrl: paymentUrl,
-         reference: reference,
-         onPaymentComplete: (bool success, String? transactionReference) async {
-           Navigator.of(context).pop(); // Close WebView dialog
-
-           if (success && transactionReference != null) {
-             print('✅ Payment completed successfully: $transactionReference');
-             setState(() {
-               _paystackReference = transactionReference;
-             });
-
-             // Automatically verify payment and create order
-             await _verifyPaymentAndCreateOrder();
-           } else {
-             print('❌ Payment failed or was cancelled');
-             setState(() {
-               _paymentInitialized = false;
-               _paystackReference = null;
-               _awaitingPaymentConfirmation = false;
-             });
-
-             _showErrorDialog('Payment Failed', 'Payment was not completed. Please try again.');
-           }
-         },
-         onCancel: () {
-           Navigator.of(context).pop(); // Close WebView dialog
-           setState(() {
-             _paymentInitialized = false;
-             _paystackReference = null;
-             _awaitingPaymentConfirmation = false;
-           });
-         },
-       );
-     },
-   );
- }
 
   // ============================================================
   // 💳 UPDATED: Paystack verification and order creation (Safe + Stable)
@@ -1927,7 +1968,7 @@ Future<void> _processWalletPayment() async {
               'Wallet credit failed: ${creditResult?['error'] ?? 'Unknown error'}');
         }
 
-        return; // 🚫 stop here (don’t continue to order flow)
+        return; // 🚫 stop here (don't continue to order flow)
       }
 
       // 🛒 Regular order creation flow
@@ -2009,6 +2050,8 @@ Future<void> _processWalletPayment() async {
       }
     }
   }
+
+
 
   // ============================================================
   // 🧩 Simple reusable dialogs (progress + error)
@@ -2185,8 +2228,8 @@ Future<void> _processWalletPayment() async {
         title: Row(
           children: [
             Icon(Icons.network_check, color: Colors.blue),
-            SizedBox(width: 12),
-            Text('Network Diagnostics'),
+            const SizedBox(width: 12),
+            const Text('Network Diagnostics'),
           ],
         ),
         content: Container(
@@ -2200,31 +2243,31 @@ Future<void> _processWalletPayment() async {
                   results['internet'],
                   Icons.wifi,
                 ),
-                SizedBox(height: 12),
+                const SizedBox(height: 12),
                 _buildDiagnosticItem(
                   'API DNS (api.paystack.co)',
                   results['api_dns'],
                   Icons.dns,
                 ),
-                SizedBox(height: 12),
+                const SizedBox(height: 12),
                 _buildDiagnosticItem(
                   'Checkout DNS (checkout.paystack.com)',
                   results['checkout_dns'],
                   Icons.dns,
                 ),
-                SizedBox(height: 12),
+                const SizedBox(height: 12),
                 _buildDiagnosticItem(
                   'Paystack API Server',
                   results['paystack_api'],
                   Icons.api,
                 ),
-                SizedBox(height: 12),
+                const SizedBox(height: 12),
                 _buildDiagnosticItem(
                   'Paystack Checkout Server',
                   results['paystack_checkout'],
                   Icons.payment,
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 _buildDiagnosticSuggestions(results),
               ],
             ),
@@ -2233,7 +2276,7 @@ Future<void> _processWalletPayment() async {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('Close'),
+            child: const Text('Close'),
           ),
           if (_shouldShowRetryOption(results))
             ElevatedButton(
@@ -2241,7 +2284,7 @@ Future<void> _processWalletPayment() async {
                 Navigator.of(context).pop();
                 _processPaystackPayment();
               },
-              child: Text('Try Payment Again'),
+              child: const Text('Try Payment Again'),
             ),
         ],
       ),
@@ -2254,7 +2297,7 @@ Future<void> _processWalletPayment() async {
     final color = isSuccess ? Colors.green : Colors.red;
 
     return Container(
-      padding: EdgeInsets.all(12),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(8),
@@ -2266,7 +2309,7 @@ Future<void> _processWalletPayment() async {
           Row(
             children: [
               Icon(icon, color: color, size: 20),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Text(
                 title,
                 style: TextStyle(
@@ -2282,13 +2325,13 @@ Future<void> _processWalletPayment() async {
               ),
             ],
           ),
-          SizedBox(height: 4),
+          const SizedBox(height: 4),
           Text(
             result['message'],
             style: TextStyle(color: Colors.grey[700]),
           ),
           if (result['details'] != null) ...[
-            SizedBox(height: 4),
+            const SizedBox(height: 4),
             Text(
               result['details'],
               style: TextStyle(
@@ -2390,7 +2433,7 @@ Future<void> _processWalletPayment() async {
   /// 🎨 Build styled suggestion widget
   Widget _buildSuggestionWidget(String title, List<String> suggestions, Color color) {
     return Container(
-      padding: EdgeInsets.all(12),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(8),
@@ -2402,7 +2445,7 @@ Future<void> _processWalletPayment() async {
           Row(
             children: [
               Icon(Icons.lightbulb, color: color, size: 20),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Text(
                 title,
                 style: TextStyle(
@@ -2412,9 +2455,9 @@ Future<void> _processWalletPayment() async {
               ),
             ],
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           ...suggestions.map((suggestion) => Padding(
-            padding: EdgeInsets.only(bottom: 4),
+            padding: const EdgeInsets.only(bottom: 4),
             child: Text(
               suggestion.startsWith('•') ? suggestion : '• $suggestion',
               style: TextStyle(color: color),
@@ -2682,7 +2725,7 @@ Future<void> _processWalletPayment() async {
                      if (widget.isWalletTopUp) {
                        return _buildSimpleWalletPaymentMethodSelection();
                      } else {
-                       return _buildEnhancedPaymentMethodSelection(); // ← FIXED: Changed from _buildPaymentMethodSection() to _buildEnhancedPaymentMethodSelection()
+                       return _buildEnhancedPaymentMethodSelection();
                      }
                    }
 
@@ -2764,8 +2807,8 @@ Future<void> _processWalletPayment() async {
             // Show payment error summary if there was an error
             if (_lastPaymentError != null && _showPaymentMethodAlternatives) ...[
               Container(
-                padding: EdgeInsets.all(12),
-                margin: EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
                   color: Colors.red.shade50,
                   borderRadius: BorderRadius.circular(8),
@@ -2774,7 +2817,7 @@ Future<void> _processWalletPayment() async {
                 child: Row(
                   children: [
                     Icon(Icons.warning_amber, color: Colors.red.shade600),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Paystack payment failed after $_paystackRetryCount attempts. Consider using Bank Transfer instead.',
@@ -2804,7 +2847,7 @@ Future<void> _processWalletPayment() async {
             )
           else if (_isLoadingWallet)
             Container(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.grey.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
@@ -2817,7 +2860,7 @@ Future<void> _processWalletPayment() async {
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
-                  SizedBox(width: 12),
+                  const SizedBox(width: 12),
                   Text(
                     'Loading wallet information...',
                     style: TextStyle(color: Colors.grey[600]),
@@ -2827,7 +2870,7 @@ Future<void> _processWalletPayment() async {
             )
           else if (_walletError != null)
             Container(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.orange.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
@@ -2836,7 +2879,7 @@ Future<void> _processWalletPayment() async {
               child: Row(
                 children: [
                   Icon(Icons.info, color: Colors.orange, size: 16),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       '👛 Wallet: $_walletError',
@@ -2870,7 +2913,7 @@ Future<void> _processWalletPayment() async {
               title: Row(
                 children: [
                   Text('💳', style: TextStyle(fontSize: 20)),
-                  SizedBox(width: 12),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2937,7 +2980,7 @@ Future<void> _processWalletPayment() async {
               title: Row(
                 children: [
                   Text('🏦', style: TextStyle(fontSize: 20)),
-                  SizedBox(width: 12),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2952,14 +2995,14 @@ Future<void> _processWalletPayment() async {
                               ),
                             ),
                             if (_showPaymentMethodAlternatives) ...[
-                              SizedBox(width: 8),
+                              const SizedBox(width: 8),
                               Container(
-                                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: Colors.green,
                                   borderRadius: BorderRadius.circular(10),
                                 ),
-                                child: Text(
+                                child: const Text(
                                   'RECOMMENDED',
                                   style: TextStyle(
                                     color: Colors.white,
@@ -3031,7 +3074,7 @@ Future<void> _processWalletPayment() async {
         title: Row(
           children: [
             Text(icon, style: TextStyle(fontSize: 20)),
-            SizedBox(width: 12),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -3234,7 +3277,7 @@ Future<void> _processWalletPayment() async {
     }
 
     return Container(
-      padding: EdgeInsets.all(12),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.grey[50],
         borderRadius: BorderRadius.circular(8),
@@ -3242,7 +3285,7 @@ Future<void> _processWalletPayment() async {
       child: Row(
         children: [
           Icon(infoIcon, color: infoColor, size: 16),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               infoText,
@@ -3264,25 +3307,25 @@ Future<void> _processWalletPayment() async {
     return Card(
       elevation: 2,
       child: Padding(
-        padding: EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Icon(Icons.local_shipping, color: Colors.orange, size: 20),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 Text(
                   'Dynamic Shipping Calculation',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
 
             if (_isCalculatingShipping)
               Container(
-                padding: EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.orange.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
@@ -3297,7 +3340,7 @@ Future<void> _processWalletPayment() async {
                         strokeWidth: 2,
                       ),
                     ),
-                    SizedBox(width: 12),
+                    const SizedBox(width: 12),
                     Text(
                       'Calculating shipping cost...',
                       style: TextStyle(color: Colors.orange[800]),
@@ -3307,7 +3350,7 @@ Future<void> _processWalletPayment() async {
               )
             else if (_shippingCalculationError != null)
               Container(
-                padding: EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.red.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
@@ -3316,7 +3359,7 @@ Future<void> _processWalletPayment() async {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(Icons.error, color: Colors.red, size: 20),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         _shippingCalculationError!,
@@ -3328,7 +3371,7 @@ Future<void> _processWalletPayment() async {
               )
             else if (_calculatedShippingCost != null)
               Container(
-                padding: EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.green.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
@@ -3339,7 +3382,7 @@ Future<void> _processWalletPayment() async {
                     Row(
                       children: [
                         Icon(Icons.check_circle, color: Colors.green, size: 20),
-                        SizedBox(width: 8),
+                        const SizedBox(width: 8),
                         Text(
                           'Shipping Cost Calculated',
                           style: TextStyle(
@@ -3362,7 +3405,7 @@ Future<void> _processWalletPayment() async {
               )
             else
               Container(
-                padding: EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.grey.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
@@ -3379,20 +3422,12 @@ Future<void> _processWalletPayment() async {
   }
 
 // NEW — wallet top-up must ignore shipping completely
-double _calculateFinalTotal() {
-  if (widget.isWalletTopUp) {
-    return widget.walletTopUpAmount ?? 0.0;
-  }
-  final shippingCost = _calculatedShippingCost ?? 0.0;
-  return widget.subtotal + shippingCost;
-}
-
 
   Widget _buildOrderSummary() {
     return Card(
       elevation: 2,
       child: Padding(
-        padding: EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -3400,12 +3435,12 @@ double _calculateFinalTotal() {
               widget.isWalletTopUp ? 'Top-Up Details' : 'Order Summary',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
 
             // For wallet top-up, show the top-up amount
             if (widget.isWalletTopUp) ...[
               Container(
-                padding: EdgeInsets.all(12),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Color(0xFF10B981).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
@@ -3429,12 +3464,12 @@ double _calculateFinalTotal() {
                   ],
                 ),
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
 
               // Show current wallet balance if available
               if (_walletBalance != null && _walletBalance!['success'] == true) ...[
                 Container(
-                  padding: EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: Colors.grey.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
@@ -3451,9 +3486,9 @@ double _calculateFinalTotal() {
                     ],
                   ),
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 Container(
-                  padding: EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: Color(0xFF10B981).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
@@ -3481,7 +3516,7 @@ double _calculateFinalTotal() {
             ] else ...[
               // Regular cart items
               ...widget.cartItems.map((item) => Padding(
-                padding: EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.only(bottom: 8),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -3507,7 +3542,7 @@ double _calculateFinalTotal() {
 
   Widget _buildSectionTitle(String title) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Text(
         title,
         style: TextStyle(
@@ -3526,7 +3561,7 @@ double _calculateFinalTotal() {
     return Card(
       elevation: 2,
       child: Padding(
-        padding: EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
             Row(
@@ -3534,7 +3569,7 @@ double _calculateFinalTotal() {
                 Expanded(
                   child: TextFormField(
                     controller: _billingFirstNameController,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'First Name *',
                       border: OutlineInputBorder(),
                     ),
@@ -3546,11 +3581,11 @@ double _calculateFinalTotal() {
                     },
                   ),
                 ),
-                SizedBox(width: 16),
+                const SizedBox(width: 16),
                 Expanded(
                   child: TextFormField(
                     controller: _billingLastNameController,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'Last Name *',
                       border: OutlineInputBorder(),
                     ),
@@ -3564,20 +3599,20 @@ double _calculateFinalTotal() {
                 ),
               ],
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             TextFormField(
               controller: _billingCompanyController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Company (Optional)',
                 border: OutlineInputBorder(),
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
 
             // 🌍 Country Dropdown
             DropdownButtonFormField<String>(
               value: _selectedBillingCountry,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Country *',
                 border: OutlineInputBorder(),
               ),
@@ -3602,14 +3637,14 @@ double _calculateFinalTotal() {
                 return null;
               },
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
 
             // 🏛️ ENHANCED: Dynamic State Dropdown with TellMe Plugin
             DropdownButtonFormField<String>(
               value: _selectedBillingState,
               decoration: InputDecoration(
                 labelText: 'State *',
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
                 suffixIcon: _isLoadingLocationData
                   ? SizedBox(
                       width: 20,
@@ -3647,7 +3682,7 @@ double _calculateFinalTotal() {
             // Show loading indicator for cities
             if (_isLoadingBillingCities)
               Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Row(
                   children: [
                     SizedBox(
@@ -3655,7 +3690,7 @@ double _calculateFinalTotal() {
                       height: 16,
                       child: CircularProgressIndicator(color: Colors.orange, strokeWidth: 2),
                     ),
-                    SizedBox(width: 12),
+                    const SizedBox(width: 12),
                     Text(
                       'Loading cities...',
                       style: TextStyle(color: Colors.orange, fontSize: 12),
@@ -3664,7 +3699,7 @@ double _calculateFinalTotal() {
                 ),
               ),
 
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
 
             // 🏙️ ENHANCED: Dynamic City Dropdown with TellMe Plugin + Shipping Calculation
             DropdownButtonFormField<String>(
@@ -3676,7 +3711,7 @@ double _calculateFinalTotal() {
                   : null, // ✅ Prevent crash if value not in list
               decoration: InputDecoration(
                 labelText: 'City *',
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
                 suffixIcon: _isLoadingBillingCities
                   ? SizedBox(
                       width: 20,
@@ -3711,11 +3746,11 @@ double _calculateFinalTotal() {
               },
             ),
 
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
 
             TextFormField(
               controller: _billingAddressController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Street Address *',
                 border: OutlineInputBorder(),
               ),
@@ -3726,32 +3761,32 @@ double _calculateFinalTotal() {
                 return null;
               },
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             TextFormField(
               controller: _billingAddress2Controller,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Apartment, suite, etc. (Optional)',
                 border: OutlineInputBorder(),
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
                   child: TextFormField(
                     controller: _billingPostalCodeController,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'Postal Code',
                       border: OutlineInputBorder(),
                     ),
                   ),
                 ),
-                SizedBox(width: 16),
+                const SizedBox(width: 16),
                 Expanded(
                   child: TextFormField(
                     controller: _billingPhoneController,
                     keyboardType: TextInputType.phone,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'Phone *',
                       border: OutlineInputBorder(),
                     ),
@@ -3778,7 +3813,7 @@ double _calculateFinalTotal() {
     return Card(
       elevation: 2,
       child: Padding(
-        padding: EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
             Row(
@@ -3786,7 +3821,7 @@ double _calculateFinalTotal() {
                 Expanded(
                   child: TextFormField(
                     controller: _shippingFirstNameController,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'First Name *',
                       border: OutlineInputBorder(),
                     ),
@@ -3798,11 +3833,11 @@ double _calculateFinalTotal() {
                     },
                   ),
                 ),
-                SizedBox(width: 16),
+                const SizedBox(width: 16),
                 Expanded(
                   child: TextFormField(
                     controller: _shippingLastNameController,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'Last Name *',
                       border: OutlineInputBorder(),
                     ),
@@ -3816,15 +3851,15 @@ double _calculateFinalTotal() {
                 ),
               ],
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             TextFormField(
               controller: _shippingCompanyController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Company (Optional)',
                 border: OutlineInputBorder(),
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
 
             // Shipping Country Dropdown
             DropdownButtonFormField<String>(
@@ -3855,14 +3890,14 @@ double _calculateFinalTotal() {
               },
             ),
 
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
 
             // ENHANCED: Shipping State Dropdown with TellMe Plugin
             DropdownButtonFormField<String>(
               value: _selectedShippingState,
               decoration: InputDecoration(
                 labelText: 'State *',
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
                 suffixIcon: _isLoadingLocationData
                   ? SizedBox(
                       width: 20,
@@ -3900,7 +3935,7 @@ double _calculateFinalTotal() {
             // Show loading indicator for shipping cities
             if (_isLoadingShippingCities)
               Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Row(
                   children: [
                     SizedBox(
@@ -3908,7 +3943,7 @@ double _calculateFinalTotal() {
                       height: 16,
                       child: CircularProgressIndicator(color: Colors.orange, strokeWidth: 2),
                     ),
-                    SizedBox(width: 12),
+                    const SizedBox(width: 12),
                     Text(
                       'Loading cities...',
                       style: TextStyle(color: Colors.orange, fontSize: 12),
@@ -3917,14 +3952,14 @@ double _calculateFinalTotal() {
                 ),
               ),
 
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
 
             // ENHANCED: Shipping City Dropdown with TellMe Plugin + Shipping Calculation
             DropdownButtonFormField<String>(
               value: _selectedShippingCity,
               decoration: InputDecoration(
                 labelText: 'City *',
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
                 suffixIcon: _isLoadingShippingCities
                   ? SizedBox(
                       width: 20,
@@ -3956,11 +3991,11 @@ double _calculateFinalTotal() {
                 return null;
               },
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
 
             TextFormField(
               controller: _shippingAddressController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Street Address *',
                 border: OutlineInputBorder(),
               ),
@@ -3971,18 +4006,18 @@ double _calculateFinalTotal() {
                 return null;
               },
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             TextFormField(
               controller: _shippingAddress2Controller,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Apartment, suite, etc. (Optional)',
                 border: OutlineInputBorder(),
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             TextFormField(
               controller: _shippingPostalCodeController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Postal Code',
                 border: OutlineInputBorder(),
               ),
@@ -3995,41 +4030,57 @@ double _calculateFinalTotal() {
 
   Widget _buildFinalOrderSummary() {
     // ✨ Use calculated dynamic shipping cost instead of fixed methods
-    double shippingCost = _calculatedShippingCost ?? 0.0;
-    final finalTotal = widget.isWalletTopUp
-      ? widget.walletTopUpAmount!
-      : widget.subtotal + shippingCost;
+    final double shippingCost = _calculatedShippingCost ?? 0.0;
+
+    // 🔥 Loyalty: only relevant for normal orders (not wallet top-ups)
+    final LoyaltyDiscount? loyalty = widget.loyalty;
+    final bool hasLoyaltyDiscount = !widget.isWalletTopUp &&
+        loyalty != null &&
+        loyalty.eligible &&
+        loyalty.discount > 0;
+
+    final double discount = hasLoyaltyDiscount ? loyalty!.discount : 0.0;
+
+    // Base amount to display in the first row
+    final double baseAmount = widget.isWalletTopUp
+        ? (widget.walletTopUpAmount ?? 0.0)
+        : _getSubtotal; // ← use _getSubtotal instead of widget.subtotal
+
+    // Final total (single source of truth)
+    final double finalTotal = _calculateFinalTotal();
 
     return Card(
       elevation: 2,
       child: Padding(
-        padding: EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16.0), // FIXED: Added 'padding:' parameter
         child: Column(
           children: [
+            // Row: Subtotal / Top-up amount
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(widget.isWalletTopUp ? 'Top-Up Amount:' : 'Subtotal:'),
                 Text(
                   widget.isWalletTopUp
-                    ? '₦${NumberFormat("#,###").format(widget.walletTopUpAmount)}'
-                    : _formatCurrency(widget.subtotal),
+                      ? '₦${NumberFormat("#,###").format(baseAmount)}'
+                      : _formatCurrency(baseAmount),
                 ),
               ],
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
 
-            // Skip shipping for wallet top-up
+            // Skip shipping (and loyalty) for wallet top-up
             if (!widget.isWalletTopUp) ...[
+              // Shipping row
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Row(
                     children: [
-                      Text('Shipping:'),
+                      const Text('Shipping:'),
                       if (_isCalculatingShipping) ...[
-                        SizedBox(width: 8),
-                        SizedBox(
+                        const SizedBox(width: 8),
+                        const SizedBox(
                           width: 12,
                           height: 12,
                           child: CircularProgressIndicator(
@@ -4042,29 +4093,79 @@ double _calculateFinalTotal() {
                   ),
                   Text(
                     _calculatedShippingCost != null
-                      ? _formatCurrency(shippingCost)
-                      : (_isCalculatingShipping ? 'Calculating...' : 'TBD'),
+                        ? _formatCurrency(shippingCost)
+                        : (_isCalculatingShipping ? 'Calculating...' : 'TBD'),
                     style: TextStyle(
-                      color: _calculatedShippingCost != null ? Colors.black : Colors.grey,
+                      color: _calculatedShippingCost != null
+                          ? Colors.black
+                          : Colors.grey,
                     ),
                   ),
                 ],
               ),
-              Divider(),
+
+              // ✅ Loyalty discount row (only if discount > 0)
+              if (hasLoyaltyDiscount) ...[
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        if (loyalty!.imageUrl.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8.0),
+                            child: Image.network(
+                              loyalty.imageUrl,
+                              height: 24,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        Text(
+                          loyalty.label.isNotEmpty
+                              ? loyalty.label
+                              : 'TellMe Loyalty Discount',
+                          style: TextStyle(
+                            color: Colors.green[700],
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      '-${_formatCurrency(discount)}',
+                      style: TextStyle(
+                        color: Colors.green[700],
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+
+              const Divider(),
             ],
 
+            // Final total row
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   widget.isWalletTopUp ? 'Total to Pay:' : 'Total:',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 Text(
                   widget.isWalletTopUp
-                    ? '₦${NumberFormat("#,###").format(widget.walletTopUpAmount)}'
-                    : _formatCurrency(finalTotal),
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.orange),
+                      ? '₦${NumberFormat("#,###").format(baseAmount)}'
+                      : _formatCurrency(finalTotal),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.orange,
+                  ),
                 ),
               ],
             ),
@@ -4073,6 +4174,7 @@ double _calculateFinalTotal() {
       ),
     );
   }
+
 
   @override
   void dispose() {
@@ -4323,7 +4425,7 @@ class _PaystackWebViewDialogState extends State<PaystackWebViewDialog> {
                 child: Row(
                   children: [
                     Icon(Icons.check_circle, color: Colors.green, size: 20),
-                    SizedBox(width: 12),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         'Payment successful! Processing your order...',

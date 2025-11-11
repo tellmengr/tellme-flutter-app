@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+// ✅ Firebase Core (to check initialization state)
+import 'package:firebase_core/firebase_core.dart';
 // ✅ Realtime Database
 import 'package:firebase_database/firebase_database.dart';
 
@@ -15,13 +17,13 @@ class CelebrationThemeProvider extends ChangeNotifier {
   static const String _rtdbPath = 'app_settings/celebration_theme';
   static const String _rtdbField = 'themeId';
 
-  late final FirebaseDatabase _db;
-  late final DatabaseReference _docRef;
+  FirebaseDatabase? _db;
+  DatabaseReference? _docRef;
   StreamSubscription<DatabaseEvent>? _sub;
 
   CelebrationTheme get currentTheme => _currentTheme;
 
-  // Quick access to theme colors
+  // Quick access to theme colors/props
   Color get primaryColor => _currentTheme.primaryColor;
   Color get accentColor => _currentTheme.accentColor;
   Color get secondaryColor => _currentTheme.secondaryColor;
@@ -41,26 +43,36 @@ class CelebrationThemeProvider extends ChangeNotifier {
   Future<void> _initializeGlobalTheme() async {
     debugPrint('🎨 Initializing global celebration theme (RTDB)…');
 
-    // Prepare RTDB (google-services.json provides databaseURL)
+    // 1️⃣ Always try to load cached theme first (no Firebase needed)
+    await _loadCachedTheme();
+
+    // 2️⃣ If Firebase is not initialized, skip RTDB safely
+    if (Firebase.apps.isEmpty) {
+      debugPrint(
+        '⚠️ Firebase not initialized in CelebrationThemeProvider, '
+        'skipping RTDB and using cached/default theme.',
+      );
+      // We keep _currentTheme from cache/default and do NOT crash.
+      return;
+    }
+
+    // 3️⃣ Prepare RTDB (google-services.json provides databaseURL)
     _db = FirebaseDatabase.instance;
 
     // Enable offline cache (these are synchronous; do NOT await)
     try {
-      _db.setPersistenceEnabled(true);
-      _db.setPersistenceCacheSizeBytes(10 * 1024 * 1024); // 10 MB
+      _db!.setPersistenceEnabled(true);
+      _db!.setPersistenceCacheSizeBytes(10 * 1024 * 1024); // 10 MB
     } catch (_) {
       // If already enabled, Firebase may throw; ignore.
     }
 
-    _docRef = _db.ref(_rtdbPath);
+    _docRef = _db!.ref(_rtdbPath);
 
-    // 1) Load cached theme for fast startup
-    await _loadCachedTheme();
-
-    // 2) Fetch current global theme from RTDB
+    // 4️⃣ Fetch current global theme from RTDB
     await _fetchGlobalTheme();
 
-    // 3) Listen to live changes
+    // 5️⃣ Listen to live changes
     _listenToGlobalThemeChanges();
   }
 
@@ -82,9 +94,14 @@ class CelebrationThemeProvider extends ChangeNotifier {
 
   /// Fetch global theme from RTDB
   Future<void> _fetchGlobalTheme() async {
+    if (_docRef == null) {
+      debugPrint('⚠️ _fetchGlobalTheme called but _docRef is null (no RTDB).');
+      return;
+    }
+
     try {
       debugPrint('🌍 Fetching global theme from RTDB…');
-      final snap = await _docRef.get();
+      final snap = await _docRef!.get();
       if (!snap.exists) return;
 
       final themeId = _extractThemeId(snap.value);
@@ -106,10 +123,16 @@ class CelebrationThemeProvider extends ChangeNotifier {
 
   /// Listen for real-time global theme changes (RTDB)
   void _listenToGlobalThemeChanges() {
+    if (_docRef == null) {
+      debugPrint(
+          '⚠️ _listenToGlobalThemeChanges called but _docRef is null (no RTDB).');
+      return;
+    }
+
     debugPrint('👂 Listening for global theme changes (RTDB)…');
 
     _sub?.cancel();
-    _sub = _docRef.onValue.listen((event) async {
+    _sub = _docRef!.onValue.listen((event) async {
       final themeId = _extractThemeId(event.snapshot.value);
       if (themeId == null || themeId == _currentTheme.id) return;
 
@@ -128,11 +151,21 @@ class CelebrationThemeProvider extends ChangeNotifier {
 
   /// ✅ GLOBAL: Set theme globally for all users (Admin only)
   Future<void> setGlobalTheme(String themeId) async {
+    // If Firebase is not ready / RTDB not wired, don't crash.
+    if (Firebase.apps.isEmpty || _docRef == null) {
+      debugPrint(
+        '⚠️ setGlobalTheme called but Firebase/RTDB not ready. '
+        'Skipping global write and applying locally only.',
+      );
+      await setTheme(_byId(themeId) ?? defaultTheme);
+      return;
+    }
+
     try {
       debugPrint('🔥 Setting global theme (RTDB) to: $themeId');
 
       // Write to RTDB (this triggers listeners on all devices)
-      await _docRef.set({
+      await _docRef!.set({
         _rtdbField: themeId,
         'updatedAt': ServerValue.timestamp,
       });

@@ -1,0 +1,1 @@
+C:\Users\adepitanbero\hello_app\android\app\build\intermediates\cxx\debug\16355a60\obj\arm64-v8a

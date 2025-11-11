@@ -1,8 +1,6 @@
-# Podfile for Flutter iOS app
+# ios/Podfile — Flutter iOS
+platform :ios, '15.0'       # You can lower to '13.0' if you want wider device support
 
-platform :ios, '15.0'
-
-# CocoaPods analytics can slow down Flutter builds.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
 project 'Runner', {
@@ -16,7 +14,6 @@ def flutter_root
   unless File.exist?(generated_xcode_build_settings_path)
     raise "#{generated_xcode_build_settings_path} must exist. If you're running pod install manually, make sure `flutter pub get` is executed first"
   end
-
   File.foreach(generated_xcode_build_settings_path) do |line|
     matches = line.match(/FLUTTER_ROOT\=(.*)/)
     return matches[1].strip if matches
@@ -28,15 +25,23 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 
 flutter_ios_podfile_setup
 
-target 'Runner' do
-  use_frameworks!
-  use_modular_headers!
+# ✅ Use static frameworks with plugins (recommended for Flutter/Firebase)
+use_frameworks! :linkage => :static
+install! 'cocoapods', :generate_multiple_pod_projects => true
 
+target 'Runner' do
+  # ❌ Do NOT use `use_modular_headers!` here
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+
+    # Optional: if you ever hit a failing simulator arch with a third-party pod,
+    # uncomment the next two lines to exclude arm64 on simulator Macs:
+    # if target.respond_to?(:build_configurations)
+    #   target.build_configurations.each { |config| config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64' }
+    # end
   end
 end

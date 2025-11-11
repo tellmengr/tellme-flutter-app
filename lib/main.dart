@@ -1,6 +1,7 @@
 // -------------------- IMPORTS MUST COME FIRST --------------------
 import 'dart:io';
 import 'dart:convert';
+import 'dart:async'; // 👈 for unawaited
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Clipboard (copy token)
 import 'package:provider/provider.dart';
@@ -20,6 +21,7 @@ import 'wishlist_provider.dart';
 import 'user_settings_provider.dart';
 import 'user_provider.dart';
 import 'celebration_theme_provider.dart';
+import 'blog_notification_provider.dart'; // 👈 NEW: blog "NEW" badge
 
 // 📄 Pages
 import 'cart_page.dart';
@@ -61,7 +63,7 @@ class MyHttpOverrides extends HttpOverrides {
 // Must be a top-level function. Runs when a message arrives and the app is terminated/backgrounded.
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // ✅ Initialize using google-services.json (Android)
+  // ✅ Initialize in background isolate
   await Firebase.initializeApp();
   debugPrint('📩 [BG] FCM message: ${message.messageId} data=${message.data}');
 }
@@ -87,8 +89,9 @@ Future<void> _ensureMinSplash(DateTime t0, Duration min) async {
 }
 
 // -------------------- ANALYTICS HELPER --------------------
+// 🔐 Make analytics lazy so it only touches Firebase after init
 class AnalyticsHelper {
-  static final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
+  static FirebaseAnalytics get _analytics => FirebaseAnalytics.instance;
 
   static Future<void> logAppStart() async {
     await _analytics.logEvent(name: 'app_start');
@@ -208,17 +211,25 @@ Future<void> _printAndCopyFcmToken() async {
   }
 }
 
-// ==================== SUPER-LIGHT MAIN (FIRST FRAME FAST) ====================
+// ==================== SUPER-LIGHT MAIN (safe) ====================
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = MyHttpOverrides();
 
   SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
 
-  // ✅ Register background handler before runApp (recommended)
+  // 🚫 Do NOT block the first frame on Firebase init.
+  unawaited(Firebase.initializeApp().then((_) {
+    debugPrint('✅ Firebase initialized (unawaited)');
+  }).catchError((e, st) {
+    debugPrint('❌ Firebase.initializeApp failed: $e');
+    debugPrint('$st');
+  }));
+
+  // ✅ Register background handler early (doesn't block UI)
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-  // Draw poster immediately:
+  // Draw poster immediately; heavy init continues in the background
   runApp(const _MinimalBootApp());
 }
 
@@ -228,6 +239,7 @@ class _MinimalBootApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const MaterialApp(
+      navigatorKey: navigatorKey, // 👈 ensure it's usable during boot
       debugShowCheckedModeBanner: false,
       home: _Bootstrap(),
     );
@@ -290,6 +302,9 @@ class _BootstrapState extends State<_Bootstrap> {
             ChangeNotifierProvider.value(value: userSettings),
             ChangeNotifierProvider(create: (_) => UserProvider()..initialize()),
             ChangeNotifierProvider.value(value: themeProvider),
+            ChangeNotifierProvider(
+              create: (_) => BlogNotificationProvider()..init(), // 👈 NEW provider
+            ),
           ],
           child: const MyApp(),
         ),
@@ -301,8 +316,13 @@ class _BootstrapState extends State<_Bootstrap> {
 
   /// 🔧 All heavy startup work moved here so we can wrap it with timeout/try-catch.
   Future<void> _doBootSteps() async {
-    // ✅ Initialize Firebase
-    await guard(Firebase.initializeApp(), label: 'Firebase.initializeApp');
+    // ✅ If Firebase wasn't ready yet, this ensures it is—without blocking first frame.
+    if (Firebase.apps.isEmpty) {
+      await guard(
+        Firebase.initializeApp(),
+        label: 'Firebase.initializeApp (fallback)',
+      );
+    }
 
     // (Optional) projectId log
     try {
@@ -445,6 +465,8 @@ class _PosterImage extends StatelessWidget {
       alignment: alignment,
       gaplessPlayback: true,
       filterQuality: FilterQuality.high,
+      // 👇 Prevents a missing/renamed asset from killing the first frame on iPad
+      errorBuilder: (_, __, ___) => const ColoredBox(color: Color(0xFF0B46C5)),
     );
   }
 }

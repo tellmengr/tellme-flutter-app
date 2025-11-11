@@ -7,6 +7,7 @@ import 'checkout_page.dart';
 import 'sign_in_page.dart';
 import 'user_provider.dart';
 import 'celebration_theme_provider.dart';
+import 'loyalty_service.dart'; // ✅ NEW: loyalty API/model
 
 // 🌈 Brand colors (fallback when no celebration theme)
 const kPrimaryBlue = Color(0xFF004AAD);
@@ -55,11 +56,25 @@ class CartPage extends StatelessWidget {
                         (context, index) {
                           if (index < cart.cartItems.length) {
                             return _buildCartItem(
-                                cart.cartItems[index], cart, index, context, themeProvider);
+                              cart.cartItems[index],
+                              cart,
+                              index,
+                              context,
+                              themeProvider,
+                            );
                           } else if (index == cart.cartItems.length) {
-                            return _buildOrderSummary(cart, context, primaryColor, accentColor);
+                            return _buildOrderSummary(
+                              cart,
+                              context,
+                              primaryColor,
+                              accentColor,
+                            );
                           } else {
-                            return _buildCheckoutButton(cart, context, primaryColor);
+                            return _buildCheckoutButton(
+                              cart,
+                              context,
+                              primaryColor,
+                            );
                           }
                         },
                         childCount: cart.cartItems.length + 2,
@@ -72,7 +87,8 @@ class CartPage extends StatelessWidget {
     );
   }
 
-  Widget _buildSliverAppBar(CartProvider cart, BuildContext context, Color primaryColor) {
+  Widget _buildSliverAppBar(
+      CartProvider cart, BuildContext context, Color primaryColor) {
     return SliverAppBar(
       expandedHeight: 120,
       floating: false,
@@ -121,7 +137,8 @@ class CartPage extends StatelessWidget {
     );
   }
 
-  Widget _buildEmptyCart(BuildContext context, Color primaryColor, Color accentColor) {
+  Widget _buildEmptyCart(
+      BuildContext context, Color primaryColor, Color accentColor) {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -181,7 +198,12 @@ class CartPage extends StatelessWidget {
   }
 
   Widget _buildCartItem(
-      Map<String, dynamic> product, CartProvider cart, int index, BuildContext context, CelebrationThemeProvider? themeProvider) {
+    Map<String, dynamic> product,
+    CartProvider cart,
+    int index,
+    BuildContext context,
+    CelebrationThemeProvider? themeProvider,
+  ) {
     final formatCurrency = NumberFormat.currency(
       locale: 'en_NG',
       symbol: '₦',
@@ -289,8 +311,10 @@ class CartPage extends StatelessWidget {
                                   )
                               : null,
                         ),
-                        Text('$quantity',
-                            style: const TextStyle(fontWeight: FontWeight.w600)),
+                        Text(
+                          '$quantity',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
                         IconButton(
                           icon: const Icon(Icons.add_circle_outline),
                           onPressed: () => cart.updateQuantity(
@@ -322,7 +346,8 @@ class CartPage extends StatelessWidget {
     );
   }
 
-  Widget _buildProductVariations(Map<String, dynamic> product, Color primaryColor, Color accentColor) {
+  Widget _buildProductVariations(
+      Map<String, dynamic> product, Color primaryColor, Color accentColor) {
     Map<String, String> attributes = {};
 
     // Handle both List and Map formats
@@ -343,17 +368,18 @@ class CartPage extends StatelessWidget {
     // Add SKU if available
     final sku = product['sku']?.toString();
     if (sku != null && sku.isNotEmpty) {
-      variationChips.add(_buildVariationChip('SKU', sku, const Color(0xFF64748B), primaryColor));
+      variationChips.add(_buildVariationChip(
+          'SKU', sku, const Color(0xFF64748B), primaryColor));
     }
 
-    // ✅ FIXED: Use theme colors for variation chips instead of hardcoded colors
+    // ✅ Use theme colors for variation chips instead of hardcoded colors
     List<Color> accentColors = [
       primaryColor, // Primary theme color
-      accentColor,  // Accent theme color
-      primaryColor.withOpacity(0.7), // Primary with lower opacity
-      accentColor.withOpacity(0.7),  // Accent with lower opacity
-      primaryColor.withOpacity(0.5), // Primary with lower opacity
-      accentColor.withOpacity(0.5),  // Accent with lower opacity
+      accentColor, // Accent theme color
+      primaryColor.withOpacity(0.7),
+      accentColor.withOpacity(0.7),
+      primaryColor.withOpacity(0.5),
+      accentColor.withOpacity(0.5),
       const Color(0xFF2563EB), // Blue
       const Color(0xFF059669), // Green
     ];
@@ -365,7 +391,9 @@ class CartPage extends StatelessWidget {
 
       if (attributeValue.isNotEmpty) {
         final color = accentColors[colorIndex % accentColors.length];
-        variationChips.add(_buildVariationChip(attributeName, attributeValue, color, primaryColor));
+        variationChips.add(
+          _buildVariationChip(attributeName, attributeValue, color, primaryColor),
+        );
         colorIndex++;
       }
     }
@@ -378,7 +406,8 @@ class CartPage extends StatelessWidget {
     );
   }
 
-  Widget _buildVariationChip(String label, String value, Color accentColor, Color primaryColor) {
+  Widget _buildVariationChip(
+      String label, String value, Color accentColor, Color primaryColor) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -396,79 +425,230 @@ class CartPage extends StatelessWidget {
     );
   }
 
-  Widget _buildOrderSummary(CartProvider cart, BuildContext context, Color primaryColor, Color accentColor) {
+  /// ✅ UPDATED: Order summary now fetches and shows loyalty discount
+  Widget _buildOrderSummary(
+      CartProvider cart, BuildContext context, Color primaryColor, Color accentColor) {
     final formatCurrency =
         NumberFormat.currency(locale: 'en_NG', symbol: '₦', decimalDigits: 0);
-    double totalPrice = cart.getTotalPrice();
 
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+    final double subtotal = cart.getTotalPrice();
+    const double shipping = 2500.0;
+
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final bool isLoggedIn = userProvider.isLoggedIn;
+
+    // 🧠 Get the WordPress user ID (same approach you used before)
+    final int userId = isLoggedIn ? (userProvider.userId ?? 0) : 0;
+
+    // If not logged in, show normal summary (no loyalty).
+    if (!isLoggedIn || userId == 0) {
+      return Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Order Summary',
+                style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black)),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Subtotal',
+                    style: GoogleFonts.inter(
+                        fontSize: 16, color: Colors.grey[600])),
+                Text(formatCurrency.format(subtotal),
+                    style:
+                        GoogleFonts.inter(fontSize: 16, color: Colors.black)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Shipping',
+                    style: GoogleFonts.inter(
+                        fontSize: 16, color: Colors.grey[600])),
+                Text(formatCurrency.format(shipping),
+                    style:
+                        GoogleFonts.inter(fontSize: 16, color: Colors.black)),
+              ],
+            ),
+            const Divider(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Total',
+                    style: GoogleFonts.inter(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black)),
+                Text(formatCurrency.format(subtotal + shipping),
+                    style: GoogleFonts.inter(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: primaryColor)),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    // If logged in, fetch loyalty discount from the API.
+    return FutureBuilder<LoyaltyDiscount>(
+      future: LoyaltyService.fetchLoyaltyDiscount(
+        userId: userId,
+        cartTotal: subtotal,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Order Summary',
-              style: GoogleFonts.inter(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black)),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Subtotal',
-                  style: GoogleFonts.inter(
-                      fontSize: 16, color: Colors.grey[600])),
-              Text(formatCurrency.format(totalPrice),
-                  style:
-                      GoogleFonts.inter(fontSize: 16, color: Colors.black)),
+      builder: (context, snapshot) {
+        final loyalty = snapshot.data ?? LoyaltyDiscount.empty();
+        final double discount =
+            (loyalty.eligible && loyalty.discount > 0) ? loyalty.discount : 0.0;
+        final double total = subtotal + shipping - discount;
+
+        return Container(
+          margin: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
             ],
           ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Shipping',
-                  style: GoogleFonts.inter(
-                      fontSize: 16, color: Colors.grey[600])),
-              Text(formatCurrency.format(2500),
-                  style:
-                      GoogleFonts.inter(fontSize: 16, color: Colors.black)),
-            ],
-          ),
-          const Divider(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Total',
+              Text('Order Summary',
                   style: GoogleFonts.inter(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: Colors.black)),
-              Text(formatCurrency.format(totalPrice + 2500),
-                  style: GoogleFonts.inter(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: primaryColor)),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Subtotal',
+                      style: GoogleFonts.inter(
+                          fontSize: 16, color: Colors.grey[600])),
+                  Text(formatCurrency.format(subtotal),
+                      style: GoogleFonts.inter(
+                          fontSize: 16, color: Colors.black)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Shipping',
+                      style: GoogleFonts.inter(
+                          fontSize: 16, color: Colors.grey[600])),
+                  Text(formatCurrency.format(shipping),
+                      style: GoogleFonts.inter(
+                          fontSize: 16, color: Colors.black)),
+                ],
+              ),
+
+              // 🔻 Loyalty discount row (only if applicable)
+              if (snapshot.connectionState == ConnectionState.waiting)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Checking loyalty...',
+                          style: GoogleFonts.inter(
+                              fontSize: 14, color: Colors.grey[500])),
+                      const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ],
+                  ),
+                )
+              else if (discount > 0) ...[
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    if (loyalty.imageUrl.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: Image.network(
+                          loyalty.imageUrl,
+                          height: 32,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    Expanded(
+                      child: Text(
+                        loyalty.label.isNotEmpty
+                            ? loyalty.label
+                            : 'Loyalty Discount',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.green[700],
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '-${formatCurrency.format(discount)}',
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green[700],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+
+              const Divider(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Total',
+                      style: GoogleFonts.inter(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black)),
+                  Text(formatCurrency.format(total),
+                      style: GoogleFonts.inter(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: primaryColor)),
+                ],
+              ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildCheckoutButton(CartProvider cart, BuildContext context, Color primaryColor) {
+  Widget _buildCheckoutButton(
+      CartProvider cart, BuildContext context, Color primaryColor) {
     return Container(
       padding: const EdgeInsets.all(16),
       child: SizedBox(
@@ -542,29 +722,53 @@ class CartPage extends StatelessWidget {
     );
   }
 
-  void _proceedToCheckout(BuildContext context, CartProvider cart) {
-    double totalPrice = cart.getTotalPrice();
+  // 🔥 NEW: checkout logic that fetches loyalty and passes it into CheckoutPage
+  Future<void> _proceedToCheckout(
+      BuildContext context, CartProvider cart) async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final bool isLoggedIn = userProvider.isLoggedIn;
 
-    if (userProvider.isLoggedIn) {
+    final double subtotal = cart.getTotalPrice();
+    const double shipping = 2500.0;
+    final double total = subtotal + shipping;
+
+    LoyaltyDiscount? loyalty;
+
+    if (isLoggedIn) {
+      final int userId = userProvider.userId ?? 0;
+      if (userId != 0) {
+        try {
+          loyalty = await LoyaltyService.fetchLoyaltyDiscount(
+            userId: userId,
+            cartTotal: subtotal,
+          );
+        } catch (e) {
+          print('Loyalty fetch error (cart → checkout): $e');
+          loyalty = LoyaltyDiscount.empty();
+        }
+      }
+    }
+
+    if (isLoggedIn) {
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => CheckoutPage(
             cartItems: cart.cartItems,
-            subtotal: totalPrice,
-            shipping: 2500.0,
-            total: totalPrice + 2500.0,
+            subtotal: subtotal,
+            shipping: shipping,
+            total: total,
+            loyalty: loyalty, // 👈 pass loyalty into checkout
           ),
         ),
       );
     } else {
-      _showSignInDialog(context, cart, totalPrice);
+      _showSignInDialog(context, cart, subtotal);
     }
   }
 
   void _showSignInDialog(
-      BuildContext context, CartProvider cart, double totalPrice) {
+      BuildContext context, CartProvider cart, double subtotal) {
     final themeProvider = context.watch<CelebrationThemeProvider?>();
     final currentTheme = themeProvider?.currentTheme;
     final primaryColor = currentTheme?.primaryColor ?? kPrimaryBlue;
@@ -597,7 +801,7 @@ class CartPage extends StatelessWidget {
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(context);
-                _navigateToSignIn(context, cart, totalPrice);
+                _navigateToSignIn(context, cart, subtotal);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: primaryColor,
@@ -614,30 +818,56 @@ class CartPage extends StatelessWidget {
     );
   }
 
+  // 🔐 After sign-in, also fetch loyalty before pushing CheckoutPage
   void _navigateToSignIn(
-      BuildContext context, CartProvider cart, double totalPrice) {
+      BuildContext context, CartProvider cart, double subtotal) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => SignInPage(
           pendingCheckoutData: {
             'cartItems': cart.cartItems,
-            'subtotal': totalPrice,
+            'subtotal': subtotal,
             'shipping': 2500.0,
-            'total': totalPrice + 2500.0,
+            'total': subtotal + 2500.0,
           },
           onSignedIn: () {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => CheckoutPage(
-                  cartItems: cart.cartItems,
-                  subtotal: totalPrice,
-                  shipping: 2500.0,
-                  total: totalPrice + 2500.0,
+            final userProvider =
+                Provider.of<UserProvider>(context, listen: false);
+            final int userId = userProvider.userId ?? 0;
+
+            // fetch loyalty asynchronously, then navigate
+            LoyaltyService.fetchLoyaltyDiscount(
+              userId: userId,
+              cartTotal: subtotal,
+            ).then((loyalty) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => CheckoutPage(
+                    cartItems: cart.cartItems,
+                    subtotal: subtotal,
+                    shipping: 2500.0,
+                    total: subtotal + 2500.0,
+                    loyalty: loyalty,
+                  ),
                 ),
-              ),
-            );
+              );
+            }).catchError((e) {
+              print('Loyalty fetch error (after sign-in): $e');
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => CheckoutPage(
+                    cartItems: cart.cartItems,
+                    subtotal: subtotal,
+                    shipping: 2500.0,
+                    total: subtotal + 2500.0,
+                    loyalty: LoyaltyDiscount.empty(),
+                  ),
+                ),
+              );
+            });
           },
         ),
       ),

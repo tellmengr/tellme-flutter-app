@@ -1,0 +1,2 @@
+C:/Users/adepitanbero/hello_app/android/app/.cxx/debug/16355a60/arm64-v8a/CMakeFiles/edit_cache.dir
+C:/Users/adepitanbero/hello_app/android/app/.cxx/debug/16355a60/arm64-v8a/CMakeFiles/rebuild_cache.dir
