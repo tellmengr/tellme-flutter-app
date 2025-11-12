@@ -7,6 +7,9 @@ version: 1.0.4+16
 environment:
   sdk: ">=3.3.0 <4.0.0"
 
+# =========================================
+# 📦 DEPENDENCIES
+# =========================================
 dependencies:
   flutter:
     sdk: flutter
@@ -55,6 +58,9 @@ dependencies:
   # 🔔 Notifications
   flutter_local_notifications: ^17.2.4
 
+# =========================================
+# 🧪 DEV DEPENDENCIES
+# =========================================
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -62,19 +68,31 @@ dev_dependencies:
   flutter_native_splash: ^2.4.7
   flutter_launcher_icons: ^0.13.1
 
+# =========================================
+# 🎨 FLUTTER SETTINGS
+# =========================================
 flutter:
   uses-material-design: true
+
+  # ✅ Assets — ensure all images & icons bundled in release
   assets:
     - assets/images/
     - assets/icons/
     - assets/images/transparent_1x1.png
+    # 🔹 Explicitly include splash posters for iOS (fixes blank screen)
+    - assets/images/splash_poster_16_9.png
+    - assets/images/splash_poster_18_9.png
+    - assets/images/splash_poster_20_9.png
 
+# =========================================
+# ⚙️ DEPENDENCY OVERRIDES
+# =========================================
 dependency_overrides:
   http: ^1.2.2
   path: 1.9.1  # required for flutter_native_splash compatibility
 
 # =========================================
-# 🚀 Native Splash Configuration
+# 🚀 NATIVE SPLASH CONFIGURATION
 # =========================================
 flutter_native_splash:
   color: "#000000"
@@ -92,9 +110,8 @@ flutter_native_splash:
     image: assets/images/transparent_1x1.png
     icon_background_color: "#004AAD"
 
-
 # =========================================
-# 🎯 App Icon Generation
+# 🎯 APP ICON GENERATION
 # =========================================
 flutter_launcher_icons:
   android: "ic_launcher"
