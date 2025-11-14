@@ -1,7 +1,6 @@
 // -------------------- IMPORTS MUST COME FIRST --------------------
 import 'dart:io';
 import 'dart:convert';
-import 'dart:async'; // 👈 for unawaited
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Clipboard (copy token)
 import 'package:provider/provider.dart';
@@ -21,7 +20,6 @@ import 'wishlist_provider.dart';
 import 'user_settings_provider.dart';
 import 'user_provider.dart';
 import 'celebration_theme_provider.dart';
-import 'blog_notification_provider.dart'; // 👈 NEW: blog "NEW" badge
 
 // 📄 Pages
 import 'cart_page.dart';
@@ -60,8 +58,10 @@ class MyHttpOverrides extends HttpOverrides {
 }
 
 // -------------------- REQUIRED: FCM BACKGROUND HANDLER --------------------
+// Must be a top-level function. Runs when a message arrives and the app is terminated/backgrounded.
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // ✅ Initialize in background isolate
   await Firebase.initializeApp();
   debugPrint('📩 [BG] FCM message: ${message.messageId} data=${message.data}');
 }
@@ -77,6 +77,7 @@ Future<T?> guard<T>(Future<T> fut, {String label = ''}) async {
   }
 }
 
+// ✅ Enforce a minimum splash/poster time from a timestamp
 Future<void> _ensureMinSplash(DateTime t0, Duration min) async {
   final elapsed = DateTime.now().difference(t0);
   final remain = min - elapsed;
@@ -86,6 +87,7 @@ Future<void> _ensureMinSplash(DateTime t0, Duration min) async {
 }
 
 // -------------------- ANALYTICS HELPER --------------------
+// 🔐 Make analytics lazy so it only touches Firebase after init
 class AnalyticsHelper {
   static FirebaseAnalytics get _analytics => FirebaseAnalytics.instance;
 
@@ -196,6 +198,7 @@ Future<void> _printAndCopyFcmToken() async {
     final token = await FirebaseMessaging.instance.getToken();
     if (token != null) {
       debugPrint('🔑 FCM token: $token');
+      // Only copy to clipboard in debug to avoid surprising users
       if (kDebugMode) {
         await Clipboard.setData(ClipboardData(text: token));
       }
@@ -206,25 +209,26 @@ Future<void> _printAndCopyFcmToken() async {
   }
 }
 
-// ==================== SUPER-LIGHT MAIN (safe) ====================
+// ==================== SUPER-LIGHT MAIN ====================
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = MyHttpOverrides();
 
   SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
 
-  // 🚫 Do NOT block the first frame on Firebase init.
-  unawaited(Firebase.initializeApp().then((_) {
-    debugPrint('✅ Firebase initialized (unawaited)');
-  }).catchError((e, st) {
-    debugPrint('❌ Firebase.initializeApp failed: $e');
+  // ✅ Initialize Firebase ONCE, before anything else uses it
+  try {
+    await Firebase.initializeApp();
+    debugPrint('✅ Firebase initialized in main()');
+  } catch (e, st) {
+    debugPrint('❌ Firebase.initializeApp failed in main(): $e');
     debugPrint('$st');
-  }));
+  }
 
-  // ✅ Register background handler early (doesn't block UI)
+  // ✅ Register background handler after init
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-  // Draw poster immediately; heavy init continues in the background
+  // Draw poster immediately (Firebase is already ready at this point)
   runApp(const _MinimalBootApp());
 }
 
@@ -233,11 +237,9 @@ class _MinimalBootApp extends StatelessWidget {
   const _MinimalBootApp({super.key});
   @override
   Widget build(BuildContext context) {
-    // ❗️Removed `const` from MaterialApp so `navigatorKey` (non-const) is allowed.
-    return MaterialApp(
-      navigatorKey: navigatorKey, // 👈 ensure it's usable during boot
+    return const MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: const _Bootstrap(),
+      home: _Bootstrap(),
     );
   }
 }
@@ -250,6 +252,7 @@ class _Bootstrap extends StatefulWidget {
 }
 
 class _BootstrapState extends State<_Bootstrap> {
+  // Keep these so we can still navigate even if boot fails / times out
   UserSettingsProvider? _userSettings;
   CelebrationThemeProvider? _themeProvider;
 
@@ -263,6 +266,7 @@ class _BootstrapState extends State<_Bootstrap> {
     final t0 = DateTime.now();
 
     try {
+      // ⏱️ Give all boot steps at most 15 seconds in total.
       await _doBootSteps().timeout(
         const Duration(seconds: 15),
         onTimeout: () {
@@ -274,10 +278,12 @@ class _BootstrapState extends State<_Bootstrap> {
     } catch (e, st) {
       debugPrint('⚠️ Boot failed unexpectedly: $e');
       debugPrint('$st');
+      // We swallow errors so the app still moves past splash.
     }
 
     if (!mounted) return;
 
+    // Keep your minimum splash time
     await _ensureMinSplash(t0, const Duration(seconds: 3));
 
     final userSettings = _userSettings ?? UserSettingsProvider();
@@ -294,9 +300,6 @@ class _BootstrapState extends State<_Bootstrap> {
             ChangeNotifierProvider.value(value: userSettings),
             ChangeNotifierProvider(create: (_) => UserProvider()..initialize()),
             ChangeNotifierProvider.value(value: themeProvider),
-            ChangeNotifierProvider(
-              create: (_) => BlogNotificationProvider()..init(),
-            ),
           ],
           child: const MyApp(),
         ),
@@ -306,7 +309,9 @@ class _BootstrapState extends State<_Bootstrap> {
     );
   }
 
+  /// 🔧 All heavy startup work moved here so we can wrap it with timeout/try-catch.
   Future<void> _doBootSteps() async {
+    // ✅ Firebase is already initialized in main(); this is just a safety fallback.
     if (Firebase.apps.isEmpty) {
       await guard(
         Firebase.initializeApp(),
@@ -314,6 +319,7 @@ class _BootstrapState extends State<_Bootstrap> {
       );
     }
 
+    // (Optional) projectId log
     try {
       final app = Firebase.app();
       debugPrint('🔥 Firebase projectId: ${app.options.projectId}');
@@ -321,6 +327,7 @@ class _BootstrapState extends State<_Bootstrap> {
       debugPrint('⚠️ Could not read Firebase app options: $e');
     }
 
+    // ✅ Ask for notification permission (Android 13+ + iOS)
     await guard(
       FirebaseMessaging.instance.requestPermission(),
       label: 'FCM requestPermission',
@@ -328,6 +335,7 @@ class _BootstrapState extends State<_Bootstrap> {
 
     await guard(AnalyticsHelper.logAppStart(), label: 'Analytics logAppStart');
 
+    // 🔔 Local notification service → taps handled via NotificationProvider + _handlePush
     await guard(
       NotificationService.init(
         onTap: (RemoteMessage m) async {
@@ -347,6 +355,7 @@ class _BootstrapState extends State<_Bootstrap> {
       label: 'NotificationService.init',
     );
 
+    // 🔔 Foreground FCM messages
     try {
       FirebaseMessaging.onMessage.listen((RemoteMessage m) async {
         final ctx = navigatorKey.currentContext;
@@ -361,6 +370,7 @@ class _BootstrapState extends State<_Bootstrap> {
       debugPrint('⚠️ onMessage.listen failed: $e\n$st');
     }
 
+    // 🔔 FCM when user taps a notification and opens/resumes the app
     try {
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage m) async {
         final ctx = navigatorKey.currentContext;
@@ -376,6 +386,7 @@ class _BootstrapState extends State<_Bootstrap> {
       debugPrint('⚠️ onMessageOpenedApp.listen failed: $e\n$st');
     }
 
+    // 🔔 App launched from a terminated state via notification tap
     final initialMessage = await guard(
       FirebaseMessaging.instance.getInitialMessage(),
       label: 'getInitialMessage',
@@ -393,6 +404,7 @@ class _BootstrapState extends State<_Bootstrap> {
 
     await guard(_printAndCopyFcmToken(), label: 'print fcm token');
 
+    // 🔧 Load user settings + celebration theme
     final userSettings = UserSettingsProvider();
     await guard(userSettings.loadSettings(), label: 'userSettings.loadSettings');
     _userSettings = userSettings;
@@ -407,7 +419,7 @@ class _BootstrapState extends State<_Bootstrap> {
       backgroundColor: Color(0xFF0B46C5),
       body: _PosterOnly(),
     );
-    }
+  }
 }
 
 // ---------- Aspect-ratio aware poster ----------
@@ -448,7 +460,6 @@ class _PosterImage extends StatelessWidget {
       alignment: alignment,
       gaplessPlayback: true,
       filterQuality: FilterQuality.high,
-      errorBuilder: (_, __, ___) => const ColoredBox(color: Color(0xFF0B46C5)),
     );
   }
 }

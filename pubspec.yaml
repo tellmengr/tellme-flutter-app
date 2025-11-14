@@ -79,10 +79,10 @@ flutter:
     - assets/images/
     - assets/icons/
     - assets/images/transparent_1x1.png
-    # 🔹 Explicitly include splash posters for iOS (fixes blank screen)
     - assets/images/splash_poster_16_9.png
     - assets/images/splash_poster_18_9.png
     - assets/images/splash_poster_20_9.png
+    - assets/images/splash_ipad_2048x2732.png   # <-- ADDED FOR iPAD SPLASH
 
 # =========================================
 # ⚙️ DEPENDENCY OVERRIDES
@@ -95,17 +95,27 @@ dependency_overrides:
 # 🚀 NATIVE SPLASH CONFIGURATION
 # =========================================
 flutter_native_splash:
-  color: "#000000"
-  color_dark: "#000000"
-  background_image: assets/images/splash_bg_android.png
-  background_image_dark: assets/images/splash_bg_android.png
-  background_image_ios: assets/images/splash_bg_android.png
-  background_image_dark_ios: assets/images/splash_bg_android.png
-  image: assets/images/tellme_logo.png
-  image_dark: assets/images/tellme_logo.png
   android: true
   ios: true
   web: false
+
+  # Background for Android & iPhone
+  background_image: assets/images/splash_poster_20_9.png
+  background_image_dark: assets/images/splash_poster_20_9.png
+
+  # Dedicated, correct-sized iPad splash
+  background_image_ios: assets/images/splash_ipad_2048x2732.png
+  background_image_dark_ios: assets/images/splash_ipad_2048x2732.png
+
+  # App logo
+  image: assets/images/tellme_logo.png
+  image_dark: assets/images/tellme_logo.png
+
+  ios_content_mode: scaleAspectFill
+  android_gravity: fill
+
+  fullscreen: true
+
   android_12:
     image: assets/images/transparent_1x1.png
     icon_background_color: "#004AAD"
