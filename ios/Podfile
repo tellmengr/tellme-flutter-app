@@ -1,6 +1,6 @@
 # ios/Podfile — Stable Flutter iOS (2025)
 
-platform :ios, '13.0'
+platform :ios, '15.0'
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
 project 'Runner', {
