@@ -1,6 +1,8 @@
 // -------------------- IMPORTS MUST COME FIRST --------------------
 import 'dart:io';
 import 'dart:convert';
+import 'dart:async'; // ✅ For runZonedGuarded
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Clipboard (copy token)
 import 'package:provider/provider.dart';
@@ -216,20 +218,29 @@ Future<void> main() async {
 
   SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
 
-  // ✅ Initialize Firebase ONCE, before anything else uses it
-  try {
-    await Firebase.initializeApp();
-    debugPrint('✅ Firebase initialized in main()');
-  } catch (e, st) {
-    debugPrint('❌ Firebase.initializeApp failed in main(): $e');
-    debugPrint('$st');
-  }
+  await runZonedGuarded<Future<void>>(
+    () async {
+      // ✅ Initialize Firebase ONCE, before anything else uses it
+      try {
+        await Firebase.initializeApp();
+        debugPrint('✅ Firebase initialized in main()');
+      } catch (e, st) {
+        debugPrint('❌ Firebase.initializeApp failed in main(): $e');
+        debugPrint('$st');
+      }
 
-  // ✅ Register background handler after init
-  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+      // ✅ Register background handler after init
+      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-  // Draw poster immediately (Firebase is already ready at this point)
-  runApp(const _MinimalBootApp());
+      // Draw poster immediately (Firebase is already ready at this point)
+      runApp(const _MinimalBootApp());
+    },
+    (error, stack) {
+      // Global crash guard – this prevents silent white-screen on release
+      debugPrint('🔥 Uncaught error in main zone: $error');
+      debugPrint('$stack');
+    },
+  );
 }
 
 // A tiny shell that draws the poster and runs heavy init behind it.
@@ -271,7 +282,8 @@ class _BootstrapState extends State<_Bootstrap> {
         const Duration(seconds: 15),
         onTimeout: () {
           debugPrint(
-              '⚠️ Boot timed out after 15s, continuing to app anyway (failing open).');
+            '⚠️ Boot timed out after 15s, continuing to app anyway (failing open).',
+          );
           return;
         },
       );
@@ -294,7 +306,9 @@ class _BootstrapState extends State<_Bootstrap> {
         transitionDuration: const Duration(milliseconds: 300),
         pageBuilder: (_, __, ___) => MultiProvider(
           providers: [
-            ChangeNotifierProvider(create: (_) => NotificationProvider()..load()),
+            ChangeNotifierProvider(
+              create: (_) => NotificationProvider()..load(),
+            ),
             ChangeNotifierProvider(create: (_) => CartProvider()),
             ChangeNotifierProvider(create: (_) => WishlistProvider()),
             ChangeNotifierProvider.value(value: userSettings),
@@ -395,7 +409,9 @@ class _BootstrapState extends State<_Bootstrap> {
       final ctx = navigatorKey.currentContext;
       if (ctx != null) {
         await guard(
-          ctx.read<NotificationProvider>().handleMessage(initialMessage, fromTap: true),
+          ctx
+              .read<NotificationProvider>()
+              .handleMessage(initialMessage, fromTap: true),
           label: 'NotificationProvider.initialMessage',
         );
       }
@@ -551,7 +567,8 @@ class MyApp extends StatelessWidget {
                   ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
 
               final List<dynamic> cartItems =
-                  (args?['cartItems'] as List?)?.cast<dynamic>() ?? const <dynamic>[];
+                  (args?['cartItems'] as List?)?.cast<dynamic>() ??
+                      const <dynamic>[];
 
               final double subtotal = (args?['subtotal'] is num)
                   ? (args!['subtotal'] as num).toDouble()

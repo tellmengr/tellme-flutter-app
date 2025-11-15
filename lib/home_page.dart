@@ -115,18 +115,22 @@ class _HomePageState extends State<HomePage> {
     }
 
     try {
-      final items = await _wooService.getProducts(page: _page, perPage: _perPage);
+      final items =
+          await _wooService.getProducts(page: _page, perPage: _perPage);
       if (!_mountedFlag) return;
 
       if (reset) {
-        _products..clear()..addAll(items);
+        _products
+          ..clear()
+          ..addAll(items);
       } else {
         _products.addAll(items);
       }
 
       if (_products.isNotEmpty) {
         final cart = Provider.of<CartProvider>(context, listen: false);
-        await cart.cacheProducts(_products.whereType<Map<String, dynamic>>().toList());
+        await cart.cacheProducts(
+            _products.whereType<Map<String, dynamic>>().toList());
       }
 
       if (items.length < _perPage) {
@@ -163,7 +167,8 @@ class _HomePageState extends State<HomePage> {
 
     final primaryColor = currentTheme?.primaryColor ?? kPrimaryBlue;
     final accentColor = currentTheme?.accentColor ?? kAccentBlue;
-    final gradientColors = currentTheme?.gradient.colors ?? [kPrimaryBlue, kAccentBlue];
+    final gradientColors =
+        currentTheme?.gradient.colors ?? [kPrimaryBlue, kAccentBlue];
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -200,7 +205,8 @@ class _HomePageState extends State<HomePage> {
         children: [
           // 🔍 Search
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: gradientColors,
@@ -218,32 +224,38 @@ class _HomePageState extends State<HomePage> {
                   MaterialPageRoute(builder: (_) => const SearchPage()),
                 ),
                 decoration: InputDecoration(
-                  hintText: "Search categories, products, sku, product id...",
+                  hintText:
+                      "Search categories, products, sku, product id...",
                   hintStyle: const TextStyle(color: Colors.grey),
                   prefixIcon: Icon(Icons.search, color: primaryColor),
                   filled: true,
                   fillColor: Colors.white,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 20),
+                  contentPadding: const EdgeInsets.symmetric(
+                      vertical: 0, horizontal: 20),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(30),
                     borderSide: const BorderSide(color: Colors.white),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(30),
-                    borderSide: BorderSide(color: primaryColor, width: 1.2),
+                    borderSide:
+                        BorderSide(color: primaryColor, width: 1.2),
                   ),
                 ),
               ),
             ),
           ),
 
-          Expanded(child: _buildBody(layout, primaryColor)),
+          Expanded(
+            child: _buildBody(layout, settings, primaryColor),
+          ),
         ],
       ),
     );
   }
 
-  Drawer _buildDrawer(BuildContext context, CelebrationThemeProvider? themeProvider) {
+  Drawer _buildDrawer(
+      BuildContext context, CelebrationThemeProvider? themeProvider) {
     final userProvider = Provider.of<UserProvider>(context);
     final cart = Provider.of<CartProvider>(context);
     final blogNotif = context.watch<BlogNotificationProvider?>();
@@ -251,7 +263,8 @@ class _HomePageState extends State<HomePage> {
 
     final currentTheme = themeProvider?.currentTheme;
     final primaryColor = currentTheme?.primaryColor ?? kPrimaryBlue;
-    final gradientColors = currentTheme?.gradient.colors ?? [kPrimaryBlue, kAccentBlue];
+    final gradientColors =
+        currentTheme?.gradient.colors ?? [kPrimaryBlue, kAccentBlue];
     final badgeColor = currentTheme?.badgeColor ?? Colors.red;
 
     return Drawer(
@@ -261,14 +274,21 @@ class _HomePageState extends State<HomePage> {
           UserAccountsDrawerHeader(
             decoration: BoxDecoration(
               gradient: currentTheme?.drawerGradient ??
-                  LinearGradient(colors: gradientColors, begin: Alignment.topLeft, end: Alignment.bottomRight),
+                  LinearGradient(
+                      colors: gradientColors,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight),
             ),
             accountName: Text(
-              userProvider.isLoggedIn ? userProvider.userDisplayName ?? "Guest User" : "Guest",
+              userProvider.isLoggedIn
+                  ? userProvider.userDisplayName ?? "Guest User"
+                  : "Guest",
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             accountEmail: Text(
-              userProvider.isLoggedIn ? userProvider.userEmail ?? "guest@example.com" : "Please sign in to continue",
+              userProvider.isLoggedIn
+                  ? userProvider.userEmail ?? "guest@example.com"
+                  : "Please sign in to continue",
             ),
             currentAccountPicture: CircleAvatar(
               backgroundColor: Colors.white,
@@ -306,7 +326,10 @@ class _HomePageState extends State<HomePage> {
               title: const Text("My Profile"),
               onTap: () {
                 Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfilePage()));
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const ProfilePage()));
               },
             ),
 
@@ -317,9 +340,14 @@ class _HomePageState extends State<HomePage> {
             trailing: cart.totalQuantity > 0
                 ? Container(
                     padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(color: badgeColor, borderRadius: BorderRadius.circular(12)),
+                    decoration: BoxDecoration(
+                        color: badgeColor,
+                        borderRadius: BorderRadius.circular(12)),
                     child: Text('${cart.totalQuantity}',
-                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold)),
                   )
                 : null,
             onTap: () {
@@ -335,13 +363,19 @@ class _HomePageState extends State<HomePage> {
             onTap: () {
               Navigator.pop(context);
               if (userProvider.isLoggedIn) {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const MyOrdersPage()));
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const MyOrdersPage()));
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Please sign in to view your orders")),
+                  const SnackBar(
+                      content: Text("Please sign in to view your orders")),
                 );
                 Future.delayed(const Duration(milliseconds: 500), () {
-                  if (context.mounted) Navigator.pushNamed(context, '/signin');
+                  if (context.mounted) {
+                    Navigator.pushNamed(context, '/signin');
+                  }
                 });
               }
             },
@@ -360,7 +394,8 @@ class _HomePageState extends State<HomePage> {
                     child: Container(
                       width: 10,
                       height: 10,
-                      decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                      decoration: const BoxDecoration(
+                          color: Colors.red, shape: BoxShape.circle),
                     ),
                   ),
               ],
@@ -371,16 +406,25 @@ class _HomePageState extends State<HomePage> {
                 if (hasNewBlog)
                   Container(
                     margin: const EdgeInsets.only(left: 6),
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(color: Colors.red.shade600, borderRadius: BorderRadius.circular(6)),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                        color: Colors.red.shade600,
+                        borderRadius: BorderRadius.circular(6)),
                     child: const Text("NEW",
-                        style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold)),
                   ),
               ],
             ),
             onTap: () {
               Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const BlogListPage()));
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const BlogListPage()));
             },
           ),
 
@@ -390,7 +434,10 @@ class _HomePageState extends State<HomePage> {
             title: const Text("Settings"),
             onTap: () {
               Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsPage()));
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const SettingsPage()));
             },
           ),
 
@@ -402,8 +449,10 @@ class _HomePageState extends State<HomePage> {
               onTap: () {
                 userProvider.signOut();
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context)
-                    .showSnackBar(const SnackBar(content: Text("You have been logged out.")));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text("You have been logged out.")),
+                );
               },
             ),
         ],
@@ -411,24 +460,55 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildBody(HomePageStyle layout, Color primaryColor) {
+  // ================= BODY + LAYOUT =================
+
+  Widget _buildBody(HomePageStyle layout, UserSettingsProvider settings,
+      Color primaryColor) {
     if (_isInitialLoading) {
       return const Center(child: CircularProgressIndicator(strokeWidth: 3));
     }
     if (_hasError && _products.isEmpty) return _buildErrorState();
+
+    final productCount = _products.length;
 
     return RefreshIndicator(
       onRefresh: _refreshProducts,
       child: SingleChildScrollView(
         controller: _scrollCtrl,
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SizedBox(height: 16),
             const HomePageSliderCarousel(),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
+
+            // 🔹 Row: "X products"  |  layout toggle
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '$productCount products',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  _buildLayoutToggle(layout, settings),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 8),
             _buildLayout(layout),
+
             if (_isLoadingMore)
-              const Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()),
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Center(child: CircularProgressIndicator()),
+              ),
           ],
         ),
       ),
@@ -450,10 +530,15 @@ class _HomePageState extends State<HomePage> {
         ),
       );
 
+  /// 🔹 Switch between all the different home layouts
   Widget _buildLayout(HomePageStyle layout) {
     switch (layout) {
       case HomePageStyle.list:
-        return AdvancedProductListView(products: _products, isLoading: _isInitialLoading);
+        return AdvancedProductListView(
+          products: _products,
+          isLoading: _isInitialLoading,
+        );
+
       case HomePageStyle.carousel:
         return ProductSnapCarousel(
           products: _products,
@@ -462,6 +547,7 @@ class _HomePageState extends State<HomePage> {
           isLoadingMore: _isLoadingMore,
           canLoadMore: _hasMore,
         );
+
       case HomePageStyle.staggered:
         return HomePageStaggered(
           products: _products,
@@ -474,6 +560,7 @@ class _HomePageState extends State<HomePage> {
           isLoadingMore: _isLoadingMore,
           onLoadMore: () => _loadProducts(reset: false),
         );
+
       case HomePageStyle.modern:
         return HomePageModern(
           products: _products,
@@ -482,6 +569,7 @@ class _HomePageState extends State<HomePage> {
           showTitle: true,
           maxItems: 99999,
         );
+
       case HomePageStyle.grid:
       default:
         return AdvancedProductGridView(
@@ -495,5 +583,52 @@ class _HomePageState extends State<HomePage> {
           onLoadMore: () => _loadProducts(reset: false),
         );
     }
+  }
+
+  /// 🔹 Rectangular blue layout-toggle buttons with white icons
+  Widget _buildLayoutToggle(
+      HomePageStyle current, UserSettingsProvider settings) {
+    Widget buildTile(HomePageStyle style, IconData icon) {
+      final bool isActive = current == style;
+
+      return InkWell(
+        onTap: () => settings.setHomePageStyle(style),
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          width: 34,
+          height: 30,
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          decoration: BoxDecoration(
+            color:
+                isActive ? kPrimaryBlue : kPrimaryBlue.withOpacity(0.55),
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(isActive ? 0.18 : 0.08),
+                blurRadius: isActive ? 6 : 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Icon(
+            icon,
+            size: 18,
+            color: Colors.white,
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        buildTile(HomePageStyle.grid, Icons.grid_view_rounded),
+        buildTile(HomePageStyle.list, Icons.view_list_rounded),
+        buildTile(HomePageStyle.carousel, Icons.view_carousel_rounded),
+        buildTile(
+            HomePageStyle.staggered, Icons.dashboard_customize_rounded),
+        buildTile(HomePageStyle.modern, Icons.auto_awesome_rounded),
+      ],
+    );
   }
 }

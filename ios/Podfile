@@ -1,6 +1,6 @@
-# ios/Podfile — Flutter iOS
+# ios/Podfile — Stable Flutter iOS (2025)
 
-platform :ios, '15.0'   # You can lower to '13.0' if you need wider device support
+platform :ios, '13.0'
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
 project 'Runner', {
@@ -10,7 +10,9 @@ project 'Runner', {
 }
 
 def flutter_root
-  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+  generated_xcode_build_settings_path = File.expand_path(
+    File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__
+  )
   unless File.exist?(generated_xcode_build_settings_path)
     raise "#{generated_xcode_build_settings_path} must exist. If you're running pod install manually, make sure `flutter pub get` ran first."
   end
@@ -21,40 +23,33 @@ def flutter_root
   raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}"
 end
 
-require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+require File.expand_path(
+  File.join('packages', 'flutter_tools', 'bin', 'podhelper'),
+  flutter_root
+)
 
+# Flutter setup
 flutter_ios_podfile_setup
 
-# Prefer static frameworks with Flutter/Firebase
+# REQUIRED: Fixes engine booting on iPadOS 16+ / 17+ / 18+ / 26+
 use_frameworks! :linkage => :static
+use_modular_headers!             # <-- This is the missing piece
 
-# Keep a single Pods project (avoids nil targets with 1.16.x)
-install! 'cocoapods' # (no :generate_multiple_pod_projects flag)
+install! 'cocoapods'
 
 target 'Runner' do
-  # Do NOT add use_modular_headers! here
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
 post_install do |installer|
-  # Be defensive: skip nil/non-native targets so podhelper never sees nil
-  projects = []
-  projects << installer.pods_project if installer.respond_to?(:pods_project) && installer.pods_project
-  if installer.respond_to?(:generated_projects) && installer.generated_projects
-    projects.concat(installer.generated_projects.compact)
-  end
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
 
-  projects.compact.each do |project|
-    project.targets.compact.each do |t|
-      # Only pass targets that look like real Xcode targets
-      next unless t && t.respond_to?(:build_configurations)
-
-      begin
-        flutter_additional_ios_build_settings(t)
-      rescue NoMethodError, ArgumentError => e
-        # If CocoaPods gives us an odd target type, just skip it
-        puts "⚠️  Skipping target #{t.respond_to?(:name) ? t.name : t.inspect}: #{e.class} #{e.message}"
-      end
+    # Fix for iPadOS 15+ blank screen (Flutter engine crash)
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
+      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'i386'
+      config.build_settings['ONLY_ACTIVE_ARCH'] = 'NO'
     end
   end
 end

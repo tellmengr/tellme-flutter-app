@@ -132,7 +132,6 @@ class _ProductSnapCarouselState extends State<ProductSnapCarousel> {
     final themeProvider = context.watch<CelebrationThemeProvider?>();
     final currentTheme = themeProvider?.currentTheme;
     final primaryColor = currentTheme?.primaryColor ?? const Color(0xFF1565C0);
-    final accentColor = currentTheme?.accentColor ?? const Color(0xFF1565C0);
 
     if (widget.isLoading) {
       return SizedBox(
@@ -158,10 +157,11 @@ class _ProductSnapCarouselState extends State<ProductSnapCarousel> {
       height: widget.height,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          const double dotsArea = 18; // height for dots/loader row
+          const double bottomArea = 18; // height reserved for loader row
           final double totalH = constraints.maxHeight;
           final double topGap = widget.topGap.clamp(0, totalH);
-          final double pageH = (totalH - topGap - dotsArea).clamp(180.0, totalH);
+          final double pageH =
+              (totalH - topGap - bottomArea).clamp(180.0, totalH);
 
           return Column(
             mainAxisSize: MainAxisSize.max,
@@ -205,21 +205,20 @@ class _ProductSnapCarouselState extends State<ProductSnapCarousel> {
                 ),
               ),
 
-              // Dots/loader row — fixed small height to avoid overflow
+              // Bottom area – ONLY show a tiny loader when fetching more.
               SizedBox(
-                height: dotsArea,
+                height: bottomArea,
                 child: Center(
                   child: widget.isLoadingMore
                       ? SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: primaryColor)
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: primaryColor,
+                          ),
                         )
-                      : _Dots(
-                          count: filtered.length,
-                          active: ((_current - 1).clamp(0, filtered.length - 1)),
-                          primaryColor: primaryColor,
-                        ),
+                      : const SizedBox.shrink(), // 👈 No more dots
                 ),
               ),
             ],
@@ -248,10 +247,11 @@ class _AnimatedCarouselCard extends StatelessWidget {
       builder: (context, _) {
         double t = 0;
         if (pageController.position.haveDimensions) {
-          final double curr = (pageController.page ?? pageController.initialPage.toDouble());
+          final double curr =
+              (pageController.page ?? pageController.initialPage.toDouble());
           t = (curr - index.toDouble()).abs().clamp(0.0, 1.0);
         }
-        final scale = 1 - (0.10 * t);   // 0.90 – 1.00
+        final scale = 1 - (0.10 * t); // 0.90 – 1.00
         final opacity = 1 - (0.35 * t); // 0.65 – 1.00
 
         return Align(
@@ -275,20 +275,36 @@ class _TailLoaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final cardBg =
+        isDark ? theme.colorScheme.surface : Colors.white;
+    final shadowColor =
+        isDark ? Colors.black.withOpacity(0.5) : Colors.black12;
+
     return Center(
       child: Container(
         width: 220,
         height: 300,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cardBg,
           borderRadius: BorderRadius.circular(18),
-          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 6))],
+          boxShadow: [
+            BoxShadow(
+              color: shadowColor,
+              blurRadius: 10,
+              offset: const Offset(0, 6),
+            ),
+          ],
         ),
         child: Center(
           child: SizedBox(
             width: 22,
             height: 22,
-            child: CircularProgressIndicator(strokeWidth: 2, color: primaryColor)
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: primaryColor,
+            ),
           ),
         ),
       ),
@@ -317,23 +333,34 @@ class _ProductCard extends StatelessWidget {
     final wish = context.watch<WishlistProvider>();
     final f = NumberFormat("#,##0", "en_US");
 
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = theme.colorScheme.onSurface;
+    final cardBg =
+        isDark ? theme.colorScheme.surface : Colors.white;
+    final shadowColor =
+        isDark ? Colors.black.withOpacity(0.5) : Colors.black12;
+
     // Get theme colors
     final currentTheme = themeProvider?.currentTheme;
     final primaryColor = currentTheme?.primaryColor ?? const Color(0xFF1565C0);
-    final accentColor = currentTheme?.accentColor ?? const Color(0xFF1565C0);
 
     final bool isVariable = product['type'] == 'variable';
-    final double price = double.tryParse(product['price']?.toString() ?? '0') ?? 0;
-    final double reg = double.tryParse(product['regular_price']?.toString() ?? '') ?? 0;
+    final double price =
+        double.tryParse(product['price']?.toString() ?? '0') ?? 0;
+    final double reg =
+        double.tryParse(product['regular_price']?.toString() ?? '') ?? 0;
     final bool sale = reg > 0 && reg > price;
 
     final images = product['images'] as List?;
     final String? imageUrl =
         (images != null && images.isNotEmpty) ? (images[0]['src']?.toString()) : null;
 
-    final double rating = double.tryParse(product['average_rating']?.toString() ?? '0') ?? 0;
+    final double rating =
+        double.tryParse(product['average_rating']?.toString() ?? '0') ?? 0;
     final bool inCart = cart.contains(product);
-    final String mainLabel = isVariable ? "Select Options" : (inCart ? "In Cart" : "Add to Cart");
+    final String mainLabel =
+        isVariable ? "Select Options" : (inCart ? "In Cart" : "Add to Cart");
 
     return Material(
       color: Colors.transparent,
@@ -341,7 +368,9 @@ class _ProductCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => ProductDetailPage(product: product)),
+          MaterialPageRoute(
+            builder: (_) => ProductDetailPage(product: product),
+          ),
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(18),
@@ -349,13 +378,13 @@ class _ProductCard extends StatelessWidget {
             width: _cardWidth,
             height: _cardHeight,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: cardBg,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
+                  color: shadowColor,
                   blurRadius: 10,
                   offset: const Offset(0, 6),
-                )
+                ),
               ],
             ),
             child: Column(
@@ -374,14 +403,22 @@ class _ProductCard extends StatelessWidget {
                         : Container(
                             height: 140,
                             width: double.infinity,
-                            color: Colors.grey[200],
-                            child: const Icon(Icons.image, size: 48, color: Colors.grey),
+                            color: isDark
+                                ? theme.colorScheme.surfaceVariant
+                                : Colors.grey[200],
+                            child: Icon(
+                              Icons.image,
+                              size: 48,
+                              color: isDark
+                                  ? theme.colorScheme.onSurfaceVariant
+                                  : Colors.grey,
+                            ),
                           ),
                     Positioned(
                       top: 10,
                       right: 10,
                       child: Material(
-                        color: Colors.white,
+                        color: cardBg,
                         shape: const CircleBorder(),
                         elevation: 2,
                         child: InkWell(
@@ -390,9 +427,13 @@ class _ProductCard extends StatelessWidget {
                           child: Padding(
                             padding: const EdgeInsets.all(8.0),
                             child: Icon(
-                              wish.contains(product) ? Icons.favorite : Icons.favorite_border,
+                              wish.contains(product)
+                                  ? Icons.favorite
+                                  : Icons.favorite_border,
                               size: 18,
-                              color: wish.contains(product) ? Colors.red : Colors.blueGrey,
+                              color: wish.contains(product)
+                                  ? Colors.red
+                                  : theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ),
@@ -415,10 +456,11 @@ class _ProductCard extends StatelessWidget {
                             (product['name']?.toString() ?? '').trim(),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
                               height: 1.25,
+                              color: textColor,
                             ),
                           ),
                         ),
@@ -430,8 +472,12 @@ class _ProductCard extends StatelessWidget {
                             children: List.generate(5, (i) {
                               final icon = i + 1 <= rating.floor()
                                   ? Icons.star
-                                  : (i + 1 - rating <= 0.5 ? Icons.star_half : Icons.star_border);
-                              final color = rating > 0 ? Colors.amber[600] : Colors.grey[400];
+                                  : (i + 1 - rating <= 0.5
+                                      ? Icons.star_half
+                                      : Icons.star_border);
+                              final color = rating > 0
+                                  ? Colors.amber[600]
+                                  : theme.colorScheme.onSurfaceVariant;
                               return Icon(icon, size: 14, color: color);
                             }),
                           ),
@@ -445,7 +491,7 @@ class _ProductCard extends StatelessWidget {
                             _NairaTight(
                               amount: f.format(price),
                               bold: true,
-                              color: primaryColor,
+                              color: sale ? Colors.redAccent : primaryColor,
                             ),
                             if (sale) ...[
                               const SizedBox(width: 8),
@@ -453,7 +499,7 @@ class _ProductCard extends StatelessWidget {
                                 amount: f.format(reg),
                                 bold: false,
                                 fontSize: 11,
-                                color: Colors.grey,
+                                color: theme.colorScheme.onSurfaceVariant,
                                 strike: true,
                               ),
                             ],
@@ -472,7 +518,8 @@ class _ProductCard extends StatelessWidget {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) => ProductDetailPage(product: product),
+                                    builder: (_) =>
+                                        ProductDetailPage(product: product),
                                   ),
                                 );
                               } else {
@@ -481,17 +528,24 @@ class _ProductCard extends StatelessWidget {
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: isVariable
-                                ? Colors.orange
-                                : (inCart ? Colors.green : primaryColor),
+                                  ? Colors.orange
+                                  : (inCart ? Colors.green : primaryColor),
                               foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                              ),
                             ),
                             child: FittedBox(
                               fit: BoxFit.scaleDown,
                               child: Text(
                                 mainLabel,
-                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ),
@@ -526,11 +580,13 @@ class _NairaTight extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     final style = TextStyle(
       fontFamily: 'Roboto',
       fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
       fontSize: fontSize,
-      color: color ?? Colors.black,
+      color: color ?? theme.colorScheme.onSurface,
       letterSpacing: -0.25,
       decoration: strike ? TextDecoration.lineThrough : TextDecoration.none,
     );
@@ -544,37 +600,6 @@ class _NairaTight extends StatelessWidget {
       ),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-    );
-  }
-}
-
-class _Dots extends StatelessWidget {
-  final int count;
-  final int active;
-  final Color primaryColor;
-
-  const _Dots({
-    required this.count,
-    required this.active,
-    required this.primaryColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 6,
-      children: List.generate(count, (i) {
-        final isActive = i == active;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          width: isActive ? 18 : 7,
-          height: 7,
-          decoration: BoxDecoration(
-            color: isActive ? primaryColor : Colors.grey.shade400,
-            borderRadius: BorderRadius.circular(10),
-          ),
-        );
-      }),
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+
 import 'cart_provider.dart';
 import 'wishlist_provider.dart';
 import 'product_detail_page.dart';
@@ -216,7 +217,9 @@ class _AdvancedProductGridViewState extends State<AdvancedProductGridView>
     final primaryColor = currentTheme?.primaryColor ?? const Color(0xFF1565C0);
     final accentColor = currentTheme?.accentColor ?? const Color(0xFF1565C0);
 
-    if (widget.isLoading && _all.isEmpty) return _buildLoading(context, primaryColor);
+    if (widget.isLoading && _all.isEmpty) {
+      return _buildLoading(context, primaryColor);
+    }
 
     final theme = Theme.of(context);
     final visible = (_limit <= _all.length) ? _all.take(_limit).toList() : _all;
@@ -240,8 +243,12 @@ class _AdvancedProductGridViewState extends State<AdvancedProductGridView>
                 if (widget.onSeeAllPressed != null)
                   TextButton.icon(
                     onPressed: widget.onSeeAllPressed,
-                    icon: Icon(Icons.arrow_forward_ios, size: 14, color: Colors.white),
-                    label: const Text('See All', style: TextStyle(color: Colors.white)),
+                    icon: const Icon(Icons.arrow_forward_ios,
+                        size: 14, color: Colors.white),
+                    label: const Text(
+                      'See All',
+                      style: TextStyle(color: Colors.white),
+                    ),
                     style: TextButton.styleFrom(
                       backgroundColor: primaryColor,
                       foregroundColor: Colors.white,
@@ -257,7 +264,8 @@ class _AdvancedProductGridViewState extends State<AdvancedProductGridView>
               ],
             ),
           ),
-        if (widget.showFilters) _buildFilterRow(theme, primaryColor, accentColor),
+        if (widget.showFilters)
+          _buildFilterRow(theme, primaryColor, accentColor),
 
         if (visible.isEmpty)
           _buildEmpty(context)
@@ -309,23 +317,31 @@ class _AdvancedProductGridViewState extends State<AdvancedProductGridView>
     );
   }
 
-  Widget _buildFilterRow(ThemeData theme, Color primaryColor, Color accentColor) => Padding(
+  Widget _buildFilterRow(
+          ThemeData theme, Color primaryColor, Color accentColor) =>
+      Padding(
         padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
-              _filterChip('Newest', SortType.newest, Icons.new_releases, primaryColor),
-              _filterChip('Low Price', SortType.priceLow, Icons.trending_down, primaryColor),
-              _filterChip('High Price', SortType.priceHigh, Icons.trending_up, primaryColor),
-              _filterChip('Top Rated', SortType.rating, Icons.star, primaryColor),
-              _filterChip('Popular', SortType.popularity, Icons.local_fire_department, primaryColor),
+              _filterChip(
+                  'Newest', SortType.newest, Icons.new_releases, primaryColor),
+              _filterChip('Low Price', SortType.priceLow,
+                  Icons.trending_down, primaryColor),
+              _filterChip('High Price', SortType.priceHigh,
+                  Icons.trending_up, primaryColor),
+              _filterChip(
+                  'Top Rated', SortType.rating, Icons.star, primaryColor),
+              _filterChip('Popular', SortType.popularity,
+                  Icons.local_fire_department, primaryColor),
             ],
           ),
         ),
       );
 
-  Widget _filterChip(String label, SortType type, IconData icon, Color primaryColor) {
+  Widget _filterChip(
+      String label, SortType type, IconData icon, Color primaryColor) {
     final selected = _sort == type;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
@@ -358,7 +374,10 @@ class _AdvancedProductGridViewState extends State<AdvancedProductGridView>
           children: [
             CircularProgressIndicator(color: primaryColor),
             const SizedBox(height: 12),
-            const Text("Loading products...", style: TextStyle(color: Colors.grey)),
+            const Text(
+              "Loading products...",
+              style: TextStyle(color: Colors.grey),
+            ),
           ],
         ),
       );
@@ -427,7 +446,15 @@ class _ProductCardState extends State<ProductCard>
     final wish = Provider.of<WishlistProvider>(context);
     final p = widget.product;
 
-    // Get theme colors
+    // Theme handling
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = theme.colorScheme.onSurface;
+    final cardBg = isDark ? theme.colorScheme.surface : Colors.white;
+    final softShadowColor =
+        isDark ? Colors.black.withOpacity(0.5) : Colors.black12;
+
+    // Get theme colors from celebration theme
     final currentTheme = widget.themeProvider?.currentTheme;
     final primaryColor = currentTheme?.primaryColor ?? const Color(0xFF1565C0);
     final accentColor = currentTheme?.accentColor ?? const Color(0xFF1565C0);
@@ -462,14 +489,14 @@ class _ProductCardState extends State<ProductCard>
             },
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: cardBg,
                 borderRadius: BorderRadius.circular(18),
-                boxShadow: const [
+                boxShadow: [
                   BoxShadow(
-                    color: Colors.black12,
+                    color: softShadowColor,
                     blurRadius: 10,
-                    offset: Offset(0, 5),
-                  )
+                    offset: const Offset(0, 5),
+                  ),
                 ],
               ),
               child: Column(
@@ -532,7 +559,10 @@ class _ProductCardState extends State<ProductCard>
                           Positioned(
                             top: 10,
                             left: 10,
-                            child: _DiscountBadge(text: "-$offPct%", badgeColor: badgeColor),
+                            child: _DiscountBadge(
+                              text: "-$offPct%",
+                              badgeColor: badgeColor,
+                            ),
                           ),
                       ],
                     ),
@@ -546,12 +576,16 @@ class _ProductCardState extends State<ProductCard>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // Product name – theme-aware
                           Text(
                             p['name'],
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w600, height: 1.3),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              height: 1.3,
+                              color: textColor,
+                            ),
                           ),
                           const Spacer(),
                           if (p['average_rating'] != null &&
@@ -580,9 +614,7 @@ class _ProductCardState extends State<ProductCard>
                               _NairaTight(
                                 amount: f.format(price),
                                 bold: true,
-                                color: sale
-                                    ? Colors.redAccent
-                                    : primaryColor,
+                                color: sale ? Colors.redAccent : primaryColor,
                               ),
                               if (sale) ...[
                                 const SizedBox(width: 8),
@@ -590,7 +622,7 @@ class _ProductCardState extends State<ProductCard>
                                   amount: f.format(reg),
                                   bold: false,
                                   fontSize: 11,
-                                  color: Colors.grey,
+                                  color: theme.colorScheme.onSurfaceVariant,
                                   strike: true,
                                 ),
                               ],
@@ -611,7 +643,7 @@ class _ProductCardState extends State<ProductCard>
                                       : Icons.favorite_border,
                                   color: wish.contains(p)
                                       ? Colors.red
-                                      : Colors.blueGrey,
+                                      : theme.colorScheme.onSurfaceVariant,
                                 ),
                               ),
                               Expanded(
@@ -677,8 +709,10 @@ class _ProductCardState extends State<ProductCard>
                                             size: 16,
                                           ),
                                           const SizedBox(width: 6),
-                                          const Text("Add to Cart",
-                                              style: TextStyle(fontSize: 13)),
+                                          const Text(
+                                            "Add to Cart",
+                                            style: TextStyle(fontSize: 13),
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -744,7 +778,8 @@ class _FooterLoader extends StatelessWidget {
         child: SizedBox(
           width: 22,
           height: 22,
-          child: CircularProgressIndicator(strokeWidth: 2, color: primaryColor),
+          child:
+              CircularProgressIndicator(strokeWidth: 2, color: primaryColor),
         ),
       ),
     );
@@ -769,11 +804,14 @@ class _NairaTight extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     final style = TextStyle(
       fontFamily: 'Roboto',
       fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
       fontSize: fontSize,
-      color: color ?? Colors.black,
+      // 👇 use theme onSurface if no explicit color is passed
+      color: color ?? theme.colorScheme.onSurface,
       letterSpacing: -0.25,
       decoration: strike ? TextDecoration.lineThrough : TextDecoration.none,
     );
@@ -797,7 +835,7 @@ class _DiscountBadge extends StatelessWidget {
 
   const _DiscountBadge({
     required this.text,
-    required this.badgeColor
+    required this.badgeColor,
   });
 
   @override
@@ -808,15 +846,22 @@ class _DiscountBadge extends StatelessWidget {
         color: badgeColor,
         borderRadius: BorderRadius.circular(10),
         boxShadow: const [
-          BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          )
         ],
       ),
-      child: Text(
-        text,
-        style: const TextStyle(
+      child: const DefaultTextStyle(
+        style: TextStyle(
           color: Colors.white,
           fontSize: 11,
           fontWeight: FontWeight.w700,
+        ),
+        child: Text(
+          '',
+          // We’ll override this using Text widget below
         ),
       ),
     );

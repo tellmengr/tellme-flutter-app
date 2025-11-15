@@ -207,122 +207,126 @@ class _AdvancedProductListViewState extends State<AdvancedProductListView>
     }
   }
 
-  // ---------- UI ----------
+// ---------- UI ----------
 
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
+@override
+Widget build(BuildContext context) {
+  super.build(context);
 
-    // Add theme provider
-    final themeProvider = context.watch<CelebrationThemeProvider?>();
-    final currentTheme = themeProvider?.currentTheme;
-    final primaryColor = currentTheme?.primaryColor ?? const Color(0xFF1565C0);
+  // Add theme provider
+  final themeProvider = context.watch<CelebrationThemeProvider?>();
+  final currentTheme = themeProvider?.currentTheme;
+  final primaryColor = currentTheme?.primaryColor ?? const Color(0xFF1565C0);
 
-    if (widget.isLoading && _all.isEmpty) return _buildLoadingList(primaryColor);
-
-    final visible =
-        (_limit <= _all.length) ? _all.take(_limit).toList() : _all;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (widget.showTitle) _buildSectionHeader(context, visible.length, primaryColor),
-        if (widget.showFilters) _buildFilterRow(context, primaryColor),
-
-        if (visible.isEmpty)
-          _buildEmptyState(context)
-        else
-          ListView.separated(
-            key: ValueKey('list_${_sort}_${visible.length}'),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            itemCount: visible.length,
-            shrinkWrap: true,
-            primary: false,
-            physics: const NeverScrollableScrollPhysics(),
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (context, i) =>
-                AdvancedProductListCard(
-                  product: visible[i],
-                  index: i,
-                  themeProvider: themeProvider,
-                ),
-          ),
-
-        // Footer controls
-        if (_limit < _all.length)
-          _ShowMoreButton(
-            onTap: () {
-              setState(() {
-                _limit = (_limit + widget.pageSize).clamp(0, _all.length);
-              });
-            },
-            primaryColor: primaryColor,
-          )
-        else if (widget.isLoadingMore)
-          _FooterLoader(primaryColor: primaryColor)
-        else if (widget.canLoadMore && widget.onLoadMore != null)
-          _ShowMoreButton(
-            label: "Load more products",
-            onTap: () {
-              if (!_askedForMore) {
-                _askedForMore = true;
-                widget.onLoadMore?.call();
-              }
-            },
-            primaryColor: primaryColor,
-          ),
-      ],
-    );
+  if (widget.isLoading && _all.isEmpty) {
+    return _buildLoadingList(primaryColor);
   }
 
-  Widget _buildSectionHeader(BuildContext context, int count, Color primaryColor) {
-    final theme = Theme.of(context);
-    final showSeeAll =
-        widget.onSeeAllPressed != null && widget.products.length > _limit;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  widget.title,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-                Text(
-                  '$count products',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
+  final visible =
+      (_limit <= _all.length) ? _all.take(_limit).toList() : _all;
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      if (widget.showTitle)
+        _buildSectionHeader(context, primaryColor),
+      if (widget.showFilters)
+        _buildFilterRow(context, primaryColor),
+
+      if (visible.isEmpty)
+        _buildEmptyState(context)
+      else
+        ListView.separated(
+          key: ValueKey('list_${_sort}_${visible.length}'),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          itemCount: visible.length,
+          shrinkWrap: true,
+          primary: false,
+          physics: const NeverScrollableScrollPhysics(),
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          itemBuilder: (context, i) => AdvancedProductListCard(
+            product: visible[i],
+            index: i,
+            themeProvider: themeProvider,
           ),
-          if (showSeeAll)
-            TextButton.icon(
-              onPressed: widget.onSeeAllPressed,
-              icon: Icon(Icons.arrow_forward_ios, size: 14, color: Colors.white),
-              label: const Text("See All", style: TextStyle(color: Colors.white)),
-              style: TextButton.styleFrom(
-                backgroundColor: primaryColor,
-                foregroundColor: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+        ),
+
+      // Footer controls
+      if (_limit < _all.length)
+        _ShowMoreButton(
+          onTap: () {
+            setState(() {
+              _limit = (_limit + widget.pageSize).clamp(0, _all.length);
+            });
+          },
+          primaryColor: primaryColor,
+        )
+      else if (widget.isLoadingMore)
+        _FooterLoader(primaryColor: primaryColor)
+      else if (widget.canLoadMore && widget.onLoadMore != null)
+        _ShowMoreButton(
+          label: "Load more products",
+          onTap: () {
+            if (!_askedForMore) {
+              _askedForMore = true;
+              widget.onLoadMore?.call();
+            }
+          },
+          primaryColor: primaryColor,
+        ),
+    ],
+  );
+}
+
+Widget _buildSectionHeader(BuildContext context, Color primaryColor) {
+  final theme = Theme.of(context);
+  final showSeeAll =
+      widget.onSeeAllPressed != null && widget.products.length > _limit;
+
+  return Padding(
+    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+    child: Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                widget.title,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
                 ),
               ),
+              // 👇 removed the "$count products" line
+            ],
+          ),
+        ),
+        if (showSeeAll)
+          TextButton.icon(
+            onPressed: widget.onSeeAllPressed,
+            icon: const Icon(Icons.arrow_forward_ios,
+                size: 14, color: Colors.white),
+            label: const Text(
+              "See All",
+              style: TextStyle(color: Colors.white),
             ),
-        ],
-      ),
-    );
-  }
+            style: TextButton.styleFrom(
+              backgroundColor: primaryColor,
+              foregroundColor: Colors.white,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
+}
+
 
   Widget _buildFilterRow(BuildContext context, Color primaryColor) {
     return Padding(
