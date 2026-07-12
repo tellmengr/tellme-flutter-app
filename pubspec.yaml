@@ -2,19 +2,15 @@ name: hello_app
 description: "TellMe.ng Flutter E-commerce App"
 publish_to: 'none'
 
-version: 1.0.4+19
+version: 1.0.5+32
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
 
-# =========================================
-# 📦 DEPENDENCIES
-# =========================================
 dependencies:
   flutter:
     sdk: flutter
 
-  # 🧩 Core UI & Utilities
   cupertino_icons: ^1.0.8
   google_fonts: ^6.3.2
   shimmer: ^3.0.0
@@ -32,15 +28,12 @@ dependencies:
   flutter_blurhash: ^0.9.1
   flutter_staggered_grid_view: ^0.7.0
 
-  # 🌐 WooCommerce API
   woocommerce_api: ^0.1.0
 
-  # 🪄 Web & HTML rendering (for Blog)
   flutter_html: ^3.0.0-alpha.6
   html_unescape: ^2.0.0
   webview_flutter: ^4.4.2
 
-  # 🔥 Firebase Suite
   firebase_core: ^4.2.1
   firebase_auth: ^6.1.2
   cloud_firestore: ^6.0.3
@@ -48,19 +41,17 @@ dependencies:
   firebase_messaging: ^16.0.4
   firebase_analytics: ^12.0.4
   firebase_app_installations: ^0.4.0+4
-  firebase_in_app_messaging: ^0.9.0+4
 
-  # 🧑‍💼 Social Sign-in
   google_sign_in: ^7.2.0
-  flutter_facebook_auth: ^7.1.2
   sign_in_with_apple: ^7.0.1
 
-  # 🔔 Notifications
   flutter_local_notifications: ^17.2.4
 
-# =========================================
-# 🧪 DEV DEPENDENCIES
-# =========================================
+  geolocator: ^14.0.3
+  geocoding: ^4.0.0
+  google_maps_flutter: 2.10.1
+  signalr_netcore: ^1.4.4
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -68,46 +59,29 @@ dev_dependencies:
   flutter_native_splash: ^2.4.7
   flutter_launcher_icons: ^0.13.1
 
-# =========================================
-# 🎨 FLUTTER SETTINGS
-# =========================================
 flutter:
   uses-material-design: true
 
-  # ✅ Assets — ensure all images & icons bundled in release
   assets:
     - assets/images/
     - assets/icons/
-    - assets/images/transparent_1x1.png
-    - assets/images/splash_poster_16_9.png
-    - assets/images/splash_poster_18_9.png
-    - assets/images/splash_poster_20_9.png
-    - assets/images/splash_ipad_2048x2732.png   # <-- ADDED FOR iPAD SPLASH
+    - assets/images/bike_marker.png
 
-# =========================================
-# ⚙️ DEPENDENCY OVERRIDES
-# =========================================
 dependency_overrides:
   http: ^1.2.2
-  path: 1.9.1  # required for flutter_native_splash compatibility
+  path: 1.9.1
 
-# =========================================
-# 🚀 NATIVE SPLASH CONFIGURATION
-# =========================================
 flutter_native_splash:
   android: true
   ios: true
   web: false
 
-  # Background for Android & iPhone
   background_image: assets/images/splash_poster_20_9.png
   background_image_dark: assets/images/splash_poster_20_9.png
 
-  # Dedicated, correct-sized iPad splash
   background_image_ios: assets/images/splash_ipad_2048x2732.png
   background_image_dark_ios: assets/images/splash_ipad_2048x2732.png
 
-  # App logo
   image: assets/images/tellme_logo.png
   image_dark: assets/images/tellme_logo.png
 
@@ -120,9 +94,6 @@ flutter_native_splash:
     image: assets/images/transparent_1x1.png
     icon_background_color: "#004AAD"
 
-# =========================================
-# 🎯 APP ICON GENERATION
-# =========================================
 flutter_launcher_icons:
   android: "ic_launcher"
   ios: true
