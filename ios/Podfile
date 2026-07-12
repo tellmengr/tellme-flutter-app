@@ -46,9 +46,9 @@ post_install do |installer|
     # Flutter build settings
     flutter_additional_ios_build_settings(target)
 
-    # Enforce iOS 13 for Firebase & Flutter 2025
+    # Firebase iOS SDKs require iOS 15+.
     target.build_configurations.each do |config|
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
 
       # Prevent simulator architecture issues (Codemagic fix)
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'i386'
