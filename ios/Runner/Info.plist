@@ -2,12 +2,11 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
 
     <key>CFBundleDisplayName</key>
-    <string>Hello App</string>
+    <string>TellMe</string>
 
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
@@ -19,7 +18,7 @@
     <string>6.0</string>
 
     <key>CFBundleName</key>
-    <string>hello_app</string>
+    <string>TellMe</string>
 
     <key>CFBundlePackageType</key>
     <string>APPL</string>
@@ -33,15 +32,24 @@
     <key>LSRequiresIPhoneOS</key>
     <true/>
 
-    <!-- 🚀 Flutter launch screen -->
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>TellMe uses your location to estimate delivery fees, show nearby addresses, and support logistics pickup and drop-off tracking.</string>
+
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>TellMe may use location while a logistics rider is actively handling a delivery so delivery progress can be tracked.</string>
+
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>TellMe may need photo library access when you choose an image for your profile, product, chat, or upload.</string>
+
+    <key>NSCameraUsageDescription</key>
+    <string>TellMe may need camera access when you choose to take a photo for profile, product, chat, or upload.</string>
+
     <key>UILaunchStoryboardName</key>
     <string>LaunchScreen</string>
 
-    <!-- 🚫 Force iOS & iPadOS NOT to load Main.storyboard -->
     <key>UIMainStoryboardFile</key>
-    <string></string>
+    <string>Main</string>
 
-    <!-- 📐 Orientation (iPhone) -->
     <key>UISupportedInterfaceOrientations</key>
     <array>
         <string>UIInterfaceOrientationPortrait</string>
@@ -49,7 +57,6 @@
         <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
 
-    <!-- 📐 Orientation (iPad) -->
     <key>UISupportedInterfaceOrientations~ipad</key>
     <array>
         <string>UIInterfaceOrientationPortrait</string>
@@ -58,36 +65,21 @@
         <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
 
-    <!-- 🔔 Background notifications -->
     <key>UIBackgroundModes</key>
     <array>
         <string>remote-notification</string>
     </array>
 
-    <!-- ⚡ Better animation refresh -->
     <key>CADisableMinimumFrameDurationOnPhone</key>
     <true/>
 
-    <!-- 🖱️ Necessary for iPad trackpad/keyboard -->
     <key>UIApplicationSupportsIndirectInputEvents</key>
     <true/>
 
-    <!-- 🔧 Required for proper scene lifecycle on iPadOS 16–26 -->
-    <key>UIApplicationSceneManifest</key>
-    <dict>
-        <key>UIApplicationSupportsMultipleScenes</key>
-        <false/>
-    </dict>
-
-    <key>UIApplicationSceneSpecification</key>
-    <string>UIApplicationSceneManifest</string>
-
-    <!-- 👇 Status bar handling -->
     <key>UIStatusBarHidden</key>
     <true/>
 
     <key>UIViewControllerBasedStatusBarAppearance</key>
     <false/>
-
 </dict>
 </plist>
