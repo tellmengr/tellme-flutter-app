@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'wp_post.dart';
 
 class WordPressBlogService {
-  static const String _baseUrl = 'https://new.tellme.ng/api/blog/posts';
+  static const String _baseUrl = 'https://tellme.ng/api/blog/posts';
 
   final http.Client _client;
 
@@ -41,3 +41,4 @@ class WordPressBlogService {
     return WpPost.fromJson(data);
   }
 }
+
