@@ -8,7 +8,6 @@ import 'package:email_validator/email_validator.dart';
 // 🔐 Social/Firebase
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart' as gsign;
-import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import 'user_provider.dart';
@@ -376,15 +375,6 @@ class _SignInPageState extends State<SignInPage>
                                       const SizedBox(width: 12),
                                       Expanded(
                                         child: _BrandButton(
-                                          asset: 'assets/icons/facebook.png',
-                                          fallbackIcon: Icons.facebook_rounded,
-                                          label: 'Facebook',
-                                          onTap: _signInWithFacebook,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: _BrandButton(
                                           asset: 'assets/icons/apple.png',
                                           fallbackIcon: Icons.apple_rounded,
                                           label: 'Apple',
@@ -580,34 +570,6 @@ class _SignInPageState extends State<SignInPage>
       final themeProvider = context.read<CelebrationThemeProvider?>();
       final errorColor = themeProvider?.currentTheme.badgeColor ?? kRed;
       _showSnack('Google sign-in failed: $e', errorColor);
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  // ---------------- FACEBOOK SIGN-IN ----------------
-  Future<void> _signInWithFacebook() async {
-    setState(() => _isLoading = true);
-    try {
-      final result = await FacebookAuth.instance.login(permissions: ['email']);
-      if (result.status != LoginStatus.success) {
-        final themeProvider = context.read<CelebrationThemeProvider?>();
-        final warningColor = themeProvider?.currentTheme.accentColor ?? kYellow;
-        _showSnack('Facebook sign-in cancelled.', warningColor);
-        return;
-      }
-
-      final credential = FacebookAuthProvider.credential(
-        result.accessToken!.tokenString,
-      );
-
-      final userCred =
-          await FirebaseAuth.instance.signInWithCredential(credential);
-      await _finishSocialLogin(userCred, provider: 'Facebook');
-    } catch (e) {
-      final themeProvider = context.read<CelebrationThemeProvider?>();
-      final errorColor = themeProvider?.currentTheme.badgeColor ?? kRed;
-      _showSnack('Facebook sign-in failed: $e', errorColor);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
