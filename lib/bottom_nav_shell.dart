@@ -1,12 +1,12 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'cart_provider.dart';
 import 'home_page.dart';
-import 'category_page.dart';  // ✅ Your existing Categories screen
+import 'category_page.dart';
 import 'cart_page.dart';
-import 'wishlist_page.dart';
 import 'profile_page.dart';
+import 'logistics_page.dart';
 
 class BottomNavShell extends StatefulWidget {
   const BottomNavShell({super.key});
@@ -18,44 +18,55 @@ class BottomNavShell extends StatefulWidget {
 class _BottomNavShellState extends State<BottomNavShell> {
   int _selectedIndex = 0;
 
-  // ✅ Persistent tabs (state preserved with IndexedStack)
-  final List<Widget> _pages = [
-    HomePage(),       // 0: Home
-    CategoryPage(),   // 1: Categories
+  // Persistent tabs. Cart and Profile are still opened as pushed pages.
+  // Bottom nav mapping:
+  // 0 = Home
+  // 1 = Categories
+  // 2 = Cart       -> pushed
+  // 3 = Logistics  -> persistent tab
+  // 4 = Profile    -> pushed
+  final List<Widget> _pages = const [
+    HomePage(),
+    CategoryPage(),
+    LogisticsPage(),
   ];
+
+  int _stackIndexFromSelectedIndex() {
+    switch (_selectedIndex) {
+      case 0:
+        return 0; // Home
+      case 1:
+        return 1; // Categories
+      case 3:
+        return 2; // Logistics
+      default:
+        return 0;
+    }
+  }
 
   void _onItemTapped(int index) {
     switch (index) {
-      case 0: // 🏠 Home
-      case 1: // 🗂 Categories
+      case 0: // Home
+      case 1: // Categories
+      case 3: // Logistics
         setState(() => _selectedIndex = index);
         break;
 
-      case 2: // 🛒 Cart (push, not a persistent tab)
+      case 2: // Cart
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => CartPage(
               selectedIndex: 0,
-              onBackToHome: (int idx) => setState(() => _selectedIndex = idx),
+              onBackToHome: (int idx) {
+                setState(() => _selectedIndex = idx);
+              },
             ),
           ),
         );
         break;
 
-      case 3: // 💖 Wishlist (push)
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => WishlistPage(
-              selectedIndex: 0,
-              onBackToHome: (int idx) => setState(() => _selectedIndex = idx),
-            ),
-          ),
-        );
-        break;
-
-      case 4: // 👤 Profile (push)
+      case 4: // Profile
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => ProfilePage()),
@@ -67,21 +78,24 @@ class _BottomNavShellState extends State<BottomNavShell> {
   Future<bool> _onWillPop() async {
     if (_selectedIndex != 0) {
       setState(() => _selectedIndex = 0);
-      return false; // don’t close app; go back to Home
+      return false; // Go back to Home instead of closing the app.
     }
+
     return true;
   }
 
   @override
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
+    final cartBadgeText =
+        cart.totalQuantity > 99 ? '99+' : cart.totalQuantity.toString();
 
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        body: IndexedStack(
-          index: _selectedIndex,
-          children: _pages,
+        body: KeyedSubtree(
+          key: ValueKey<int>(_stackIndexFromSelectedIndex()),
+          child: _pages[_stackIndexFromSelectedIndex()],
         ),
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: _selectedIndex,
@@ -92,21 +106,24 @@ class _BottomNavShellState extends State<BottomNavShell> {
           showUnselectedLabels: true,
           items: [
             const BottomNavigationBarItem(
-              icon: Icon(Icons.home),
+              icon: Icon(Icons.home_outlined),
+              activeIcon: Icon(Icons.home),
               label: 'Home',
             ),
             const BottomNavigationBarItem(
-              icon: Icon(Icons.category), // ✅ Categories tab
+              icon: Icon(Icons.category_outlined),
+              activeIcon: Icon(Icons.category),
               label: 'Categories',
             ),
             BottomNavigationBarItem(
               icon: Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  const Icon(Icons.shopping_cart),
+                  const Icon(Icons.shopping_cart_outlined),
                   if (cart.totalQuantity > 0)
                     Positioned(
-                      right: 0,
-                      top: 0,
+                      right: -6,
+                      top: -5,
                       child: Container(
                         padding: const EdgeInsets.all(2),
                         decoration: BoxDecoration(
@@ -118,7 +135,38 @@ class _BottomNavShellState extends State<BottomNavShell> {
                           minHeight: 14,
                         ),
                         child: Text(
-                          '${cart.totalQuantity}',
+                          cartBadgeText,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              activeIcon: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  const Icon(Icons.shopping_cart),
+                  if (cart.totalQuantity > 0)
+                    Positioned(
+                      right: -6,
+                      top: -5,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 14,
+                          minHeight: 14,
+                        ),
+                        child: Text(
+                          cartBadgeText,
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 10,
@@ -133,11 +181,13 @@ class _BottomNavShellState extends State<BottomNavShell> {
               label: 'Cart',
             ),
             const BottomNavigationBarItem(
-              icon: Icon(Icons.favorite),
-              label: 'Wishlist',
+              icon: Icon(Icons.local_shipping_outlined),
+              activeIcon: Icon(Icons.local_shipping),
+              label: 'Logistics',
             ),
             const BottomNavigationBarItem(
-              icon: Icon(Icons.person),
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
               label: 'Profile',
             ),
           ],
@@ -146,3 +196,4 @@ class _BottomNavShellState extends State<BottomNavShell> {
     );
   }
 }
+

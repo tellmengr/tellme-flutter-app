@@ -1,8 +1,8 @@
-name: hello_app
+﻿name: hello_app
 description: "TellMe.ng Flutter E-commerce App"
 publish_to: 'none'
 
-version: 1.0.5+32
+version: 1.0.5+33
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -103,3 +103,4 @@ flutter_launcher_icons:
   adaptive_icon_foreground: assets/icons/icon_foreground_padded.png
   adaptive_icon_background: assets/icons/icon_bg.png
   min_sdk_android: 21
+

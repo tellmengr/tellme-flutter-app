@@ -1,29 +1,30 @@
-// -------------------- IMPORTS MUST COME FIRST --------------------
-import 'dart:io';
+﻿// -------------------- IMPORTS MUST COME FIRST --------------------
+import 'dart:async';
 import 'dart:convert';
-import 'dart:async'; // ✅ For runZonedGuarded
+import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Clipboard (copy token)
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
-import 'package:flutter/foundation.dart'; // ✅ For kDebugMode
 
-// 🔔 Notifications
+// ðŸ”” Notifications
 import 'notification_service.dart';
 import 'notification_provider.dart';
+import 'blog_notification_provider.dart';
 
-// 🛒 Providers
+// ðŸ›’ Providers
 import 'cart_provider.dart';
 import 'wishlist_provider.dart';
 import 'user_settings_provider.dart';
 import 'user_provider.dart';
 import 'celebration_theme_provider.dart';
 
-// 📄 Pages
+// ðŸ“„ Pages
 import 'cart_page.dart';
 import 'settings_page.dart';
 import 'sign_in_page.dart';
@@ -34,7 +35,6 @@ import 'profile_page.dart';
 import 'wishlist_page.dart';
 import 'search_page.dart';
 import 'my_orders_page.dart';
-
 import 'edit_profile_page.dart';
 import 'addresses_page.dart';
 import 'notifications_settings_page.dart';
@@ -42,7 +42,7 @@ import 'privacy_security_page.dart';
 import 'help_center_page.dart';
 import 'about_page.dart';
 
-// ✅ WooCommerce + Product Page
+// âœ… WooCommerce + Product Page
 import 'woocommerce_auth_service.dart';
 import 'product_detail_page.dart';
 import 'wallet_history_page.dart';
@@ -60,12 +60,10 @@ class MyHttpOverrides extends HttpOverrides {
 }
 
 // -------------------- REQUIRED: FCM BACKGROUND HANDLER --------------------
-// Must be a top-level function. Runs when a message arrives and the app is terminated/backgrounded.
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // ✅ Initialize in background isolate
   await Firebase.initializeApp();
-  debugPrint('📩 [BG] FCM message: ${message.messageId} data=${message.data}');
+  debugPrint('ðŸ“© [BG] FCM message: ${message.messageId} data=${message.data}');
 }
 
 // -------------------- SMALL BOOT GUARD --------------------
@@ -73,29 +71,28 @@ Future<T?> guard<T>(Future<T> fut, {String label = ''}) async {
   try {
     return await fut;
   } catch (e, st) {
-    debugPrint('⚠️ Boot step failed${label.isNotEmpty ? " ($label)" : ""}: $e');
+    debugPrint('âš ï¸ Boot step failed${label.isNotEmpty ? " ($label)" : ""}: $e');
     debugPrint('$st');
     return null;
   }
 }
 
-// ✅ Enforce a minimum splash/poster time from a timestamp
 Future<void> _ensureMinSplash(DateTime t0, Duration min) async {
   final elapsed = DateTime.now().difference(t0);
   final remain = min - elapsed;
+
   if (remain > Duration.zero) {
     await Future.delayed(remain);
   }
 }
 
 // -------------------- ANALYTICS HELPER --------------------
-// 🔐 Make analytics lazy so it only touches Firebase after init
 class AnalyticsHelper {
   static FirebaseAnalytics get _analytics => FirebaseAnalytics.instance;
 
   static Future<void> logAppStart() async {
     await _analytics.logEvent(name: 'app_start');
-    debugPrint('📊 Event logged: app_start');
+    debugPrint('ðŸ“Š Event logged: app_start');
   }
 
   static Future<void> logViewProduct(int productId, String name) async {
@@ -103,7 +100,7 @@ class AnalyticsHelper {
       name: 'view_product',
       parameters: {'product_id': productId, 'product_name': name},
     );
-    debugPrint('🛍️ Event logged: view_product → $name');
+    debugPrint('ðŸ›ï¸ Event logged: view_product â†’ $name');
   }
 
   static Future<void> logAddToCart(int productId, String name) async {
@@ -111,7 +108,7 @@ class AnalyticsHelper {
       name: 'add_to_cart',
       parameters: {'product_id': productId, 'product_name': name},
     );
-    debugPrint('🛒 Event logged: add_to_cart → $name');
+    debugPrint('ðŸ›’ Event logged: add_to_cart â†’ $name');
   }
 
   static Future<void> logCheckoutStart(double total) async {
@@ -119,21 +116,14 @@ class AnalyticsHelper {
       name: 'checkout_start',
       parameters: {'total_value': total},
     );
-    debugPrint('💳 Event logged: checkout_start → ₦$total');
-  }
-
-  static Future<void> triggerInAppTest() async {
-    await _analytics.logEvent(name: 'on_foreground_test');
-    debugPrint('🚀 Fired Analytics: on_foreground_test');
+    debugPrint('ðŸ’³ Event logged: checkout_start â†’ â‚¦$total');
   }
 }
 
 // -------------------- PUSH HANDLERS --------------------
 Future<void> _handlePushData(Map<String, dynamic> data) async {
-  final ctx = navigatorKey.currentContext;
-  debugPrint('🔔 Push data received: $data');
+  debugPrint('ðŸ”” Push data received: $data');
 
-  // 1️⃣ Deep link to product if productId/id exists
   final rawId = (data['productId'] ??
           data['productID'] ??
           data['product_id'] ??
@@ -144,23 +134,28 @@ Future<void> _handlePushData(Map<String, dynamic> data) async {
 
   if (rawId != null && rawId.isNotEmpty) {
     final id = int.tryParse(rawId);
-    debugPrint('🧭 Deep link product id parsed: $id (raw: $rawId)');
+    debugPrint('ðŸ§­ Deep link product id parsed: $id (raw: $rawId)');
 
     if (id != null) {
       try {
         final svc = WooCommerceAuthService();
         final product = await svc.searchProductById(id);
+
         if (product != null) {
           navigatorKey.currentState?.push(
             MaterialPageRoute(
               builder: (_) => ProductDetailPage(product: product),
             ),
           );
-          await AnalyticsHelper.logViewProduct(id, product['name'] ?? 'Unknown');
+
+          await AnalyticsHelper.logViewProduct(
+            id,
+            product['name'] ?? 'Unknown',
+          );
           return;
         }
       } catch (e) {
-        debugPrint('⚠️ Fetch-by-id failed: $e (falling back to Search)');
+        debugPrint('âš ï¸ Fetch-by-id failed: $e (falling back to Search)');
       }
 
       navigatorKey.currentState?.push(
@@ -175,16 +170,16 @@ Future<void> _handlePushData(Map<String, dynamic> data) async {
     }
   }
 
-  // 2️⃣ Generic route (e.g. /cart, /wishlist)
   final route = data['route']?.toString();
+
   if (route != null && route.isNotEmpty) {
-    debugPrint('🧭 Navigating to named route: $route');
+    debugPrint('ðŸ§­ Navigating to named route: $route');
     navigatorKey.currentState?.pushNamed(route);
     return;
   }
 
-  // 3️⃣ Fallback → show toast
   final ctx2 = navigatorKey.currentContext;
+
   if (ctx2 != null) {
     ScaffoldMessenger.of(ctx2).showSnackBar(
       const SnackBar(content: Text('Opened from notification')),
@@ -194,58 +189,60 @@ Future<void> _handlePushData(Map<String, dynamic> data) async {
 
 Future<void> _handlePush(RemoteMessage m) async => _handlePushData(m.data);
 
-// -------------------- TOKEN + FID LOGGING --------------------
+// -------------------- TOKEN LOGGING --------------------
 Future<void> _printAndCopyFcmToken() async {
   try {
     final token = await FirebaseMessaging.instance.getToken();
+
     if (token != null) {
-      debugPrint('🔑 FCM token: $token');
-      // Only copy to clipboard in debug to avoid surprising users
+      debugPrint('ðŸ”‘ FCM token: $token');
+
       if (kDebugMode) {
         await Clipboard.setData(ClipboardData(text: token));
       }
     }
   } catch (e, st) {
-    debugPrint('⚠️ getToken failed: $e');
+    debugPrint('âš ï¸ getToken failed: $e');
     debugPrint('$st');
   }
 }
 
 // ==================== SUPER-LIGHT MAIN ====================
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  HttpOverrides.global = MyHttpOverrides();
-
-  SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
-
   await runZonedGuarded<Future<void>>(
     () async {
-      // ✅ Initialize Firebase ONCE, before anything else uses it
+      // IMPORTANT:
+      // WidgetsFlutterBinding.ensureInitialized() and runApp() must be inside
+      // the same zone. This fixes the Flutter "Zone mismatch" startup error.
+      WidgetsFlutterBinding.ensureInitialized();
+
+      HttpOverrides.global = MyHttpOverrides();
+
+      SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
+
       try {
         await Firebase.initializeApp();
-        debugPrint('✅ Firebase initialized in main()');
+        debugPrint('âœ… Firebase initialized in main()');
       } catch (e, st) {
-        debugPrint('❌ Firebase.initializeApp failed in main(): $e');
+        debugPrint('âŒ Firebase.initializeApp failed in main(): $e');
         debugPrint('$st');
       }
 
-      // ✅ Register background handler after init
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-      // Draw poster immediately (Firebase is already ready at this point)
       runApp(const _MinimalBootApp());
     },
     (error, stack) {
-      // Global crash guard – this prevents silent white-screen on release
-      debugPrint('🔥 Uncaught error in main zone: $error');
+      debugPrint('ðŸ”¥ Uncaught error in main zone: $error');
       debugPrint('$stack');
     },
   );
 }
 
-// A tiny shell that draws the poster and runs heavy init behind it.
+// A tiny shell that draws the poster and runs only light init.
 class _MinimalBootApp extends StatelessWidget {
   const _MinimalBootApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return const MaterialApp(
@@ -255,17 +252,16 @@ class _MinimalBootApp extends StatelessWidget {
   }
 }
 
-// -------------------- APP BOOTSTRAP (does heavy init behind the poster) --------------------
+// -------------------- APP BOOTSTRAP --------------------
 class _Bootstrap extends StatefulWidget {
   const _Bootstrap({super.key});
+
   @override
   State<_Bootstrap> createState() => _BootstrapState();
 }
 
 class _BootstrapState extends State<_Bootstrap> {
-  // Keep these so we can still navigate even if boot fails / times out
   UserSettingsProvider? _userSettings;
-  CelebrationThemeProvider? _themeProvider;
 
   @override
   void initState() {
@@ -277,55 +273,49 @@ class _BootstrapState extends State<_Bootstrap> {
     final t0 = DateTime.now();
 
     try {
-      // ⏱️ Give all boot steps at most 15 seconds in total.
       await _doBootSteps().timeout(
-        const Duration(seconds: 15),
+        const Duration(seconds: 8),
         onTimeout: () {
           debugPrint(
-            '⚠️ Boot timed out after 15s, continuing to app anyway (failing open).',
+            'âš ï¸ Boot timed out after 8s, continuing to app anyway.',
           );
           return;
         },
       );
     } catch (e, st) {
-      debugPrint('⚠️ Boot failed unexpectedly: $e');
+      debugPrint('âš ï¸ Boot failed unexpectedly: $e');
       debugPrint('$st');
-      // We swallow errors so the app still moves past splash.
     }
 
     if (!mounted) return;
 
-    // Keep your minimum splash time
-    await _ensureMinSplash(t0, const Duration(seconds: 3));
+    await _ensureMinSplash(t0, const Duration(seconds: 2));
 
     final userSettings = _userSettings ?? UserSettingsProvider();
-    final themeProvider = _themeProvider ?? CelebrationThemeProvider();
 
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 300),
+        transitionDuration: const Duration(milliseconds: 250),
         pageBuilder: (_, __, ___) => MultiProvider(
           providers: [
-            ChangeNotifierProvider(
-              create: (_) => NotificationProvider()..load(),
-            ),
+            ChangeNotifierProvider(create: (_) => NotificationProvider()),
+            ChangeNotifierProvider(create: (_) => BlogNotificationProvider()),
             ChangeNotifierProvider(create: (_) => CartProvider()),
             ChangeNotifierProvider(create: (_) => WishlistProvider()),
             ChangeNotifierProvider.value(value: userSettings),
             ChangeNotifierProvider(create: (_) => UserProvider()..initialize()),
-            ChangeNotifierProvider.value(value: themeProvider),
+            ChangeNotifierProvider(create: (_) => CelebrationThemeProvider()),
           ],
           child: const MyApp(),
         ),
-        transitionsBuilder: (_, anim, __, child) =>
-            FadeTransition(opacity: anim, child: child),
+        transitionsBuilder: (_, anim, __, child) {
+          return FadeTransition(opacity: anim, child: child);
+        },
       ),
     );
   }
 
-  /// 🔧 All heavy startup work moved here so we can wrap it with timeout/try-catch.
   Future<void> _doBootSteps() async {
-    // ✅ Firebase is already initialized in main(); this is just a safety fallback.
     if (Firebase.apps.isEmpty) {
       await guard(
         Firebase.initializeApp(),
@@ -333,100 +323,21 @@ class _BootstrapState extends State<_Bootstrap> {
       );
     }
 
-    // (Optional) projectId log
     try {
       final app = Firebase.app();
-      debugPrint('🔥 Firebase projectId: ${app.options.projectId}');
+      debugPrint('ðŸ”¥ Firebase projectId: ${app.options.projectId}');
     } catch (e) {
-      debugPrint('⚠️ Could not read Firebase app options: $e');
+      debugPrint('âš ï¸ Could not read Firebase app options: $e');
     }
 
-    // ✅ Ask for notification permission (Android 13+ + iOS)
-    await guard(
-      FirebaseMessaging.instance.requestPermission(),
-      label: 'FCM requestPermission',
-    );
-
-    await guard(AnalyticsHelper.logAppStart(), label: 'Analytics logAppStart');
-
-    // 🔔 Local notification service → taps handled via NotificationProvider + _handlePush
-    await guard(
-      NotificationService.init(
-        onTap: (RemoteMessage m) async {
-          final ctx = navigatorKey.currentContext;
-          if (ctx != null) {
-            await guard(
-              ctx.read<NotificationProvider>().handleMessage(m, fromTap: true),
-              label: 'NotificationProvider.onTap',
-            );
-          }
-          await guard(_handlePush(m), label: '_handlePush');
-        },
-        onLocalTap: (Map<String, dynamic> data) async {
-          await guard(_handlePushData(data), label: '_handlePushData(local)');
-        },
-      ),
-      label: 'NotificationService.init',
-    );
-
-    // 🔔 Foreground FCM messages
-    try {
-      FirebaseMessaging.onMessage.listen((RemoteMessage m) async {
-        final ctx = navigatorKey.currentContext;
-        if (ctx != null) {
-          await guard(
-            ctx.read<NotificationProvider>().handleMessage(m, fromTap: false),
-            label: 'NotificationProvider.onMessage',
-          );
-        }
-      });
-    } catch (e, st) {
-      debugPrint('⚠️ onMessage.listen failed: $e\n$st');
-    }
-
-    // 🔔 FCM when user taps a notification and opens/resumes the app
-    try {
-      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage m) async {
-        final ctx = navigatorKey.currentContext;
-        if (ctx != null) {
-          await guard(
-            ctx.read<NotificationProvider>().handleMessage(m, fromTap: true),
-            label: 'NotificationProvider.onMessageOpenedApp',
-          );
-        }
-        await guard(_handlePush(m), label: '_handlePush(openedApp)');
-      });
-    } catch (e, st) {
-      debugPrint('⚠️ onMessageOpenedApp.listen failed: $e\n$st');
-    }
-
-    // 🔔 App launched from a terminated state via notification tap
-    final initialMessage = await guard(
-      FirebaseMessaging.instance.getInitialMessage(),
-      label: 'getInitialMessage',
-    );
-    if (initialMessage != null) {
-      final ctx = navigatorKey.currentContext;
-      if (ctx != null) {
-        await guard(
-          ctx
-              .read<NotificationProvider>()
-              .handleMessage(initialMessage, fromTap: true),
-          label: 'NotificationProvider.initialMessage',
-        );
-      }
-      await guard(_handlePush(initialMessage), label: '_handlePush(initial)');
-    }
-
-    await guard(_printAndCopyFcmToken(), label: 'print fcm token');
-
-    // 🔧 Load user settings + celebration theme
     final userSettings = UserSettingsProvider();
-    await guard(userSettings.loadSettings(), label: 'userSettings.loadSettings');
-    _userSettings = userSettings;
 
-    final themeProvider = CelebrationThemeProvider();
-    _themeProvider = themeProvider;
+    await guard(
+      userSettings.loadSettings().timeout(const Duration(seconds: 5)),
+      label: 'userSettings.loadSettings',
+    );
+
+    _userSettings = userSettings;
   }
 
   @override
@@ -448,6 +359,7 @@ class _PosterOnly extends StatelessWidget {
     final ratio = size.height / size.width;
 
     String asset;
+
     if (ratio < 1.90) {
       asset = 'assets/images/splash_poster_16_9.png';
     } else if (ratio < 2.08) {
@@ -466,55 +378,187 @@ class _PosterOnly extends StatelessWidget {
 class _PosterImage extends StatelessWidget {
   final String asset;
   final Alignment alignment;
-  const _PosterImage(this.asset, {super.key, this.alignment = Alignment.center});
+
+  const _PosterImage(
+    this.asset, {
+    super.key,
+    this.alignment = Alignment.center,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Image.asset(
-      asset,
-      fit: BoxFit.cover,
-      alignment: alignment,
-      gaplessPlayback: true,
-      filterQuality: FilterQuality.high,
+    return SizedBox.expand(
+      child: Image.asset(
+        asset,
+        fit: BoxFit.cover,
+        alignment: alignment,
+        gaplessPlayback: true,
+        filterQuality: FilterQuality.high,
+        errorBuilder: (context, error, stackTrace) {
+          return const ColoredBox(
+            color: Color(0xFF0B46C5),
+            child: Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
+          );
+        },
+      ),
     );
   }
 }
 
-// -------------------- FIAM BOOTSTRAPPER (SIMPLIFIED) --------------------
-class _FiamBootstrapper extends StatefulWidget {
+// -------------------- POST-LAUNCH INITIALIZER --------------------
+class _PostLaunchInitializer extends StatefulWidget {
   final Widget child;
-  const _FiamBootstrapper({required this.child});
+
+  const _PostLaunchInitializer({required this.child});
 
   @override
-  State<_FiamBootstrapper> createState() => _FiamBootstrapperState();
+  State<_PostLaunchInitializer> createState() => _PostLaunchInitializerState();
 }
 
-class _FiamBootstrapperState extends State<_FiamBootstrapper>
-    with WidgetsBindingObserver {
-  bool _bootstrapped = false;
+class _PostLaunchInitializerState extends State<_PostLaunchInitializer> {
+  bool _started = false;
+  StreamSubscription<RemoteMessage>? _onMessageSub;
+  StreamSubscription<RemoteMessage>? _onMessageOpenedSub;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!_bootstrapped) {
-        _bootstrapped = true;
-        await AnalyticsHelper.triggerInAppTest();
-      }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_started) return;
+
+      _started = true;
+
+      Future.delayed(
+        const Duration(seconds: 3),
+        _runBackgroundStartup,
+      );
     });
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) async {
-    if (state == AppLifecycleState.resumed) {
-      await AnalyticsHelper.triggerInAppTest();
+  Future<void> _runBackgroundStartup() async {
+    if (!mounted) return;
+
+    await guard(
+      AnalyticsHelper.logAppStart().timeout(const Duration(seconds: 5)),
+      label: 'Analytics logAppStart post-launch',
+    );
+
+    await guard(
+      context.read<NotificationProvider>().load(),
+      label: 'NotificationProvider.load post-launch',
+    );
+
+    await guard(
+      NotificationService.init(
+        onTap: (RemoteMessage m) async {
+          final ctx = navigatorKey.currentContext;
+
+          if (ctx != null) {
+            await guard(
+              ctx.read<NotificationProvider>().handleMessage(
+                    m,
+                    fromTap: true,
+                  ),
+              label: 'NotificationProvider.onTap',
+            );
+          }
+
+          await guard(_handlePush(m), label: '_handlePush');
+        },
+        onLocalTap: (Map<String, dynamic> data) async {
+          await guard(
+            _handlePushData(data),
+            label: '_handlePushData(local)',
+          );
+        },
+      ).timeout(const Duration(seconds: 8)),
+      label: 'NotificationService.init post-launch',
+    );
+
+    try {
+      _onMessageSub ??= FirebaseMessaging.onMessage.listen(
+        (RemoteMessage m) async {
+          final ctx = navigatorKey.currentContext;
+
+          if (ctx != null) {
+            await guard(
+              ctx.read<NotificationProvider>().handleMessage(
+                    m,
+                    fromTap: false,
+                  ),
+              label: 'NotificationProvider.onMessage',
+            );
+          }
+        },
+      );
+    } catch (e, st) {
+      debugPrint('âš ï¸ onMessage.listen failed: $e\n$st');
     }
+
+    try {
+      _onMessageOpenedSub ??= FirebaseMessaging.onMessageOpenedApp.listen(
+        (RemoteMessage m) async {
+          final ctx = navigatorKey.currentContext;
+
+          if (ctx != null) {
+            await guard(
+              ctx.read<NotificationProvider>().handleMessage(
+                    m,
+                    fromTap: true,
+                  ),
+              label: 'NotificationProvider.onMessageOpenedApp',
+            );
+          }
+
+          await guard(
+            _handlePush(m),
+            label: '_handlePush(openedApp)',
+          );
+        },
+      );
+    } catch (e, st) {
+      debugPrint('âš ï¸ onMessageOpenedApp.listen failed: $e\n$st');
+    }
+
+    final initialMessage = await guard(
+      FirebaseMessaging.instance
+          .getInitialMessage()
+          .timeout(const Duration(seconds: 5)),
+      label: 'getInitialMessage post-launch',
+    );
+
+    if (initialMessage != null) {
+      final ctx = navigatorKey.currentContext;
+
+      if (ctx != null) {
+        await guard(
+          ctx.read<NotificationProvider>().handleMessage(
+                initialMessage,
+                fromTap: true,
+              ),
+          label: 'NotificationProvider.initialMessage',
+        );
+      }
+
+      await guard(
+        _handlePush(initialMessage),
+        label: '_handlePush(initial)',
+      );
+    }
+
+    await guard(
+      _printAndCopyFcmToken().timeout(const Duration(seconds: 5)),
+      label: 'print fcm token post-launch',
+    );
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
+    _onMessageSub?.cancel();
+    _onMessageOpenedSub?.cancel();
     super.dispose();
   }
 
@@ -545,7 +589,9 @@ class MyApp extends StatelessWidget {
             fontFamily: GoogleFonts.inter().fontFamily,
           ),
           themeMode: settings.themeMode,
-          home: const _FiamBootstrapper(child: BottomNavShell()),
+          home: const _PostLaunchInitializer(
+            child: BottomNavShell(),
+          ),
           routes: <String, WidgetBuilder>{
             '/signin': (context) => const SignInPage(),
             '/signup': (context) => const SignUpPage(),
@@ -563,8 +609,8 @@ class MyApp extends StatelessWidget {
             '/about': (context) => const AboutPage(),
             '/wallet-history': (context) => const WalletHistoryPage(),
             '/checkout': (context) {
-              final args =
-                  ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+              final args = ModalRoute.of(context)?.settings.arguments
+                  as Map<String, dynamic>?;
 
               final List<dynamic> cartItems =
                   (args?['cartItems'] as List?)?.cast<dynamic>() ??
@@ -590,8 +636,9 @@ class MyApp extends StatelessWidget {
               );
             },
           },
-          onUnknownRoute: (settings) =>
-              MaterialPageRoute(builder: (_) => const ProfilePage()),
+          onUnknownRoute: (settings) {
+            return MaterialPageRoute(builder: (_) => const ProfilePage());
+          },
         );
       },
     );
