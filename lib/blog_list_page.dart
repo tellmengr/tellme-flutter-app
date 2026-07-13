@@ -1,4 +1,4 @@
-// lib/blog_list_page.dart
+﻿// lib/blog_list_page.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -61,7 +61,7 @@ class _BlogListPageState extends State<BlogListPage> {
         _isLoadingMore = false;
       });
 
-      // ✅ Mark latest post as "seen" to clear NEW badge
+      // âœ… Mark latest post as "seen" to clear NEW badge
       if (_posts.isNotEmpty && mounted) {
         final latestId = _posts.first.id;
         final blogNotif = context.read<BlogNotificationProvider?>();
@@ -174,7 +174,7 @@ class _BlogListPageState extends State<BlogListPage> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => BlogPostPage(postId: post.id),
+              builder: (_) => BlogPostPage(slug: post.slug),
             ),
           );
         },
@@ -235,3 +235,4 @@ class _BlogListPageState extends State<BlogListPage> {
     );
   }
 }
+

@@ -1,5 +1,6 @@
-class WpPost {
+﻿class WpPost {
   final int id;
+  final String slug;
   final String title;
   final String excerpt;
   final String contentHtml;
@@ -8,6 +9,7 @@ class WpPost {
 
   WpPost({
     required this.id,
+    required this.slug,
     required this.title,
     required this.excerpt,
     required this.contentHtml,
@@ -15,36 +17,32 @@ class WpPost {
     this.featuredImage,
   });
 
-  /// Backward-compatible alias so code using `excerptHtml` still works
   String get excerptHtml => excerpt;
 
   factory WpPost.fromJson(Map<String, dynamic> json) {
-    final rawTitle = (json['title']?['rendered'] ?? '') as String;
-    final rawExcerpt = (json['excerpt']?['rendered'] ?? '') as String;
-    final rawContent = (json['content']?['rendered'] ?? '') as String;
-
-    String? imageUrl;
-    try {
-      // Works if API called with ?_embed for featured images
-      final media = json['_embedded']['wp:featuredmedia'][0];
-      imageUrl = media['source_url'] as String?;
-    } catch (_) {
-      imageUrl = null;
-    }
+    final rawTitle = _renderedOrText(json['title']);
+    final rawExcerpt = _renderedOrText(json['excerpt']);
+    final rawContent = json['bodyHtml'] ?? json['contentHtml'] ?? _renderedOrText(json['content']);
+    final rawImage = json['coverImageUrl'] ?? json['featuredImage'];
+    final rawDate = json['publishedAt'] ?? json['date'];
 
     return WpPost(
-      id: json['id'] as int,
+      id: int.tryParse('${json['id'] ?? 0}') ?? 0,
+      slug: '${json['slug'] ?? json['id'] ?? ''}',
       title: _stripHtml(rawTitle),
       excerpt: _stripHtml(rawExcerpt),
-      contentHtml: rawContent, // keep HTML for detail page
-      date: DateTime.parse(json['date'] as String),
-      featuredImage: imageUrl,
+      contentHtml: '$rawContent',
+      date: DateTime.tryParse('$rawDate') ?? DateTime.now(),
+      featuredImage: rawImage == null || '$rawImage'.isEmpty ? null : '$rawImage',
     );
   }
 
-  /// Utility to strip basic HTML tags (for list/excerpt display)
+  static String _renderedOrText(dynamic value) {
+    if (value is Map) return '${value['rendered'] ?? ''}';
+    return '${value ?? ''}';
+  }
+
   static String _stripHtml(String htmlText) {
-    final regex = RegExp(r'<[^>]*>', multiLine: true, caseSensitive: false);
-    return htmlText.replaceAll(regex, '').trim();
+    return htmlText.replaceAll(RegExp(r'<[^>]*>'), '').trim();
   }
 }

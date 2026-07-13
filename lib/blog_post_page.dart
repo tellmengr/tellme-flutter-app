@@ -1,4 +1,4 @@
-// lib/blog_post_page.dart
+﻿// lib/blog_post_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,9 +8,9 @@ import 'wp_post.dart';
 import 'wordpress_blog_service.dart';
 
 class BlogPostPage extends StatefulWidget {
-  final int postId;
+  final String slug;
 
-  const BlogPostPage({super.key, required this.postId});
+  const BlogPostPage({super.key, required this.slug});
 
   @override
   State<BlogPostPage> createState() => _BlogPostPageState();
@@ -24,7 +24,7 @@ class _BlogPostPageState extends State<BlogPostPage> {
   void initState() {
     super.initState();
     _service = WordPressBlogService();
-    _futurePost = _service.fetchPost(widget.postId);
+    _futurePost = _service.fetchPost(widget.slug);
   }
 
   Future<void> _openExternalLink(String url) async {
@@ -45,7 +45,7 @@ class _BlogPostPageState extends State<BlogPostPage> {
       return;
     }
 
-    // 👇 open in browser outside the app
+    // ðŸ‘‡ open in browser outside the app
     await launchUrl(
       uri,
       mode: LaunchMode.externalApplication,
@@ -120,7 +120,7 @@ class _BlogPostPageState extends State<BlogPostPage> {
                     ),
                   },
 
-                  // ✅ flutter_html 3.0.0 signature: (url, attributes, element)
+                  // âœ… flutter_html 3.0.0 signature: (url, attributes, element)
                   onLinkTap: (url, attributes, element) {
                     if (url == null) return;
                     _openExternalLink(url);
@@ -140,3 +140,4 @@ class _BlogPostPageState extends State<BlogPostPage> {
         '${date.year}';
   }
 }
+
