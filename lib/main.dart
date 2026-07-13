@@ -219,6 +219,18 @@ Future<void> main() async {
       HttpOverrides.global = MyHttpOverrides();
 
       SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
+      FlutterError.onError = (FlutterErrorDetails details) {
+        FlutterError.presentError(details);
+        debugPrint('Flutter framework error: ${details.exceptionAsString()}');
+
+        if (details.stack != null) {
+          debugPrint('${details.stack}');
+        }
+      };
+      ErrorWidget.builder = (FlutterErrorDetails details) {
+        debugPrint('Flutter build error: ${details.exceptionAsString()}');
+        return const _StartupErrorFallback();
+      };
 
       try {
         await Firebase.initializeApp();
@@ -237,6 +249,34 @@ Future<void> main() async {
       debugPrint('$stack');
     },
   );
+}
+
+class _StartupErrorFallback extends StatelessWidget {
+  const _StartupErrorFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Directionality(
+      textDirection: TextDirection.ltr,
+      child: ColoredBox(
+        color: Color(0xFF0B46C5),
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Text(
+              'TellMe is starting. Please close and reopen the app if this continues.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // A tiny shell that draws the poster and runs only light init.
