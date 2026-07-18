@@ -1,8 +1,8 @@
-﻿name: hello_app
+name: hello_app
 description: "TellMe.ng Flutter E-commerce App"
 publish_to: 'none'
 
-version: 1.0.5+33
+version: 1.0.7+36
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
