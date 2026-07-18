@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'notification_provider.dart';
 import 'celebration_theme_provider.dart';
 
-/// 🎨 Brand Colors (Fallbacks)
+/// Brand colors (fallbacks)
 const kPrimaryBlue = Color(0xFF004AAD);
 const kAccentBlue = Color(0xFF0096FF);
 const kLightGray = Color(0xFFF7F9FC);
@@ -47,13 +47,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   @override
   Widget build(BuildContext context) {
-    // 🎨 Theme-aware colors
+    // Theme-aware colors
     final theme = context.watch<CelebrationThemeProvider?>();
-    final primaryColor = theme?.activeTheme?.primaryColor ?? kPrimaryBlue;
-    final accentColor = theme?.activeTheme?.accentColor ?? kAccentBlue;
-    final secondaryColor = theme?.activeTheme?.secondaryColor ?? Colors.white;
-    final gradient = theme?.activeTheme?.gradient ?? [kPrimaryBlue, kAccentBlue];
-    final backgroundColor = theme?.activeTheme?.backgroundColor ?? kLightGray;
+    final primaryColor = theme?.primaryColor ?? kPrimaryBlue;
+    final accentColor = theme?.accentColor ?? kAccentBlue;
+    final secondaryColor = theme?.secondaryColor ?? Colors.white;
+    final gradientColors = theme?.gradient.colors ?? [kPrimaryBlue, kAccentBlue];
+    const backgroundColor = kLightGray;
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -73,7 +73,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
           flexibleSpace: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: gradient,
+                colors: gradientColors,
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -103,7 +103,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     );
   }
 
-  // 🧩 Notification Card
+  // Notification card
   Widget _buildNotificationCard(Map<String, dynamic> n, {required Color primaryColor, required Color accentColor}) {
     final title = n['title'] ?? 'New Notification';
     final body = n['body'] ?? '';
@@ -169,7 +169,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     );
   }
 
-  // 🕓 Format timestamp
+  // Format timestamp
   String _formatDate(String timestamp) {
     try {
       final t = DateTime.tryParse(timestamp);
@@ -185,7 +185,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     return '';
   }
 
-  // 💭 Empty State
+  // Empty state
   Widget _emptyState({required Color primaryColor}) {
     return Center(
       child: Padding(
@@ -216,3 +216,4 @@ class _NotificationsPageState extends State<NotificationsPage> {
     );
   }
 }
+

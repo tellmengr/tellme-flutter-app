@@ -77,6 +77,30 @@ Future<T?> guard<T>(Future<T> fut, {String label = ''}) async {
   }
 }
 
+
+Future<bool> _initializeFirebaseSafely({String label = 'Firebase.initializeApp'}) async {
+  try {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp().timeout(const Duration(seconds: 5));
+    }
+
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+    try {
+      final app = Firebase.app();
+      debugPrint('Firebase ready: ${app.options.projectId}');
+    } catch (e) {
+      debugPrint('Firebase ready, but options could not be read: $e');
+    }
+
+    return true;
+  } catch (e, st) {
+    debugPrint('Firebase startup skipped ($label): $e');
+    debugPrint('$st');
+    return false;
+  }
+}
+
 Future<void> _ensureMinSplash(DateTime t0, Duration min) async {
   final elapsed = DateTime.now().difference(t0);
   final remain = min - elapsed;
@@ -232,17 +256,13 @@ Future<void> main() async {
         return const _StartupErrorFallback();
       };
 
-      try {
-        await Firebase.initializeApp();
-        debugPrint('âœ… Firebase initialized in main()');
-      } catch (e, st) {
-        debugPrint('âŒ Firebase.initializeApp failed in main(): $e');
-        debugPrint('$st');
-      }
+      GoogleFonts.config.allowRuntimeFetching = false;
 
-      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-
+      // Paint Flutter immediately. Apple should never see a blank native screen
+      // while Firebase, FCM, fonts, or network startup work is happening.
       runApp(const _MinimalBootApp());
+
+      unawaited(_initializeFirebaseSafely(label: 'main post-runApp'));
     },
     (error, stack) {
       debugPrint('ðŸ”¥ Uncaught error in main zone: $error');
