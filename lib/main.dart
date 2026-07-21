@@ -12,6 +12,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 
+import 'firebase_options.dart';
+
 // ðŸ”” Notifications
 import 'notification_service.dart';
 import 'notification_provider.dart';
@@ -49,6 +51,7 @@ import 'wallet_history_page.dart';
 
 // -------------------- GLOBAL NAVIGATOR KEY --------------------
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+late final Future<bool> _firebaseInitialization;
 
 class MyHttpOverrides extends HttpOverrides {
   @override
@@ -62,7 +65,11 @@ class MyHttpOverrides extends HttpOverrides {
 // -------------------- REQUIRED: FCM BACKGROUND HANDLER --------------------
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
   debugPrint('ðŸ“© [BG] FCM message: ${message.messageId} data=${message.data}');
 }
 
@@ -81,7 +88,9 @@ Future<T?> guard<T>(Future<T> fut, {String label = ''}) async {
 Future<bool> _initializeFirebaseSafely({String label = 'Firebase.initializeApp'}) async {
   try {
     if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp().timeout(const Duration(seconds: 5));
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      ).timeout(const Duration(seconds: 5));
     }
 
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
@@ -256,13 +265,16 @@ Future<void> main() async {
         return const _StartupErrorFallback();
       };
 
-      GoogleFonts.config.allowRuntimeFetching = false;
+      // Start Firebase exactly once, then let the bootstrap await this same
+      // operation before constructing providers that access Firebase.instance.
+      _firebaseInitialization = _initializeFirebaseSafely(
+        label: 'main startup',
+      );
 
       // Paint Flutter immediately. Apple should never see a blank native screen
       // while Firebase, FCM, fonts, or network startup work is happening.
       runApp(const _MinimalBootApp());
 
-      unawaited(_initializeFirebaseSafely(label: 'main post-runApp'));
     },
     (error, stack) {
       debugPrint('ðŸ”¥ Uncaught error in main zone: $error');
@@ -376,11 +388,9 @@ class _BootstrapState extends State<_Bootstrap> {
   }
 
   Future<void> _doBootSteps() async {
-    if (Firebase.apps.isEmpty) {
-      await guard(
-        Firebase.initializeApp(),
-        label: 'Firebase.initializeApp (fallback)',
-      );
+    final firebaseReady = await _firebaseInitialization;
+    if (!firebaseReady) {
+      throw StateError('Firebase initialization did not complete.');
     }
 
     try {
@@ -641,12 +651,10 @@ class MyApp extends StatelessWidget {
           theme: ThemeData(
             brightness: Brightness.light,
             primarySwatch: Colors.blue,
-            fontFamily: GoogleFonts.inter().fontFamily,
           ),
           darkTheme: ThemeData(
             brightness: Brightness.dark,
             primarySwatch: Colors.blue,
-            fontFamily: GoogleFonts.inter().fontFamily,
           ),
           themeMode: settings.themeMode,
           home: const _PostLaunchInitializer(

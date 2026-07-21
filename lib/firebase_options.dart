@@ -1,9 +1,12 @@
 // lib/firebase_options.dart
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, kIsWeb, TargetPlatform;
 
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
+    if (kIsWeb) return web;
+
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
         return android;
@@ -15,6 +18,19 @@ class DefaultFirebaseOptions {
         );
     }
   }
+
+  // Web is used for local smoke testing. Firebase accepts the same project
+  // credentials here; the native iOS build continues to use the iOS app.
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyAlzb1nAhBayUwHUVWIpamiox7adFGhEec',
+    appId: '1:484492060714:ios:6c9ae9fb21f55716d0fb53',
+    messagingSenderId: '484492060714',
+    projectId: 'tellme-65fdf',
+    authDomain: 'tellme-65fdf.firebaseapp.com',
+    storageBucket: 'tellme-65fdf.appspot.com',
+    databaseURL:
+        'https://tellme-65fdf-default-rtdb.europe-west1.firebasedatabase.app',
+  );
 
   // ANDROID — from your google-services.json
   static const FirebaseOptions android = FirebaseOptions(
