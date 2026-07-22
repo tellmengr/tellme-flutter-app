@@ -15,42 +15,50 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
   final List<Map<String, dynamic>> _faqs = [
     {
       'question': 'How do I track my order?',
-      'answer': 'You can track your order by going to "My Orders" section in your profile. Click on any order to see detailed tracking information.',
+      'answer':
+          'You can track your order by going to "My Orders" section in your profile. Click on any order to see detailed tracking information.',
       'category': 'Orders',
     },
     {
       'question': 'What is your return policy?',
-      'answer': 'We offer a 30-day return policy on most items. Products must be unused and in original packaging. Contact customer support to initiate a return.',
+      'answer':
+          'We offer a 30-day return policy on most items. Products must be unused and in original packaging. Contact customer support to initiate a return.',
       'category': 'Returns',
     },
     {
       'question': 'How long does shipping take?',
-      'answer': 'Standard shipping takes 3-5 business days. Express shipping is available for 1-2 day delivery. Shipping times may vary based on your location.',
+      'answer':
+          'Standard shipping takes 3-5 business days. Express shipping is available for 1-2 day delivery. Shipping times may vary based on your location.',
       'category': 'Shipping',
     },
     {
       'question': 'How can I change my delivery address?',
-      'answer': 'Go to "Addresses" in your profile settings. You can add, edit, or set a default delivery address there.',
+      'answer':
+          'Go to "Addresses" in your profile settings. You can add, edit, or set a default delivery address there.',
       'category': 'Account',
     },
     {
       'question': 'What payment methods do you accept?',
-      'answer': 'We accept credit/debit cards (Visa, Mastercard, Amex), PayPal, and digital wallets like Apple Pay and Google Pay.',
+      'answer':
+          'We accept credit/debit cards (Visa, Mastercard, Amex), PayPal, and digital wallets like Apple Pay and Google Pay.',
       'category': 'Payment',
     },
     {
       'question': 'How do I cancel an order?',
-      'answer': 'Orders can be cancelled within 1 hour of placement. Go to "My Orders", select the order, and click "Cancel Order". After processing begins, cancellations may not be possible.',
+      'answer':
+          'Orders can be cancelled within 1 hour of placement. Go to "My Orders", select the order, and click "Cancel Order". After processing begins, cancellations may not be possible.',
       'category': 'Orders',
     },
     {
       'question': 'Are there any shipping charges?',
-      'answer': 'Free shipping on orders over \$50. Orders under \$50 have a flat shipping fee of \$5.99. Express shipping costs extra.',
+      'answer':
+          'Free shipping on orders over \$50. Orders under \$50 have a flat shipping fee of \$5.99. Express shipping costs extra.',
       'category': 'Shipping',
     },
     {
       'question': 'How do I reset my password?',
-      'answer': 'Click on "Forgot Password?" on the login page. Enter your email and we\'ll send you a reset link. You can also change your password in Privacy & Security settings.',
+      'answer':
+          'Click on "Forgot Password?" on the login page. Enter your email and we\'ll send you a reset link. You can also change your password in Privacy & Security settings.',
       'category': 'Account',
     },
   ];
@@ -199,7 +207,8 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          childrenPadding: const EdgeInsets.only(left: 20, right: 20, bottom: 16),
+          childrenPadding:
+              const EdgeInsets.only(left: 20, right: 20, bottom: 16),
           leading: Container(
             width: 40,
             height: 40,
@@ -282,7 +291,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
                 child: _buildContactButton(
                   icon: Icons.chat_outlined,
                   label: 'Live Chat',
-                  onTap: () {},
+                  onTap: () => Navigator.pushNamed(context, '/support-chat'),
                 ),
               ),
             ],

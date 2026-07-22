@@ -19,8 +19,9 @@ import 'celebration_theme_provider.dart';
 import 'my_orders_page.dart';
 import 'profile_page.dart';
 import 'blog_list_page.dart';
-import 'blog_notification_provider.dart'; // ✅ New
-import 'whatsapp_helper.dart'; // ✅ WhatsApp helper
+import 'blog_notification_provider.dart';
+import 'whatsapp_helper.dart';
+import 'logistics_page.dart';
 
 const kPrimaryBlue = Color(0xFF004AAD);
 const kAccentBlue = Color(0xFF0096FF);
@@ -28,6 +29,7 @@ const kWhite = Colors.white;
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
   @override
   State<HomePage> createState() => _HomePageState();
 }
@@ -35,6 +37,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final WooCommerceService _wooService = WooCommerceService();
   final List<dynamic> _products = [];
+
   bool _isInitialLoading = true;
   bool _isLoadingMore = false;
   bool _hasError = false;
@@ -48,6 +51,8 @@ class _HomePageState extends State<HomePage> {
   final ScrollController _scrollCtrl = ScrollController();
   bool _loadMoreScheduled = false;
 
+  Timer? _blogRefreshTimer;
+
   @override
   void initState() {
     super.initState();
@@ -55,17 +60,24 @@ class _HomePageState extends State<HomePage> {
     _attachScrollListener();
     _loadProducts(reset: true);
 
-    // ✅ Check for new blog posts when HomePage loads
-    Future.microtask(() {
-      final blogNotif = context.read<BlogNotificationProvider>();
-      blogNotif.init();
-      blogNotif.checkForNewPosts();
+    Future.microtask(() async {
+      try {
+        final blogNotif = context.read<BlogNotificationProvider>();
+        await blogNotif.init();
+        await blogNotif.checkForNewPosts();
+      } catch (e) {
+        debugPrint('Blog notifications skipped on home launch: $e');
+      }
     });
 
-    // ✅ Auto-refresh every 3 minutes
-    Timer.periodic(const Duration(minutes: 3), (timer) {
+    _blogRefreshTimer = Timer.periodic(const Duration(minutes: 3), (timer) {
       if (mounted) {
-        context.read<BlogNotificationProvider>().checkForNewPosts();
+        context
+            .read<BlogNotificationProvider>()
+            .checkForNewPosts()
+            .catchError((e) {
+          debugPrint('Blog notification refresh skipped: $e');
+        });
       } else {
         timer.cancel();
       }
@@ -75,6 +87,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     _mountedFlag = false;
+    _blogRefreshTimer?.cancel();
     _scrollCtrl.dispose();
     super.dispose();
   }
@@ -82,7 +95,9 @@ class _HomePageState extends State<HomePage> {
   void _attachScrollListener() {
     _scrollCtrl.addListener(() {
       final pos = _scrollCtrl.position;
-      if (pos.pixels >= pos.maxScrollExtent - 300) _triggerLoadMore();
+      if (pos.pixels >= pos.maxScrollExtent - 300) {
+        _triggerLoadMore();
+      }
     });
   }
 
@@ -90,7 +105,9 @@ class _HomePageState extends State<HomePage> {
     if (!_mountedFlag) return;
     if (_isInitialLoading || _isLoadingMore || !_hasMore) return;
     if (_loadMoreScheduled) return;
+
     _loadMoreScheduled = true;
+
     Future.microtask(() async {
       await _loadProducts(reset: false);
       _loadMoreScheduled = false;
@@ -115,8 +132,11 @@ class _HomePageState extends State<HomePage> {
     }
 
     try {
-      final items =
-          await _wooService.getProducts(page: _page, perPage: _perPage);
+      final items = await _wooService.getProducts(
+        page: _page,
+        perPage: _perPage,
+      );
+
       if (!_mountedFlag) return;
 
       if (reset) {
@@ -130,7 +150,8 @@ class _HomePageState extends State<HomePage> {
       if (_products.isNotEmpty) {
         final cart = Provider.of<CartProvider>(context, listen: false);
         await cart.cacheProducts(
-            _products.whereType<Map<String, dynamic>>().toList());
+          _products.whereType<Map<String, dynamic>>().toList(),
+        );
       }
 
       if (items.length < _perPage) {
@@ -147,6 +168,7 @@ class _HomePageState extends State<HomePage> {
       });
     } catch (e) {
       if (!_mountedFlag) return;
+
       setState(() {
         if (reset) _isInitialLoading = false;
         _isLoadingMore = false;
@@ -156,7 +178,23 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  String _productLoadErrorMessage() {
+    if (_errorMessage.isEmpty ||
+        _errorMessage.contains('Failed to load products')) {
+      return "We couldn't load products right now. Please check your connection and try again.";
+    }
+
+    return _errorMessage;
+  }
+
   Future<void> _refreshProducts() async => _loadProducts(reset: true);
+
+  void _openLogisticsPage() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const LogisticsPage()),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -166,7 +204,6 @@ class _HomePageState extends State<HomePage> {
     final currentTheme = themeProvider?.currentTheme;
 
     final primaryColor = currentTheme?.primaryColor ?? kPrimaryBlue;
-    final accentColor = currentTheme?.accentColor ?? kAccentBlue;
     final gradientColors =
         currentTheme?.gradient.colors ?? [kPrimaryBlue, kAccentBlue];
 
@@ -190,9 +227,11 @@ class _HomePageState extends State<HomePage> {
         onPressed: () {
           final user = context.read<UserProvider?>();
           final email = user?.userEmail;
+
           final prefill = 'Hello TellMe support 👋'
               '${email != null && email.isNotEmpty ? " — I am $email" : ""}. '
               'I need help with my order.';
+
           openWhatsAppChat(
             phoneE164: '2347054139575',
             prefill: prefill,
@@ -203,10 +242,8 @@ class _HomePageState extends State<HomePage> {
       ),
       body: Column(
         children: [
-          // 🔍 Search
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: gradientColors,
@@ -224,28 +261,27 @@ class _HomePageState extends State<HomePage> {
                   MaterialPageRoute(builder: (_) => const SearchPage()),
                 ),
                 decoration: InputDecoration(
-                  hintText:
-                      "Search categories, products, sku, product id...",
+                  hintText: "Search categories, products, sku, product id...",
                   hintStyle: const TextStyle(color: Colors.grey),
                   prefixIcon: Icon(Icons.search, color: primaryColor),
                   filled: true,
                   fillColor: Colors.white,
                   contentPadding: const EdgeInsets.symmetric(
-                      vertical: 0, horizontal: 20),
+                    vertical: 0,
+                    horizontal: 20,
+                  ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(30),
                     borderSide: const BorderSide(color: Colors.white),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(30),
-                    borderSide:
-                        BorderSide(color: primaryColor, width: 1.2),
+                    borderSide: BorderSide(color: primaryColor, width: 1.2),
                   ),
                 ),
               ),
             ),
           ),
-
           Expanded(
             child: _buildBody(layout, settings, primaryColor),
           ),
@@ -255,7 +291,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   Drawer _buildDrawer(
-      BuildContext context, CelebrationThemeProvider? themeProvider) {
+    BuildContext context,
+    CelebrationThemeProvider? themeProvider,
+  ) {
     final userProvider = Provider.of<UserProvider>(context);
     final cart = Provider.of<CartProvider>(context);
     final blogNotif = context.watch<BlogNotificationProvider?>();
@@ -275,9 +313,10 @@ class _HomePageState extends State<HomePage> {
             decoration: BoxDecoration(
               gradient: currentTheme?.drawerGradient ??
                   LinearGradient(
-                      colors: gradientColors,
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight),
+                    colors: gradientColors,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
             ),
             accountName: Text(
               userProvider.isLoggedIn
@@ -300,7 +339,6 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
 
-          // 🔐 Auth
           if (!userProvider.isLoggedIn) ...[
             ListTile(
               leading: Icon(Icons.login, color: primaryColor),
@@ -327,13 +365,12 @@ class _HomePageState extends State<HomePage> {
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const ProfilePage()));
+                  context,
+                  MaterialPageRoute(builder: (_) => const ProfilePage()),
+                );
               },
             ),
 
-          // 🛒 Cart
           ListTile(
             leading: Icon(Icons.shopping_cart, color: primaryColor),
             title: const Text("My Cart"),
@@ -341,13 +378,17 @@ class _HomePageState extends State<HomePage> {
                 ? Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                        color: badgeColor,
-                        borderRadius: BorderRadius.circular(12)),
-                    child: Text('${cart.totalQuantity}',
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold)),
+                      color: badgeColor,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${cart.totalQuantity}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   )
                 : null,
             onTap: () {
@@ -356,22 +397,24 @@ class _HomePageState extends State<HomePage> {
             },
           ),
 
-          // 📦 Orders
           ListTile(
             leading: Icon(Icons.history, color: primaryColor),
             title: const Text("My Orders"),
             onTap: () {
               Navigator.pop(context);
+
               if (userProvider.isLoggedIn) {
                 Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const MyOrdersPage()));
+                  context,
+                  MaterialPageRoute(builder: (_) => const MyOrdersPage()),
+                );
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                      content: Text("Please sign in to view your orders")),
+                    content: Text("Please sign in to view your orders"),
+                  ),
                 );
+
                 Future.delayed(const Duration(milliseconds: 500), () {
                   if (context.mounted) {
                     Navigator.pushNamed(context, '/signin');
@@ -381,7 +424,17 @@ class _HomePageState extends State<HomePage> {
             },
           ),
 
-          // 📰 Blog with badge
+          // 🚚 TellMe Logistics
+          ListTile(
+            leading: Icon(Icons.local_shipping_outlined, color: primaryColor),
+            title: const Text("TellMe Logistics"),
+            subtitle: const Text("Send package or track delivery"),
+            onTap: () {
+              Navigator.pop(context);
+              _openLogisticsPage();
+            },
+          ),
+
           ListTile(
             leading: Stack(
               clipBehavior: Clip.none,
@@ -395,7 +448,9 @@ class _HomePageState extends State<HomePage> {
                       width: 10,
                       height: 10,
                       decoration: const BoxDecoration(
-                          color: Colors.red, shape: BoxShape.circle),
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
                     ),
                   ),
               ],
@@ -407,41 +462,45 @@ class _HomePageState extends State<HomePage> {
                   Container(
                     margin: const EdgeInsets.only(left: 6),
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 6, vertical: 2),
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
-                        color: Colors.red.shade600,
-                        borderRadius: BorderRadius.circular(6)),
-                    child: const Text("NEW",
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold)),
+                      color: Colors.red.shade600,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text(
+                      "NEW",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
               ],
             ),
             onTap: () {
               Navigator.pop(context);
               Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const BlogListPage()));
+                context,
+                MaterialPageRoute(builder: (_) => const BlogListPage()),
+              );
             },
           ),
 
-          // ⚙️ Settings
           ListTile(
             leading: Icon(Icons.settings, color: primaryColor),
             title: const Text("Settings"),
             onTap: () {
               Navigator.pop(context);
               Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const SettingsPage()));
+                context,
+                MaterialPageRoute(builder: (_) => const SettingsPage()),
+              );
             },
           ),
 
-          // 🚪 Logout
           if (userProvider.isLoggedIn)
             ListTile(
               leading: Icon(Icons.logout, color: primaryColor),
@@ -451,7 +510,8 @@ class _HomePageState extends State<HomePage> {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                      content: Text("You have been logged out.")),
+                    content: Text("You have been logged out."),
+                  ),
                 );
               },
             ),
@@ -460,14 +520,14 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ================= BODY + LAYOUT =================
-
-  Widget _buildBody(HomePageStyle layout, UserSettingsProvider settings,
-      Color primaryColor) {
+  Widget _buildBody(
+    HomePageStyle layout,
+    UserSettingsProvider settings,
+    Color primaryColor,
+  ) {
     if (_isInitialLoading) {
       return const Center(child: CircularProgressIndicator(strokeWidth: 3));
     }
-    if (_hasError && _products.isEmpty) return _buildErrorState();
 
     final productCount = _products.length;
 
@@ -481,29 +541,29 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 16),
             const HomePageSliderCarousel(),
             const SizedBox(height: 12),
-
-            // 🔹 Row: "X products"  |  layout toggle
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '$productCount products',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
+            if (_hasError && _products.isEmpty)
+              _buildErrorState()
+            else ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '$productCount products',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
                     ),
-                  ),
-                  _buildLayoutToggle(layout, settings),
-                ],
+                    _buildLayoutToggle(layout, settings),
+                  ],
+                ),
               ),
-            ),
-
-            const SizedBox(height: 8),
-            _buildLayout(layout),
-
+              const SizedBox(height: 8),
+              _buildLayout(layout),
+            ],
             if (_isLoadingMore)
               const Padding(
                 padding: EdgeInsets.all(16),
@@ -515,22 +575,71 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildErrorState() => Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.wifi_off, size: 64, color: Colors.grey),
-            Text(_errorMessage, textAlign: TextAlign.center),
-            ElevatedButton.icon(
-              onPressed: () => _loadProducts(reset: true),
-              icon: const Icon(Icons.refresh),
-              label: const Text("Retry"),
+  Widget _buildErrorState() {
+    final message = _productLoadErrorMessage();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(22),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE1E8F5)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 14,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
-      );
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.wifi_off_rounded, size: 46, color: kPrimaryBlue),
+            const SizedBox(height: 12),
+            const Text(
+              'Unable to show products',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF07172F),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 14,
+                height: 1.35,
+                color: Color(0xFF4C5F78),
+              ),
+            ),
+            const SizedBox(height: 18),
+            ElevatedButton.icon(
+              onPressed: () => _loadProducts(reset: true),
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text("Retry"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kPrimaryBlue,
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-  /// 🔹 Switch between all the different home layouts
   Widget _buildLayout(HomePageStyle layout) {
     switch (layout) {
       case HomePageStyle.list:
@@ -585,9 +694,10 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// 🔹 Rectangular blue layout-toggle buttons with white icons
   Widget _buildLayoutToggle(
-      HomePageStyle current, UserSettingsProvider settings) {
+    HomePageStyle current,
+    UserSettingsProvider settings,
+  ) {
     Widget buildTile(HomePageStyle style, IconData icon) {
       final bool isActive = current == style;
 
@@ -599,8 +709,7 @@ class _HomePageState extends State<HomePage> {
           height: 30,
           margin: const EdgeInsets.symmetric(horizontal: 3),
           decoration: BoxDecoration(
-            color:
-                isActive ? kPrimaryBlue : kPrimaryBlue.withOpacity(0.55),
+            color: isActive ? kPrimaryBlue : kPrimaryBlue.withOpacity(0.55),
             borderRadius: BorderRadius.circular(8),
             boxShadow: [
               BoxShadow(
@@ -625,8 +734,7 @@ class _HomePageState extends State<HomePage> {
         buildTile(HomePageStyle.grid, Icons.grid_view_rounded),
         buildTile(HomePageStyle.list, Icons.view_list_rounded),
         buildTile(HomePageStyle.carousel, Icons.view_carousel_rounded),
-        buildTile(
-            HomePageStyle.staggered, Icons.dashboard_customize_rounded),
+        buildTile(HomePageStyle.staggered, Icons.dashboard_customize_rounded),
         buildTile(HomePageStyle.modern, Icons.auto_awesome_rounded),
       ],
     );

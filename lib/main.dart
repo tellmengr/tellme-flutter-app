@@ -1,4 +1,4 @@
-﻿// -------------------- IMPORTS MUST COME FIRST --------------------
+// -------------------- IMPORTS MUST COME FIRST --------------------
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -43,6 +43,7 @@ import 'notifications_settings_page.dart';
 import 'privacy_security_page.dart';
 import 'help_center_page.dart';
 import 'about_page.dart';
+import 'support_chat_page.dart';
 
 // âœ… WooCommerce + Product Page
 import 'woocommerce_auth_service.dart';
@@ -70,7 +71,8 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
   }
-  debugPrint('ðŸ“© [BG] FCM message: ${message.messageId} data=${message.data}');
+  debugPrint(
+      'ðŸ“© [BG] FCM message: ${message.messageId} data=${message.data}');
 }
 
 // -------------------- SMALL BOOT GUARD --------------------
@@ -78,14 +80,15 @@ Future<T?> guard<T>(Future<T> fut, {String label = ''}) async {
   try {
     return await fut;
   } catch (e, st) {
-    debugPrint('âš ï¸ Boot step failed${label.isNotEmpty ? " ($label)" : ""}: $e');
+    debugPrint(
+        'âš ï¸ Boot step failed${label.isNotEmpty ? " ($label)" : ""}: $e');
     debugPrint('$st');
     return null;
   }
 }
 
-
-Future<bool> _initializeFirebaseSafely({String label = 'Firebase.initializeApp'}) async {
+Future<bool> _initializeFirebaseSafely(
+    {String label = 'Firebase.initializeApp'}) async {
   try {
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp(
@@ -274,7 +277,6 @@ Future<void> main() async {
       // Paint Flutter immediately. Apple should never see a blank native screen
       // while Firebase, FCM, fonts, or network startup work is happening.
       runApp(const _MinimalBootApp());
-
     },
     (error, stack) {
       debugPrint('ðŸ”¥ Uncaught error in main zone: $error');
@@ -674,6 +676,7 @@ class MyApp extends StatelessWidget {
             '/notifications': (context) => const NotificationsSettingsPage(),
             '/privacy': (context) => const PrivacySecurityPage(),
             '/help': (context) => const HelpCenterPage(),
+            '/support-chat': (context) => const SupportChatPage(),
             '/about': (context) => const AboutPage(),
             '/wallet-history': (context) => const WalletHistoryPage(),
             '/checkout': (context) {

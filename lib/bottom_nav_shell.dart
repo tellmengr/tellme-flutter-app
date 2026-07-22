@@ -1,12 +1,17 @@
-﻿import 'package:flutter/material.dart';
+import 'dart:async';
+
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'cart_provider.dart';
-import 'home_page.dart';
-import 'category_page.dart';
 import 'cart_page.dart';
-import 'profile_page.dart';
+import 'cart_provider.dart';
+import 'category_page.dart';
+import 'home_page.dart';
 import 'logistics_page.dart';
+import 'profile_page.dart';
+import 'support_chat_page.dart';
+import 'tellme_live_chat_service.dart';
+import 'user_provider.dart';
 
 class BottomNavShell extends StatefulWidget {
   const BottomNavShell({super.key});
@@ -31,6 +36,20 @@ class _BottomNavShellState extends State<BottomNavShell> {
     LogisticsPage(),
   ];
 
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _reportChatPresence();
+    });
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
   int _stackIndexFromSelectedIndex() {
     switch (_selectedIndex) {
       case 0:
@@ -50,9 +69,11 @@ class _BottomNavShellState extends State<BottomNavShell> {
       case 1: // Categories
       case 3: // Logistics
         setState(() => _selectedIndex = index);
+        _reportChatPresence();
         break;
 
       case 2: // Cart
+        unawaited(_reportChatPresence(currentPage: 'App: Cart'));
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -60,24 +81,62 @@ class _BottomNavShellState extends State<BottomNavShell> {
               selectedIndex: 0,
               onBackToHome: (int idx) {
                 setState(() => _selectedIndex = idx);
+                _reportChatPresence();
               },
             ),
           ),
-        );
+        ).then((_) => _reportChatPresence());
         break;
 
       case 4: // Profile
+        unawaited(_reportChatPresence(currentPage: 'App: Profile'));
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => ProfilePage()),
-        );
+        ).then((_) => _reportChatPresence());
         break;
     }
+  }
+
+  String _currentChatPage() {
+    switch (_selectedIndex) {
+      case 1:
+        return 'App: Categories';
+      case 3:
+        return 'App: Logistics';
+      default:
+        return 'App: Home';
+    }
+  }
+
+  Future<void> _reportChatPresence({String? currentPage}) async {
+    if (!mounted) return;
+
+    final user = context.read<UserProvider>();
+    try {
+      await TellMeLiveChatService.instance.startPresence(
+        currentPage: currentPage ?? _currentChatPage(),
+        name: user.userDisplayName,
+        email: user.userEmail,
+      );
+    } catch (_) {
+      // Presence is best-effort; shopping should keep working if chat is offline.
+    }
+  }
+
+  Future<void> _openLiveChat() async {
+    await _reportChatPresence(currentPage: 'App: Live Chat');
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SupportChatPage()),
+    );
+    await _reportChatPresence();
   }
 
   Future<bool> _onWillPop() async {
     if (_selectedIndex != 0) {
       setState(() => _selectedIndex = 0);
+      _reportChatPresence();
       return false; // Go back to Home instead of closing the app.
     }
 
@@ -120,62 +179,14 @@ class _BottomNavShellState extends State<BottomNavShell> {
                 clipBehavior: Clip.none,
                 children: [
                   const Icon(Icons.shopping_cart_outlined),
-                  if (cart.totalQuantity > 0)
-                    Positioned(
-                      right: -6,
-                      top: -5,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: 14,
-                          minHeight: 14,
-                        ),
-                        child: Text(
-                          cartBadgeText,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
+                  if (cart.totalQuantity > 0) _CartBadge(text: cartBadgeText),
                 ],
               ),
               activeIcon: Stack(
                 clipBehavior: Clip.none,
                 children: [
                   const Icon(Icons.shopping_cart),
-                  if (cart.totalQuantity > 0)
-                    Positioned(
-                      right: -6,
-                      top: -5,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: 14,
-                          minHeight: 14,
-                        ),
-                        child: Text(
-                          cartBadgeText,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
+                  if (cart.totalQuantity > 0) _CartBadge(text: cartBadgeText),
                 ],
               ),
               label: 'Cart',
@@ -192,8 +203,50 @@ class _BottomNavShellState extends State<BottomNavShell> {
             ),
           ],
         ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
+        floatingActionButton: FloatingActionButton.small(
+          heroTag: 'tellme-live-chat',
+          tooltip: 'Live chat',
+          onPressed: _openLiveChat,
+          backgroundColor: const Color(0xFF004AAD),
+          foregroundColor: Colors.white,
+          child: const Icon(Icons.support_agent_rounded),
+        ),
       ),
     );
   }
 }
 
+class _CartBadge extends StatelessWidget {
+  const _CartBadge({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      right: -6,
+      top: -5,
+      child: Container(
+        padding: const EdgeInsets.all(2),
+        decoration: BoxDecoration(
+          color: Colors.red,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        constraints: const BoxConstraints(
+          minWidth: 14,
+          minHeight: 14,
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+}
