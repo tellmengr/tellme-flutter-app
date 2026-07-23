@@ -2,7 +2,7 @@ name: hello_app
 description: "TellMe.ng Flutter E-commerce App"
 publish_to: 'none'
 
-version: 1.0.7+38
+version: 1.0.8+39
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -24,6 +24,7 @@ dependencies:
   provider: ^6.1.5
   email_validator: ^3.0.0
   url_launcher: ^6.2.1
+  file_picker: ^8.1.7
   photo_view: ^0.15.0
   flutter_blurhash: ^0.9.1
   flutter_staggered_grid_view: ^0.7.0
@@ -47,7 +48,7 @@ dependencies:
 
   flutter_local_notifications: ^17.2.4
 
-  geolocator: ^14.0.3
+  geolocator: 14.0.2
   geocoding: ^4.0.0
   google_maps_flutter: 2.10.1
   signalr_netcore: ^1.4.4

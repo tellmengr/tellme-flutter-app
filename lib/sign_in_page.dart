@@ -1,9 +1,12 @@
 // lib/sign_in_page.dart
 import 'dart:ui';
+import 'dart:convert';
+import 'dart:math';
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:email_validator/email_validator.dart';
+import 'package:crypto/crypto.dart';
 
 // 🔐 Social/Firebase
 import 'package:firebase_auth/firebase_auth.dart';
@@ -18,14 +21,27 @@ import 'celebration_theme_provider.dart';
 
 // 🎨 Brand Colors (fallback colors only - will use celebration theme colors)
 const kPrimaryBlue = Color(0xFF004AAD);
-const kAccentBlue  = Color(0xFF0096FF);
-const kRed         = Color(0xFFE53935);
-const kGreen       = Color(0xFF43A047);
-const kYellow      = Color(0xFFFFB300);
+const kAccentBlue = Color(0xFF0096FF);
+const kRed = Color(0xFFE53935);
+const kGreen = Color(0xFF43A047);
+const kYellow = Color(0xFFFFB300);
 
 // ✅ Correct WEB client ID from google-services.json (client_type: 3)
 const String kWebClientId =
     '559100902559-6e8to25stl4houpdhrai9g9ghqf2skgq.apps.googleusercontent.com';
+
+String _generateAppleNonce([int length = 32]) {
+  const charset =
+      '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+  final random = Random.secure();
+  return List.generate(length, (_) => charset[random.nextInt(charset.length)])
+      .join();
+}
+
+String _sha256ForApple(String input) {
+  final bytes = utf8.encode(input);
+  return sha256.convert(bytes).toString();
+}
 
 class SignInPage extends StatefulWidget {
   final Map<String, dynamic>? pendingCheckoutData;
@@ -40,11 +56,11 @@ class SignInPage extends StatefulWidget {
 
 class _SignInPageState extends State<SignInPage>
     with SingleTickerProviderStateMixin {
-  final _formKey            = GlobalKey<FormState>();
-  final _emailController    = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _isLoading           = false;
-  bool _obscurePassword     = true;
+  bool _isLoading = false;
+  bool _obscurePassword = true;
 
   // 🔐 Google Sign In v7.2.0
   final gsign.GoogleSignIn _googleSignIn = gsign.GoogleSignIn.instance;
@@ -56,8 +72,8 @@ class _SignInPageState extends State<SignInPage>
   @override
   void initState() {
     super.initState();
-    _animationController =
-        AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
+    _animationController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 800));
     _fadeAnimation =
         CurvedAnimation(parent: _animationController, curve: Curves.easeInOut);
     _animationController.forward();
@@ -111,13 +127,17 @@ class _SignInPageState extends State<SignInPage>
     final primaryColor = currentTheme?.primaryColor ?? kPrimaryBlue;
     final accentColor = currentTheme?.accentColor ?? kAccentBlue;
     final secondaryColor = currentTheme?.secondaryColor ?? kPrimaryBlue;
-    final gradientColors = currentTheme?.gradient.colors ?? [kPrimaryBlue, kAccentBlue];
+    final gradientColors =
+        currentTheme?.gradient.colors ?? [kPrimaryBlue, kAccentBlue];
     final badgeColor = currentTheme?.badgeColor ?? kRed;
 
     // Theme-aware colors for text
-    final textPrimary = _getThemeColor(context, const Color(0xFF1A1A1A), Colors.white);
-    final textSecondary = _getThemeColor(context, const Color(0xFF666666), Colors.white70);
-    final textTertiary = _getThemeColor(context, const Color(0xFF888888), Colors.white54);
+    final textPrimary =
+        _getThemeColor(context, const Color(0xFF1A1A1A), Colors.white);
+    final textSecondary =
+        _getThemeColor(context, const Color(0xFF666666), Colors.white70);
+    final textTertiary =
+        _getThemeColor(context, const Color(0xFF888888), Colors.white54);
 
     return Scaffold(
       backgroundColor: primaryColor, // 🎨 Use celebration theme primary color
@@ -128,7 +148,8 @@ class _SignInPageState extends State<SignInPage>
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: gradientColors, // 🎨 Use celebration theme gradient colors
+                colors:
+                    gradientColors, // 🎨 Use celebration theme gradient colors
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -160,7 +181,8 @@ class _SignInPageState extends State<SignInPage>
                     top: keyboardVisible ? 8 : 20,
                   ),
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight - 16),
+                    constraints:
+                        BoxConstraints(minHeight: constraints.maxHeight - 16),
                     child: Column(
                       mainAxisAlignment: keyboardVisible
                           ? MainAxisAlignment.start
@@ -218,7 +240,8 @@ class _SignInPageState extends State<SignInPage>
                                     keyboardType: TextInputType.emailAddress,
                                     validator: _validateEmail,
                                     textInputAction: TextInputAction.next,
-                                    primaryColor: primaryColor, // 🎨 Pass theme color
+                                    primaryColor:
+                                        primaryColor, // 🎨 Pass theme color
                                     accentColor: accentColor,
                                     badgeColor: badgeColor,
                                   ),
@@ -233,14 +256,16 @@ class _SignInPageState extends State<SignInPage>
                                         _obscurePassword
                                             ? Icons.visibility_rounded
                                             : Icons.visibility_off_rounded,
-                                        color: primaryColor, // 🎨 Use theme color
+                                        color:
+                                            primaryColor, // 🎨 Use theme color
                                       ),
-                                      onPressed: () => setState(
-                                          () => _obscurePassword = !_obscurePassword),
+                                      onPressed: () => setState(() =>
+                                          _obscurePassword = !_obscurePassword),
                                     ),
                                     validator: (v) {
                                       final s = v ?? '';
-                                      if (s.isEmpty) return 'Please enter your password';
+                                      if (s.isEmpty)
+                                        return 'Please enter your password';
                                       if (s.length < 6) {
                                         return 'Password must be at least 6 characters';
                                       }
@@ -248,28 +273,33 @@ class _SignInPageState extends State<SignInPage>
                                     },
                                     textInputAction: TextInputAction.done,
                                     onFieldSubmitted: (_) => _signIn(),
-                                    primaryColor: primaryColor, // 🎨 Pass theme color
+                                    primaryColor:
+                                        primaryColor, // 🎨 Pass theme color
                                     accentColor: accentColor,
                                     badgeColor: badgeColor,
                                   ),
 
                                   const SizedBox(height: 8),
                                   Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Row(
                                         children: [
                                           Checkbox(
                                             value: true,
                                             onChanged: (_) {},
-                                            activeColor: primaryColor, // 🎨 Use theme color
+                                            activeColor:
+                                                primaryColor, // 🎨 Use theme color
                                             materialTapTargetSize:
-                                                MaterialTapTargetSize.shrinkWrap,
+                                                MaterialTapTargetSize
+                                                    .shrinkWrap,
                                           ),
                                           Text('Remember me',
                                               style: _getThemeTextStyle(
                                                 context,
-                                                lightColor: const Color(0xFF1A1A1A),
+                                                lightColor:
+                                                    const Color(0xFF1A1A1A),
                                                 darkColor: Colors.white,
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.normal,
@@ -282,7 +312,8 @@ class _SignInPageState extends State<SignInPage>
                                           "Forgot Password?",
                                           style: _getThemeTextStyle(
                                             context,
-                                            lightColor: accentColor, // 🎨 Use theme color
+                                            lightColor:
+                                                accentColor, // 🎨 Use theme color
                                             darkColor: accentColor,
                                             fontSize: 14,
                                             fontWeight: FontWeight.w600,
@@ -297,12 +328,15 @@ class _SignInPageState extends State<SignInPage>
                                   // Primary CTA with celebration theme
                                   _PrimaryCTA(
                                     label: "Sign In",
-                                    onPressed: _isLoading ? null : () {
-                                      FocusScope.of(context).unfocus();
-                                      _signIn();
-                                    },
+                                    onPressed: _isLoading
+                                        ? null
+                                        : () {
+                                            FocusScope.of(context).unfocus();
+                                            _signIn();
+                                          },
                                     loading: _isLoading,
-                                    primaryColor: primaryColor, // 🎨 Pass theme colors
+                                    primaryColor:
+                                        primaryColor, // 🎨 Pass theme colors
                                     accentColor: accentColor,
                                   ),
 
@@ -316,10 +350,12 @@ class _SignInPageState extends State<SignInPage>
                                         : () => Navigator.push(
                                               context,
                                               MaterialPageRoute(
-                                                builder: (_) => const SignUpPage(),
+                                                builder: (_) =>
+                                                    const SignUpPage(),
                                               ),
                                             ),
-                                    primaryColor: primaryColor, // 🎨 Pass theme colors
+                                    primaryColor:
+                                        primaryColor, // 🎨 Pass theme colors
                                     accentColor: accentColor,
                                     isDarkTheme: isDarkTheme,
                                   ),
@@ -330,14 +366,13 @@ class _SignInPageState extends State<SignInPage>
                                   Row(
                                     children: [
                                       Expanded(
-                                        child: Divider(
-                                          color: isDarkTheme
-                                              ? Colors.white24
-                                              : Colors.grey[400]
-                                        )
-                                      ),
+                                          child: Divider(
+                                              color: isDarkTheme
+                                                  ? Colors.white24
+                                                  : Colors.grey[400])),
                                       Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 12),
                                         child: Text(
                                           "Or continue with",
                                           style: _getThemeTextStyle(
@@ -350,38 +385,29 @@ class _SignInPageState extends State<SignInPage>
                                         ),
                                       ),
                                       Expanded(
-                                        child: Divider(
-                                          color: isDarkTheme
-                                              ? Colors.white24
-                                              : Colors.grey[400]
-                                        )
-                                      ),
+                                          child: Divider(
+                                              color: isDarkTheme
+                                                  ? Colors.white24
+                                                  : Colors.grey[400])),
                                     ],
                                   ),
 
                                   const SizedBox(height: 18),
 
-                                  // Socials (brand buttons)
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: _BrandButton(
-                                          asset: 'assets/icons/google.png',
-                                          fallbackIcon: Icons.g_mobiledata_rounded,
-                                          label: 'Google',
-                                          onTap: _signInWithGoogle,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: _BrandButton(
-                                          asset: 'assets/icons/apple.png',
-                                          fallbackIcon: Icons.apple_rounded,
-                                          label: 'Apple',
-                                          onTap: _signInWithApple,
-                                        ),
-                                      ),
-                                    ],
+                                  // Social sign-in buttons. Apple requires a clear, recognizable button.
+                                  _BrandButton(
+                                    asset: 'assets/icons/google.png',
+                                    fallbackIcon: Icons.g_mobiledata_rounded,
+                                    label: 'Continue with Google',
+                                    onTap: _signInWithGoogle,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  SignInWithAppleButton(
+                                    text: 'Sign in with Apple',
+                                    height: 52,
+                                    borderRadius: BorderRadius.circular(14),
+                                    onPressed:
+                                        _isLoading ? () {} : _signInWithApple,
                                   ),
 
                                   const SizedBox(height: 4),
@@ -408,13 +434,15 @@ class _SignInPageState extends State<SignInPage>
   }
 
   // Helper method to get theme-aware colors
-  Color _getThemeColor(BuildContext context, Color lightColor, Color darkColor) {
+  Color _getThemeColor(
+      BuildContext context, Color lightColor, Color darkColor) {
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
     return isDarkTheme ? darkColor : lightColor;
   }
 
   // Helper method to get theme-aware text style
-  TextStyle _getThemeTextStyle(BuildContext context, {
+  TextStyle _getThemeTextStyle(
+    BuildContext context, {
     required Color lightColor,
     required Color darkColor,
     required double fontSize,
@@ -450,7 +478,8 @@ class _SignInPageState extends State<SignInPage>
     final textColor = isDarkTheme ? Colors.white : const Color(0xFF1A1A1A);
     final labelColor = isDarkTheme ? Colors.white70 : const Color(0xFF666666);
     final borderColor = isDarkTheme ? Colors.white24 : Colors.grey.shade200;
-    final fillColor = isDarkTheme ? Colors.white.withOpacity(0.1) : Colors.white;
+    final fillColor =
+        isDarkTheme ? Colors.white.withOpacity(0.1) : Colors.white;
 
     return Container(
       decoration: BoxDecoration(
@@ -475,7 +504,8 @@ class _SignInPageState extends State<SignInPage>
           color: textColor,
         ),
         decoration: InputDecoration(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
           labelText: label,
           labelStyle: TextStyle(color: labelColor),
           prefixIcon: Icon(icon, color: primaryColor), // 🎨 Use theme color
@@ -488,11 +518,13 @@ class _SignInPageState extends State<SignInPage>
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(color: primaryColor, width: 1.5), // 🎨 Use theme color
+            borderSide: BorderSide(
+                color: primaryColor, width: 1.5), // 🎨 Use theme color
           ),
           errorBorder: OutlineInputBorder(
             borderRadius: const BorderRadius.all(Radius.circular(14)),
-            borderSide: BorderSide(color: badgeColor, width: 1.3), // 🎨 Use theme badge color
+            borderSide: BorderSide(
+                color: badgeColor, width: 1.3), // 🎨 Use theme badge color
           ),
         ),
       ),
@@ -508,12 +540,12 @@ class _SignInPageState extends State<SignInPage>
 
     try {
       final email = _emailController.text.trim();
-      final pass  = _passwordController.text;
-      final authService  = WooCommerceAuthService();
+      final pass = _passwordController.text;
+      final authService = WooCommerceAuthService();
       final userProvider = Provider.of<UserProvider>(context, listen: false);
 
       final isAdmin = await authService.checkEmailIsAdmin(email);
-      final ok      = await userProvider.signIn(email, pass);
+      final ok = await userProvider.signIn(email, pass);
       if (!ok) throw Exception('Invalid credentials.');
       if (isAdmin) await userProvider.setAdminFlag(true);
 
@@ -538,7 +570,8 @@ class _SignInPageState extends State<SignInPage>
     try {
       await _ensureGoogleSignInInitialized();
 
-      final gsign.GoogleSignInAccount? gUser = await _googleSignIn.authenticate();
+      final gsign.GoogleSignInAccount? gUser =
+          await _googleSignIn.authenticate();
       if (gUser == null) {
         final themeProvider = context.read<CelebrationThemeProvider?>();
         final warningColor = themeProvider?.currentTheme.accentColor ?? kYellow;
@@ -586,16 +619,25 @@ class _SignInPageState extends State<SignInPage>
 
     setState(() => _isLoading = true);
     try {
+      final rawNonce = _generateAppleNonce();
+      final hashedNonce = _sha256ForApple(rawNonce);
+
       final appleCred = await SignInWithApple.getAppleIDCredential(
         scopes: [
           AppleIDAuthorizationScopes.email,
           AppleIDAuthorizationScopes.fullName,
         ],
+        nonce: hashedNonce,
       );
 
+      final identityToken = appleCred.identityToken;
+      if (identityToken == null || identityToken.isEmpty) {
+        throw Exception('Apple did not return an identity token.');
+      }
+
       final oauthCred = OAuthProvider('apple.com').credential(
-        idToken: appleCred.identityToken,
-        accessToken: appleCred.authorizationCode,
+        idToken: identityToken,
+        rawNonce: rawNonce,
       );
 
       final userCred =
@@ -606,9 +648,11 @@ class _SignInPageState extends State<SignInPage>
         fallbackName: appleCred.givenName ?? '',
       );
     } catch (e) {
+      debugPrint('Apple sign-in failed: $e');
       final themeProvider = context.read<CelebrationThemeProvider?>();
       final errorColor = themeProvider?.currentTheme.badgeColor ?? kRed;
-      _showSnack('Apple sign-in failed: $e', errorColor);
+      _showSnack('Apple sign-in could not be completed. Please try again.',
+          errorColor);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -674,7 +718,12 @@ class _SignInPageState extends State<SignInPage>
         content: Row(
           children: [
             Icon(
-              bg == (context.read<CelebrationThemeProvider?>()?.currentTheme.badgeColor ?? kRed)
+              bg ==
+                      (context
+                              .read<CelebrationThemeProvider?>()
+                              ?.currentTheme
+                              .badgeColor ??
+                          kRed)
                   ? Icons.error_outline_rounded
                   : Icons.check_circle_outline_rounded,
               color: Colors.white,
@@ -732,8 +781,10 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // 🎨 Use celebration theme greeting text if available
-    final greetingText = themeProvider?.currentTheme.greetingText ?? "Welcome Back";
-    final subText = themeProvider?.currentTheme.bannerText ?? "Sign in to continue";
+    final greetingText =
+        themeProvider?.currentTheme.greetingText ?? "Welcome Back";
+    final subText =
+        themeProvider?.currentTheme.bannerText ?? "Sign in to continue";
 
     return Column(
       children: [
@@ -837,12 +888,16 @@ class _PrimaryCTA extends StatelessWidget {
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
           padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
         child: Ink(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [primaryColor, accentColor], // 🎨 Use celebration theme gradient
+              colors: [
+                primaryColor,
+                accentColor
+              ], // 🎨 Use celebration theme gradient
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
             ),
@@ -897,12 +952,12 @@ class _SecondaryCTA extends StatelessWidget {
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
           side: BorderSide(
-            color: isDarkTheme
-                ? Colors.white.withOpacity(0.8)
-                : primaryColor, // 🎨 Use celebration theme color
-            width: 1.8
-          ),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              color: isDarkTheme
+                  ? Colors.white.withOpacity(0.8)
+                  : primaryColor, // 🎨 Use celebration theme color
+              width: 1.8),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
         child: Text(
           label,
@@ -939,16 +994,12 @@ class _BrandButton extends StatelessWidget {
 
     return Ink(
       decoration: BoxDecoration(
-        color: isDarkTheme
-            ? Colors.white.withOpacity(0.1)
-            : Colors.white,
+        color: isDarkTheme ? Colors.white.withOpacity(0.1) : Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isDarkTheme
-              ? Colors.white.withOpacity(0.3)
-              : Colors.grey[300]!,
-          width: 1.2
-        ),
+            color:
+                isDarkTheme ? Colors.white.withOpacity(0.3) : Colors.grey[300]!,
+            width: 1.2),
         boxShadow: [
           BoxShadow(
             color: isDarkTheme
@@ -974,9 +1025,7 @@ class _BrandButton extends StatelessWidget {
                 style: TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 14.5,
-                  color: isDarkTheme
-                      ? Colors.white
-                      : const Color(0xFF1A1A1A),
+                  color: isDarkTheme ? Colors.white : const Color(0xFF1A1A1A),
                 ),
               ),
             ],
