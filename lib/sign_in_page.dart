@@ -642,11 +642,27 @@ class _SignInPageState extends State<SignInPage>
 
       final userCred =
           await FirebaseAuth.instance.signInWithCredential(oauthCred);
+      final appleName = [
+        appleCred.givenName,
+        appleCred.familyName,
+      ].where((part) => part != null && part.trim().isNotEmpty).join(' ');
+
       await _finishSocialLogin(
         userCred,
         provider: 'Apple',
-        fallbackName: appleCred.givenName ?? '',
+        fallbackName: appleName.isNotEmpty ? appleName : 'Apple User',
+        fallbackEmail: appleCred.email,
       );
+    } on FirebaseAuthException catch (e) {
+      debugPrint('Apple Firebase sign-in failed: ${e.code} ${e.message}');
+      final themeProvider = context.read<CelebrationThemeProvider?>();
+      final errorColor = themeProvider?.currentTheme.badgeColor ?? kRed;
+      _showSnack('Apple sign-in failed: ${e.message ?? e.code}', errorColor);
+    } on SignInWithAppleAuthorizationException catch (e) {
+      debugPrint('Apple authorization failed: ${e.code} ${e.message}');
+      final themeProvider = context.read<CelebrationThemeProvider?>();
+      final errorColor = themeProvider?.currentTheme.badgeColor ?? kRed;
+      _showSnack('Apple sign-in failed: ${e.message}', errorColor);
     } catch (e) {
       debugPrint('Apple sign-in failed: $e');
       final themeProvider = context.read<CelebrationThemeProvider?>();
@@ -663,20 +679,25 @@ class _SignInPageState extends State<SignInPage>
     UserCredential cred, {
     required String provider,
     String? fallbackName,
+    String? fallbackEmail,
   }) async {
     final firebaseUser = cred.user;
     if (firebaseUser == null) {
       throw Exception('No user returned from $provider.');
     }
 
-    final email = firebaseUser.email?.trim();
+    final uid = firebaseUser.uid.trim();
+    final email = [
+      firebaseUser.email,
+      fallbackEmail,
+    ].whereType<String>().map((value) => value.trim()).firstWhere(
+          (value) => value.isNotEmpty,
+          orElse: () =>
+              'apple-${uid.isNotEmpty ? uid : DateTime.now().millisecondsSinceEpoch}@tellme.ng',
+        );
     final displayName =
         firebaseUser.displayName ?? (fallbackName ?? 'TellMe User');
     final photoUrl = firebaseUser.photoURL;
-
-    if (email == null || email.isEmpty) {
-      throw Exception('$provider did not return an email.');
-    }
 
     final wc = WooCommerceAuthService();
     final userProvider = Provider.of<UserProvider>(context, listen: false);
