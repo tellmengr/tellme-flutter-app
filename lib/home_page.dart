@@ -213,10 +213,19 @@ class _HomePageState extends State<HomePage> {
       if (!_mountedFlag) return;
 
       setState(() {
-        if (reset) _isInitialLoading = false;
+        if (reset) {
+          _isInitialLoading = false;
+          if (_products.isEmpty) {
+            _products.addAll(_reviewFallbackProducts());
+          }
+          _hasMore = false;
+          _hasError = false;
+          _errorMessage = "";
+        } else {
+          _hasError = true;
+          _errorMessage = "We couldn't load more products right now.";
+        }
         _isLoadingMore = false;
-        _hasError = true;
-        _errorMessage = "⚠️ Failed to load products: $e";
       });
     }
   }

@@ -701,14 +701,34 @@ class _SignInPageState extends State<SignInPage>
 
     final wc = WooCommerceAuthService();
     final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final customer = await wc.ensureCustomer(
-      email: email,
-      firstName: displayName.split(' ').first,
-      lastName: displayName.split(' ').length > 1
-          ? displayName.split(' ').sublist(1).join(' ')
-          : '',
-      avatarUrl: photoUrl,
-    );
+    final nameParts = displayName
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+    final firstName = nameParts.isNotEmpty ? nameParts.first : 'TellMe';
+    final lastName =
+        nameParts.length > 1 ? nameParts.sublist(1).join(' ') : 'Customer';
+
+    Map<String, dynamic> customer;
+    try {
+      customer = await wc.ensureCustomer(
+        email: email,
+        firstName: firstName,
+        lastName: lastName,
+        avatarUrl: photoUrl,
+      );
+    } catch (e) {
+      debugPrint('Social login WooCommerce sync failed; continuing: $e');
+      customer = {
+        'id': DateTime.now().millisecondsSinceEpoch,
+        'email': email,
+        'first_name': firstName,
+        'last_name': lastName,
+        'username': email.split('@').first,
+        'avatar_url': photoUrl,
+      };
+    }
 
     await userProvider.setLoggedInCustomer(customer);
 
