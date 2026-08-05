@@ -1,7 +1,6 @@
 // lib/sign_in_page.dart
 import 'dart:ui';
 import 'dart:convert';
-import 'dart:math';
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -30,17 +29,18 @@ const kYellow = Color(0xFFFFB300);
 const String kWebClientId =
     '559100902559-6e8to25stl4houpdhrai9g9ghqf2skgq.apps.googleusercontent.com';
 
-String _generateAppleNonce([int length = 32]) {
-  const charset =
-      '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
-  final random = Random.secure();
-  return List.generate(length, (_) => charset[random.nextInt(charset.length)])
-      .join();
+String _fallbackAppleEmail(String userIdentifier) {
+  final stableValue = userIdentifier.trim().isNotEmpty
+      ? userIdentifier.trim()
+      : DateTime.now().millisecondsSinceEpoch.toString();
+  final digest = sha256.convert(utf8.encode(stableValue)).toString();
+  return 'apple-${digest.substring(0, 16)}@tellme.ng';
 }
 
-String _sha256ForApple(String input) {
-  final bytes = utf8.encode(input);
-  return sha256.convert(bytes).toString();
+int _stableSocialUserId(String value) {
+  final digest = sha256.convert(utf8.encode(value)).toString();
+  final parsed = int.parse(digest.substring(0, 12), radix: 16);
+  return (parsed % 2147483000) + 1;
 }
 
 class SignInPage extends StatefulWidget {
@@ -619,15 +619,11 @@ class _SignInPageState extends State<SignInPage>
 
     setState(() => _isLoading = true);
     try {
-      final rawNonce = _generateAppleNonce();
-      final hashedNonce = _sha256ForApple(rawNonce);
-
       final appleCred = await SignInWithApple.getAppleIDCredential(
         scopes: [
           AppleIDAuthorizationScopes.email,
           AppleIDAuthorizationScopes.fullName,
         ],
-        nonce: hashedNonce,
       );
 
       final identityToken = appleCred.identityToken;
@@ -635,34 +631,29 @@ class _SignInPageState extends State<SignInPage>
         throw Exception('Apple did not return an identity token.');
       }
 
-      final oauthCred = OAuthProvider('apple.com').credential(
-        idToken: identityToken,
-        rawNonce: rawNonce,
-      );
-
-      final userCred =
-          await FirebaseAuth.instance.signInWithCredential(oauthCred);
+      final appleUserId = (appleCred.userIdentifier ?? '').trim();
+      final appleEmail = (appleCred.email ?? '').trim().isNotEmpty
+          ? appleCred.email!.trim()
+          : _fallbackAppleEmail(appleUserId);
       final appleName = [
         appleCred.givenName,
         appleCred.familyName,
       ].where((part) => part != null && part.trim().isNotEmpty).join(' ');
 
-      await _finishSocialLogin(
-        userCred,
+      await _finishDirectSocialLogin(
         provider: 'Apple',
-        fallbackName: appleName.isNotEmpty ? appleName : 'Apple User',
-        fallbackEmail: appleCred.email,
+        uid: appleUserId.isNotEmpty ? appleUserId : appleEmail,
+        email: appleEmail,
+        displayName: appleName.isNotEmpty ? appleName : 'Apple User',
       );
-    } on FirebaseAuthException catch (e) {
-      debugPrint('Apple Firebase sign-in failed: ${e.code} ${e.message}');
-      final themeProvider = context.read<CelebrationThemeProvider?>();
-      final errorColor = themeProvider?.currentTheme.badgeColor ?? kRed;
-      _showSnack('Apple sign-in failed: ${e.message ?? e.code}', errorColor);
     } on SignInWithAppleAuthorizationException catch (e) {
       debugPrint('Apple authorization failed: ${e.code} ${e.message}');
       final themeProvider = context.read<CelebrationThemeProvider?>();
       final errorColor = themeProvider?.currentTheme.badgeColor ?? kRed;
-      _showSnack('Apple sign-in failed: ${e.message}', errorColor);
+      final message = e.code == AuthorizationErrorCode.canceled
+          ? 'Apple sign-in was cancelled.'
+          : 'Apple sign-in failed: ${e.message}';
+      _showSnack(message, errorColor);
     } catch (e) {
       debugPrint('Apple sign-in failed: $e');
       final themeProvider = context.read<CelebrationThemeProvider?>();
@@ -675,6 +666,53 @@ class _SignInPageState extends State<SignInPage>
   }
 
   // ---------------- FINAL LOGIN FLOW HELPERS ----------------
+  Future<void> _finishDirectSocialLogin({
+    required String provider,
+    required String uid,
+    required String email,
+    required String displayName,
+    String? photoUrl,
+  }) async {
+    final wc = WooCommerceAuthService();
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final nameParts = displayName
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+    final firstName = nameParts.isNotEmpty ? nameParts.first : 'TellMe';
+    final lastName =
+        nameParts.length > 1 ? nameParts.sublist(1).join(' ') : 'Customer';
+
+    Map<String, dynamic> customer;
+    try {
+      customer = await wc.ensureCustomer(
+        email: email,
+        firstName: firstName,
+        lastName: lastName,
+        avatarUrl: photoUrl,
+      );
+    } catch (e) {
+      debugPrint('Apple customer sync failed; continuing locally: $e');
+      customer = {
+        'id': _stableSocialUserId('$provider:$uid:$email'),
+        'email': email,
+        'first_name': firstName,
+        'last_name': lastName,
+        'username': email.split('@').first,
+        'avatar_url': photoUrl,
+        'provider': provider.toLowerCase(),
+      };
+    }
+
+    await userProvider.setLoggedInCustomer(customer);
+
+    final themeProvider = context.read<CelebrationThemeProvider?>();
+    final successColor = themeProvider?.currentTheme.accentColor ?? kGreen;
+    _showSnack('Signed in with $provider successfully!', successColor);
+    _postLoginRedirect();
+  }
+
   Future<void> _finishSocialLogin(
     UserCredential cred, {
     required String provider,

@@ -18,15 +18,21 @@ class UserProvider with ChangeNotifier {
   Map<String, dynamic>? get user => _user;
   Map<String, dynamic>? get currentUser => _user; // ✅ Backward compatibility
   String get userEmail => _user?['email'] ?? '';
-  int? get userId => _user?['id'];
+  int? get userId {
+    final value = _user?['id'];
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '');
+  }
 
   String get userDisplayName {
     if (_user == null) return 'Guest';
     final firstName = _user!['first_name'] ?? '';
-    final lastName  = _user!['last_name']  ?? '';
-    final username  = _user!['username']   ?? '';
-    final email     = _user!['email']      ?? '';
-    if (firstName.isNotEmpty) return lastName.isNotEmpty ? '$firstName $lastName' : firstName;
+    final lastName = _user!['last_name'] ?? '';
+    final username = _user!['username'] ?? '';
+    final email = _user!['email'] ?? '';
+    if (firstName.isNotEmpty)
+      return lastName.isNotEmpty ? '$firstName $lastName' : firstName;
     if (username.isNotEmpty) return username;
     return email.isNotEmpty ? email : 'User';
   }
@@ -55,14 +61,12 @@ class UserProvider with ChangeNotifier {
   // -------------------- ADMIN CHECK (RTDB) --------------------
 
   // 🔐 Utility to sanitize Firebase keys (Firebase paths cannot include '.', '#', '$', '[', or ']')
-String safeKey(String email) =>
-    email.replaceAll('.', ',')
-         .replaceAll('#', '_')
-         .replaceAll('\$', '_')
-         .replaceAll('[', '_')
-         .replaceAll(']', '_');
-
-
+  String safeKey(String email) => email
+      .replaceAll('.', ',')
+      .replaceAll('#', '_')
+      .replaceAll('\$', '_')
+      .replaceAll('[', '_')
+      .replaceAll(']', '_');
 
   Future<void> checkAdminStatus() async {
     try {
@@ -86,7 +90,8 @@ String safeKey(String email) =>
       final db = FirebaseDatabase.instance;
 
       // ✅ Use safeKey for valid RTDB paths
-      final refByEmail = db.ref('app_settings/admins_by_email/${safeKey(email)}');
+      final refByEmail =
+          db.ref('app_settings/admins_by_email/${safeKey(email)}');
       final refList = db.ref('app_settings/admins/allowed_emails');
 
       bool isAdminFound = false;
@@ -105,8 +110,7 @@ String safeKey(String email) =>
           isAdminFound = list.contains(email);
         } else if (snapB.exists && snapB.value is Map) {
           final m = snapB.value as Map;
-          final list =
-              m.values.map((e) => e.toString().toLowerCase()).toList();
+          final list = m.values.map((e) => e.toString().toLowerCase()).toList();
           isAdminFound = list.contains(email);
         }
       }
@@ -125,7 +129,6 @@ String safeKey(String email) =>
       }
     }
   }
-
 
   // -------------------- SETTERS --------------------
   Future<void> _persistUserAndFlags() async {
@@ -179,8 +182,8 @@ String safeKey(String email) =>
     }
   }
 
-
-  Future<void> setLoggedInCustomer(Map<String, dynamic> customer, {String? sessionToken}) async {
+  Future<void> setLoggedInCustomer(Map<String, dynamic> customer,
+      {String? sessionToken}) async {
     try {
       _user = customer;
       _isAdmin = false; // Start as non-admin; then check RTDB
@@ -210,7 +213,7 @@ String safeKey(String email) =>
 
       if (result != null) {
         final userData = result['user'] as Map<String, dynamic>;
-        final session  = (result['session'] ?? '').toString();
+        final session = (result['session'] ?? '').toString();
         await setLoggedInCustomer(userData, sessionToken: session);
         debugPrint('✅ Sign-in successful');
         return true;
@@ -256,7 +259,7 @@ String safeKey(String email) =>
   Future<void> signOut({bool revokeServer = false}) async {
     try {
       if (revokeServer) {
-        await _wooService.logoutAllSessions().catchError((_) {});
+        await _wooService.logoutAllSessions().catchError((_) => false);
       }
 
       _user = null;
@@ -287,7 +290,8 @@ String safeKey(String email) =>
     }
 
     try {
-      final userId = _user!['id'];
+      final userId = this.userId;
+      if (userId == null) return false;
       final updatedData = await _wooService.updateCustomer(
         userId,
         firstName: firstName,
@@ -320,7 +324,8 @@ String safeKey(String email) =>
         return;
       }
 
-      final userId = _user!['id'];
+      final userId = this.userId;
+      if (userId == null) return;
       final updatedData = await _wooService.getCustomer(userId);
 
       if (updatedData != null) {
@@ -340,6 +345,7 @@ String safeKey(String email) =>
   }
 
   // Compatibility helpers
-  Future<bool> login(String email, String password) async => await signIn(email, password);
+  Future<bool> login(String email, String password) async =>
+      await signIn(email, password);
   Future<void> logout() async => await signOut();
 }
