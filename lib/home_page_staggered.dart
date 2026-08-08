@@ -71,7 +71,8 @@ class _HomePageStaggeredState extends State<HomePageStaggered>
 
     // Re-attach if controller changed
     if (oldWidget.parentScrollController != widget.parentScrollController) {
-      oldWidget.parentScrollController?.removeListener(_maybeLoadMoreFromParent);
+      oldWidget.parentScrollController
+          ?.removeListener(_maybeLoadMoreFromParent);
       widget.parentScrollController?.addListener(_maybeLoadMoreFromParent);
     }
 
@@ -267,12 +268,15 @@ class _HomePageStaggeredState extends State<HomePageStaggered>
                   (widget.maxItems == 0 ? widget.pageSize : widget.maxItems))
             TextButton.icon(
               onPressed: widget.onSeeAllPressed,
-              icon: Icon(Icons.arrow_forward_ios, size: 14, color: Colors.white),
-              label: const Text('See All', style: TextStyle(color: Colors.white)),
+              icon:
+                  Icon(Icons.arrow_forward_ios, size: 14, color: Colors.white),
+              label:
+                  const Text('See All', style: TextStyle(color: Colors.white)),
               style: TextButton.styleFrom(
                 backgroundColor: primaryColor, // Use theme color
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -309,7 +313,8 @@ class _HomePageStaggeredState extends State<HomePageStaggered>
             children: const [
               Icon(Icons.hourglass_empty, size: 64, color: Colors.blueGrey),
               SizedBox(height: 12),
-              Text("No items to show", style: TextStyle(fontWeight: FontWeight.bold)),
+              Text("No items to show",
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               SizedBox(height: 6),
               Text("Try a different category or come back later.",
                   style: TextStyle(color: Colors.grey)),
@@ -370,8 +375,9 @@ class _StaggeredCard extends StatelessWidget {
     final badgeColor = currentTheme?.badgeColor ?? Colors.redAccent;
 
     final images = product['images'] as List?;
-    final String? imageUrl =
-        (images != null && images.isNotEmpty) ? images[0]['src']?.toString() : null;
+    final String? imageUrl = (images != null && images.isNotEmpty)
+        ? images[0]['src']?.toString()
+        : null;
 
     final String name = product['name']?.toString() ?? '';
     final bool isVariable = product['type'] == 'variable';
@@ -436,7 +442,8 @@ class _StaggeredCard extends StatelessWidget {
                                 child: const SizedBox(
                                   width: 20,
                                   height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
                                 ),
                               );
                             },
@@ -455,12 +462,16 @@ class _StaggeredCard extends StatelessWidget {
                     left: 10,
                     top: 10,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: badgeColor, // Use theme badge color
                         borderRadius: BorderRadius.circular(10),
                         boxShadow: const [
-                          BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))
+                          BoxShadow(
+                              color: Colors.black26,
+                              blurRadius: 4,
+                              offset: Offset(0, 2))
                         ],
                       ),
                       child: Text(
@@ -483,8 +494,12 @@ class _StaggeredCard extends StatelessWidget {
                     child: IconButton(
                       onPressed: () => wish.toggle(product),
                       icon: Icon(
-                        wish.contains(product) ? Icons.favorite : Icons.favorite_border,
-                        color: wish.contains(product) ? Colors.red : Colors.blueGrey,
+                        wish.contains(product)
+                            ? Icons.favorite
+                            : Icons.favorite_border,
+                        color: wish.contains(product)
+                            ? Colors.red
+                            : Colors.blueGrey,
                       ),
                     ),
                   ),
@@ -531,7 +546,9 @@ class _StaggeredCard extends StatelessWidget {
                           fontWeight: FontWeight.w800,
                           fontSize: 16,
                           letterSpacing: -0.25,
-                          color: onSale ? Colors.redAccent : primaryColor, // Use theme color
+                          color: onSale
+                              ? Colors.redAccent
+                              : primaryColor, // Use theme color
                         ),
                       ),
                       if (onSale) ...[
@@ -660,12 +677,13 @@ class _CartPillButton extends StatelessWidget {
     // Updated brand colors with theme integration
     final Color blue = primaryColor; // Add to Cart - use theme primary color
     const Color deepPink = Color(0xFFC2185B); // Select - deep pink
-    const Color green = Colors.green;        // In Cart - green
+    const Color green = Colors.green; // In Cart - green
 
     final bool showGreen = inCart && !isVariable;
     final Color bg = showGreen ? green : (isVariable ? deepPink : blue);
-    final IconData icon =
-        showGreen ? Icons.check : (isVariable ? Icons.tune : Icons.shopping_cart);
+    final IconData icon = showGreen
+        ? Icons.check
+        : (isVariable ? Icons.tune : Icons.shopping_cart);
     final String label =
         showGreen ? 'In Cart' : (isVariable ? 'Select Type' : 'Add to Cart');
 
@@ -678,7 +696,8 @@ class _CartPillButton extends StatelessWidget {
           elevation: 2,
           backgroundColor: bg,
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), // Round square
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12)), // Round square
           padding: const EdgeInsets.symmetric(horizontal: 12),
         ),
         child: Row(

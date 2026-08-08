@@ -37,9 +37,8 @@ class RiderJobsApiService {
   Future<List<dynamic>> loadRiderJobs({required String riderId}) async {
     final uri = Uri.parse(ApiConfig.riderJobsUrl(riderId));
 
-    final response = await http
-        .get(uri, headers: defaultHeaders)
-        .timeout(timeout);
+    final response =
+        await http.get(uri, headers: defaultHeaders).timeout(timeout);
 
     final decoded = _decodeResponse(response);
 

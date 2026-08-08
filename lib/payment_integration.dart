@@ -62,20 +62,25 @@ class PaymentIntegration {
           );
 
           // ✅ FIXED: Enhanced bank transfer success handling
-          if (result?['success'] == true && result?['orderData']?['id'] != null) {
-            print('✅ Bank transfer order created successfully: ${result!['orderData']['id']}');
+          if (result?['success'] == true &&
+              result?['orderData']?['id'] != null) {
+            print(
+                '✅ Bank transfer order created successfully: ${result!['orderData']['id']}');
 
             // Add specific bank transfer success data
             result['bank_transfer_instructions'] = {
-              'message': 'Order created successfully. Please complete bank transfer to process your order.',
+              'message':
+                  'Order created successfully. Please complete bank transfer to process your order.',
               'status': 'awaiting_payment',
-              'next_steps': 'Check your email for bank account details and payment instructions.',
+              'next_steps':
+                  'Check your email for bank account details and payment instructions.',
               'order_created': true, // Explicit confirmation
             };
 
             await _triggerOrderConfirmation(result['orderData']['id']);
           } else {
-            print('❌ Bank transfer order creation failed: ${result?['message']}');
+            print(
+                '❌ Bank transfer order creation failed: ${result?['message']}');
           }
           break;
 
@@ -93,7 +98,8 @@ class PaymentIntegration {
           );
 
           // Trigger confirmation email for successful card payments
-          if (result?['success'] == true && result?['orderData']?['id'] != null) {
+          if (result?['success'] == true &&
+              result?['orderData']?['id'] != null) {
             await _triggerOrderConfirmation(result!['orderData']['id']);
           }
           break;
@@ -132,8 +138,8 @@ class PaymentIntegration {
       final List<Map<String, dynamic>> lineItems = _buildLineItems(cartItems);
       final Map<String, String> billing =
           _buildBillingAddress(context, billingAddress, customerData);
-      final Map<String, String> shipping =
-          _buildShippingAddress(context, shippingAddress, billingAddress, customerData);
+      final Map<String, String> shipping = _buildShippingAddress(
+          context, shippingAddress, billingAddress, customerData);
 
       final paymentResult = await wooCommerceService.processWalletPayment(
         userId: customerId,
@@ -153,7 +159,8 @@ class PaymentIntegration {
         final String orderIdString = orderId?.toString() ?? '';
         final int? orderIdInt = _safeParseInt(orderId);
 
-        print('📦 Order created with ID: $orderId (string: $orderIdString, int: $orderIdInt)');
+        print(
+            '📦 Order created with ID: $orderId (string: $orderIdString, int: $orderIdInt)');
 
         // Trigger confirmation email for wallet payments
         if (orderIdString.isNotEmpty) {
@@ -185,7 +192,8 @@ class PaymentIntegration {
             'success': false,
             'order_created': true,
             'order_id': orderIdString,
-            'message': 'Order was created but wallet payment failed. Please contact support.',
+            'message':
+                'Order was created but wallet payment failed. Please contact support.',
             'error': paymentResult['error'],
           };
         } else {
@@ -218,13 +226,14 @@ class PaymentIntegration {
   }) async {
     try {
       final int customerId = _getCustomerId(context, customerData);
-      print('📦 Creating order for customer: $customerId with payment method: $paymentMethod');
+      print(
+          '📦 Creating order for customer: $customerId with payment method: $paymentMethod');
 
       final List<Map<String, dynamic>> lineItems = _buildLineItems(cartItems);
       final Map<String, String> billing =
           _buildBillingAddress(context, billingAddress, customerData);
-      final Map<String, String> shipping =
-          _buildShippingAddress(context, shippingAddress, billingAddress, customerData);
+      final Map<String, String> shipping = _buildShippingAddress(
+          context, shippingAddress, billingAddress, customerData);
       final Map<String, dynamic> metadata =
           _buildMetadata(paymentMethod, paymentReference);
 
@@ -245,7 +254,8 @@ class PaymentIntegration {
           // ✅ FIX: Use 'on-hold' status that WooCommerce expects for bank transfers
           orderStatus = 'on-hold';
           metadata['awaiting_bank_transfer'] = 'true';
-          metadata['bank_transfer_instructions'] = 'Please transfer the total amount to our bank account. Order will be processed once payment is confirmed.';
+          metadata['bank_transfer_instructions'] =
+              'Please transfer the total amount to our bank account. Order will be processed once payment is confirmed.';
           break;
 
         case 'paystack':
@@ -304,14 +314,16 @@ class PaymentIntegration {
         if (paymentMethod == 'bacs' || paymentMethod == 'bank_transfer') {
           result['bank_transfer_details'] = {
             'status': 'awaiting_payment',
-            'instructions': 'Please complete your bank transfer to process the order',
+            'instructions':
+                'Please complete your bank transfer to process the order',
             'order_created_at': DateTime.now().toIso8601String(),
           };
         }
 
         return result;
       } else {
-        throw Exception('Failed to create order: ${orderData?['message'] ?? 'Unknown error'}');
+        throw Exception(
+            'Failed to create order: ${orderData?['message'] ?? 'Unknown error'}');
       }
     } catch (e) {
       print('❌ Order creation error: $e');
@@ -334,15 +346,13 @@ class PaymentIntegration {
       print('📧 Triggering confirmation email for order: $orderId');
 
       // Method 1: Using WooCommerce REST API to add order note (triggers email)
-      final emailResult = await wooCommerceService.sendRequest(
-        'wc/v3/orders/$orderId/notes',
-        method: 'POST',
-        data: {
-          'note': 'Order confirmed and details sent to customer. Thank you for your purchase!',
-          'customer_note': true,
-          'added_by_user': false,
-        }
-      );
+      final emailResult = await wooCommerceService
+          .sendRequest('wc/v3/orders/$orderId/notes', method: 'POST', data: {
+        'note':
+            'Order confirmed and details sent to customer. Thank you for your purchase!',
+        'customer_note': true,
+        'added_by_user': false,
+      });
 
       if (emailResult != null) {
         print('✅ Order confirmation triggered for order: $orderId');
@@ -350,21 +360,19 @@ class PaymentIntegration {
       }
 
       // Method 2: Alternative endpoint for email triggering
-      final alternativeResult = await wooCommerceService.sendRequest(
-        'tellme/v1/send-order-email',
-        method: 'POST',
-        data: {
-          'order_id': orderId,
-          'email_type': 'customer_processing_order',
-        }
-      );
+      final alternativeResult = await wooCommerceService
+          .sendRequest('tellme/v1/send-order-email', method: 'POST', data: {
+        'order_id': orderId,
+        'email_type': 'customer_processing_order',
+      });
 
       if (alternativeResult != null && alternativeResult['success'] == true) {
         print('✅ Order confirmation email sent via alternative endpoint');
         return true;
       }
 
-      print('⚠️ Could not trigger email confirmation, but order was created successfully');
+      print(
+          '⚠️ Could not trigger email confirmation, but order was created successfully');
       return false;
     } catch (e) {
       print('❌ Failed to trigger confirmation email: $e');
@@ -377,7 +385,8 @@ class PaymentIntegration {
   // ============================================================
   Future<bool> verifyPaystackTransaction(String reference) async {
     final secretKey = WooCommerceAuthService.paystackSecretKey;
-    final url = Uri.parse('https://api.paystack.co/transaction/verify/$reference');
+    final url =
+        Uri.parse('https://api.paystack.co/transaction/verify/$reference');
 
     print('🔍 Verifying Paystack transaction: $reference');
 
@@ -396,7 +405,8 @@ class PaymentIntegration {
           print('✅ Paystack verification confirmed');
           return true;
         } else {
-          print('⚠️ Paystack verification failed: ${body['data']?['gateway_response']}');
+          print(
+              '⚠️ Paystack verification failed: ${body['data']?['gateway_response']}');
           return false;
         }
       } else {
@@ -461,15 +471,21 @@ class PaymentIntegration {
 
     if (errorString.contains('timeout') || errorString.contains('connection')) {
       return 'Payment processing timed out. Please check your internet connection and try again.';
-    } else if (errorString.contains('insufficient') || errorString.contains('balance')) {
+    } else if (errorString.contains('insufficient') ||
+        errorString.contains('balance')) {
       return 'Insufficient wallet balance. Please choose another payment method or top up your wallet.';
-    } else if (errorString.contains('network') || errorString.contains('unreachable')) {
+    } else if (errorString.contains('network') ||
+        errorString.contains('unreachable')) {
       return 'Network error. Please check your connection and try again.';
-    } else if (errorString.contains('card') || errorString.contains('declined')) {
+    } else if (errorString.contains('card') ||
+        errorString.contains('declined')) {
       return 'Card payment declined. Please check your card details or try another payment method.';
-    } else if (errorString.contains('order') || errorString.contains('create')) {
+    } else if (errorString.contains('order') ||
+        errorString.contains('create')) {
       return 'We encountered an issue creating your order. Please try again or contact support.';
-    } else if (errorString.contains('type') && errorString.contains('string') && errorString.contains('int')) {
+    } else if (errorString.contains('type') &&
+        errorString.contains('string') &&
+        errorString.contains('int')) {
       return 'There was a technical issue with the payment. The order was created successfully. Please check your orders.';
     } else {
       return 'We encountered an issue processing your payment. Please try again or contact our support team.';
@@ -481,13 +497,14 @@ class PaymentIntegration {
     // ✅ FIX: Handle 'on-hold' status for bank transfers
     final bool isBankTransferPending =
         (paymentMethod == 'bank_transfer' || paymentMethod == 'bacs') &&
-        (orderStatus == 'pending-payment' || orderStatus == 'on-hold');
+            (orderStatus == 'pending-payment' || orderStatus == 'on-hold');
 
     if (isBankTransferPending) {
       return {
         'message': 'Order created successfully! Awaiting bank transfer.',
         'action': 'Check your email for bank account details',
-        'timeline': 'Order will be processed within 24 hours of payment confirmation',
+        'timeline':
+            'Order will be processed within 24 hours of payment confirmation',
         'status': 'order_created',
         'payment_required': 'true',
       };
@@ -610,15 +627,36 @@ class PaymentIntegration {
   }
 
   // FIXED: Line items with string values for WooCommerce API
+  Map<String, String> _stringOptions(dynamic options) {
+    if (options is! Map) return {};
+    return options.map(
+      (key, value) => MapEntry(key.toString(), value?.toString() ?? ''),
+    );
+  }
+
   List<Map<String, dynamic>> _buildLineItems(List<dynamic> cartItems) {
     return cartItems.map((item) {
       // FIXED: Use non-nullable values for calculations
       final price = _safeParseDouble(item['price']);
       final quantity = _safeParseInt(item['quantity']) ?? 1; // Provide default
       final subtotal = price * quantity;
+      final variantId = item['variantId'] ??
+          item['variant_id'] ??
+          item['backendVariantId'] ??
+          item['backend_variant_id'];
+      final selectedOptions = _stringOptions(
+        item['selectedOptions'] ?? item['attributes'] ?? item['options'],
+      );
 
       return {
         'product_id': _safeParseInt(item['id']) ?? 0, // Provide default
+        'variantId': variantId?.toString() ?? '',
+        'variant_id': variantId?.toString() ?? '',
+        'variantLabel': item['variant_label']?.toString() ??
+            item['variantLabel']?.toString() ??
+            item['sku']?.toString() ??
+            '',
+        if (selectedOptions.isNotEmpty) 'selectedOptions': selectedOptions,
         'quantity': quantity,
         'name': item['name']?.toString() ?? 'Unknown Product',
         'price': price.toString(),
@@ -628,7 +666,8 @@ class PaymentIntegration {
     }).toList();
   }
 
-  Map<String, dynamic> _buildMetadata(String paymentMethod, String? paymentReference) {
+  Map<String, dynamic> _buildMetadata(
+      String paymentMethod, String? paymentReference) {
     return {
       'payment_method': paymentMethod,
       'payment_reference': paymentReference ?? '',

@@ -101,7 +101,8 @@ class _AddressesPageState extends State<AddressesPage> {
                       if (isDefault) ...[
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: kPrimaryBlue,
                             borderRadius: BorderRadius.circular(6),
@@ -183,7 +184,8 @@ class _AddressesPageState extends State<AddressesPage> {
                 height: 1.5,
               ),
             ),
-            if (address['phone'] != null && (address['phone'] as String).isNotEmpty) ...[
+            if (address['phone'] != null &&
+                (address['phone'] as String).isNotEmpty) ...[
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -252,7 +254,8 @@ class _AddressesPageState extends State<AddressesPage> {
 
     final labelController = TextEditingController(text: address?['label']);
     final nameController = TextEditingController(text: address?['name']);
-    final addressController = TextEditingController(text: address?['full_address']);
+    final addressController =
+        TextEditingController(text: address?['full_address']);
     final phoneController = TextEditingController(text: address?['phone']);
     String selectedType = address?['type'] ?? 'home';
 
@@ -335,7 +338,8 @@ class _AddressesPageState extends State<AddressesPage> {
                 ),
               );
             },
-            style: ElevatedButton.styleFrom(backgroundColor: kRed, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: kRed, foregroundColor: Colors.white),
             child: const Text('Delete'),
           ),
         ],
@@ -440,7 +444,9 @@ class _AddEditAddressSheetState extends State<_AddEditAddressSheet> {
                     _Field(
                       controller: widget.labelController,
                       labelText: 'Label (e.g., Home, Office)',
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter a label' : null,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Enter a label'
+                          : null,
                       textInputAction: TextInputAction.next,
                     ),
                     const SizedBox(height: 12),
@@ -448,7 +454,9 @@ class _AddEditAddressSheetState extends State<_AddEditAddressSheet> {
                     _Field(
                       controller: widget.nameController,
                       labelText: 'Full Name',
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter full name' : null,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Enter full name'
+                          : null,
                       textInputAction: TextInputAction.next,
                     ),
                     const SizedBox(height: 12),
@@ -457,7 +465,9 @@ class _AddEditAddressSheetState extends State<_AddEditAddressSheet> {
                       controller: widget.addressController,
                       labelText: 'Full Address',
                       maxLines: 3,
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter full address' : null,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Enter full address'
+                          : null,
                       textInputAction: TextInputAction.newline,
                     ),
                     const SizedBox(height: 12),
@@ -466,7 +476,9 @@ class _AddEditAddressSheetState extends State<_AddEditAddressSheet> {
                       controller: widget.phoneController,
                       labelText: 'Phone Number',
                       keyboardType: TextInputType.phone,
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter phone number' : null,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Enter phone number'
+                          : null,
                       textInputAction: TextInputAction.done,
                     ),
                     const SizedBox(height: 20),
@@ -475,7 +487,8 @@ class _AddEditAddressSheetState extends State<_AddEditAddressSheet> {
                       children: [
                         Expanded(
                           child: OutlinedButton(
-                            onPressed: _saving ? null : () => Navigator.pop(context),
+                            onPressed:
+                                _saving ? null : () => Navigator.pop(context),
                             style: OutlinedButton.styleFrom(
                               minimumSize: const Size.fromHeight(48),
                               shape: RoundedRectangleBorder(
@@ -502,11 +515,13 @@ class _AddEditAddressSheetState extends State<_AddEditAddressSheet> {
                                 ? const SizedBox(
                                     width: 18,
                                     height: 18,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
                                   )
                                 : Text(
                                     widget.isEdit ? 'Update' : 'Add',
-                                    style: const TextStyle(fontWeight: FontWeight.w700),
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w700),
                                   ),
                           ),
                         ),
@@ -574,7 +589,9 @@ class _TypeChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 18, color: selected ? kPrimaryBlue : Colors.grey.shade700),
+            Icon(icon,
+                size: 18,
+                color: selected ? kPrimaryBlue : Colors.grey.shade700),
             const SizedBox(width: 8),
             Text(
               label,
@@ -623,7 +640,8 @@ class _Field extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: kPrimaryBlue, width: 2),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       ),
     );
   }

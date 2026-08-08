@@ -82,7 +82,8 @@ class NotificationProvider extends ChangeNotifier {
 
   /// ✅ Core handler called from main.dart or notification_service.
   /// Stores, increments badge, and syncs with list.
-  Future<void> handleMessage(RemoteMessage message, {required bool fromTap}) async {
+  Future<void> handleMessage(RemoteMessage message,
+      {required bool fromTap}) async {
     try {
       _lastPayload = message.data;
       await _savePayload(message.data);
@@ -104,7 +105,11 @@ class NotificationProvider extends ChangeNotifier {
   Future<List<Map<String, dynamic>>> getAllNotifications() async {
     final prefs = await SharedPreferences.getInstance();
     final stored = prefs.getStringList(_listKey) ?? [];
-    return stored.map((e) => jsonDecode(e) as Map<String, dynamic>).toList().reversed.toList();
+    return stored
+        .map((e) => jsonDecode(e) as Map<String, dynamic>)
+        .toList()
+        .reversed
+        .toList();
   }
 
   /// ✅ Clear all notifications and reset everything.

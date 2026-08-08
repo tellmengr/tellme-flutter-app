@@ -16,7 +16,6 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'profile_page.dart'; // or wherever your ProfilePage is located
 import 'loyalty_service.dart'; // same file we used in cart
 
-
 // ============================================================
 // 🚨 ENHANCED PAYSTACK ERROR HANDLING - ENUMS AND EXCEPTIONS
 // ============================================================
@@ -97,7 +96,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
         if (buyNowItem is Map) {
           final price = (buyNowItem['price'] ?? 0.0);
           final qty = (buyNowItem['quantity'] ?? 1);
-          final double p = price is num ? price.toDouble() : double.tryParse(price.toString()) ?? 0.0;
+          final double p = price is num
+              ? price.toDouble()
+              : double.tryParse(price.toString()) ?? 0.0;
           final int q = qty is int ? qty : int.tryParse(qty.toString()) ?? 1;
           return p * q;
         }
@@ -177,6 +178,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
   // 💰 FIXED: Added authService as class field for proper organization
   late WooCommerceAuthService authService;
 
+  void _safeSetState(VoidCallback fn) {
+    if (!mounted) return;
+    setState(fn);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -200,7 +206,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   // 💰 ENHANCED: Load Wallet Balance with Multiple Fallback Methods
   Future<void> _loadWalletBalance() async {
     try {
-      setState(() {
+      _safeSetState(() {
         _isLoadingWallet = true;
         _walletError = null;
       });
@@ -209,7 +215,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       final user = userProvider.currentUser;
 
       if (user == null) {
-        setState(() {
+        _safeSetState(() {
           _walletError = 'User not logged in';
           _walletBalance = null;
           _isLoadingWallet = false;
@@ -218,37 +224,29 @@ class _CheckoutPageState extends State<CheckoutPage> {
       }
 
       final userId = int.tryParse(user['id'].toString());
-
-      if (userId == null || userId <= 0) {
-        setState(() {
-          _walletError = 'Invalid user ID';
-          _walletBalance = null;
-          _isLoadingWallet = false;
-        });
-        return;
-      }
-
       print('💰 Loading wallet balance for user ID: $userId');
 
       // ✅ FIXED: Use the actual service method from WooCommerceAuthService
       final walletResult = await authService.getWalletBalance(userId);
 
-      setState(() {
+      _safeSetState(() {
         if (walletResult != null && walletResult['success'] == true) {
           _walletBalance = walletResult;
           _walletError = null;
           print('✅ Wallet balance loaded successfully');
         } else {
-          _walletError = 'TeraWallet plugin may not be installed or activated. Please contact support.';
+          _walletError = walletResult?['error']?.toString() ??
+              'Please sign out and sign in again to refresh your wallet session.';
           _walletBalance = null;
-          print('❌ Wallet balance loading failed: ${walletResult?['error'] ?? 'Unknown error'}');
+          print(
+              '❌ Wallet balance loading failed: ${walletResult?['error'] ?? 'Unknown error'}');
         }
         _isLoadingWallet = false;
       });
     } catch (e) {
       print('❌ Exception loading wallet balance: $e');
-      setState(() {
-        _walletError = 'TeraWallet plugin may not be installed or activated. Please contact support.';
+      _safeSetState(() {
+        _walletError = 'Wallet balance could not be loaded. Please try again.';
         _walletBalance = null;
         _isLoadingWallet = false;
       });
@@ -257,13 +255,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   // 💰 FIXED: Check if wallet has sufficient balance
   bool _hasInsufficientWalletBalance() {
-    if (_walletBalance == null || _walletBalance!['success'] != true) return true;
+    if (_walletBalance == null || _walletBalance!['success'] != true)
+      return true;
 
     try {
-      final currentBalance = authService.getWalletBalanceAmount(_walletBalance!);
+      final currentBalance =
+          authService.getWalletBalanceAmount(_walletBalance!);
       final finalTotal = _calculateFinalTotal();
 
-      print('💰 Wallet balance check: ₦$currentBalance vs ₦$finalTotal required');
+      print(
+          '💰 Wallet balance check: ₦$currentBalance vs ₦$finalTotal required');
       return currentBalance < finalTotal;
     } catch (e) {
       print('❌ Error checking wallet balance: $e');
@@ -332,7 +333,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   // ============================================================
   Future<void> _loadInitialData() async {
     try {
-      setState(() {
+      _safeSetState(() {
         _isLoadingLocationData = true;
         _isLoadingShippingData = true;
       });
@@ -340,22 +341,27 @@ class _CheckoutPageState extends State<CheckoutPage> {
       print('📡 Loading your payment page ...');
 
       // 🌍 Load countries (Nigeria focused)
-      _countries = [{'code': 'NG', 'name': 'Nigeria'}];
+      _countries = [
+        {'code': 'NG', 'name': 'Nigeria'}
+      ];
       _selectedBillingCountry = 'NG';
       _selectedShippingCountry = 'NG';
 
       // 🏛️ Load Nigerian states from TellMe plugin
       print('📍 Fetching Nigerian states from TellMe plugin...');
       final pluginStates = await authService.getTellmeStates();
+      if (!mounted) return;
 
       // 🚚 Load shipping data from custom plugin
       print('🚚 Loading custom shipping data...');
       final shippingData = await authService.getShippingZones();
+      if (!mounted) return;
 
-      setState(() {
+      _safeSetState(() {
         _states = _deduplicateStates(pluginStates);
         _shippingData = shippingData;
-        _shippingMethods = List<Map<String, dynamic>>.from(shippingData['shipping_options'] ?? []);
+        _shippingMethods = List<Map<String, dynamic>>.from(
+            shippingData['shipping_options'] ?? []);
         _isLoadingLocationData = false;
         _isLoadingShippingData = false;
       });
@@ -368,16 +374,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
       // 🏙️ Load default cities for Lagos if available
       if (_states.isNotEmpty) {
         final lagosState = _states.firstWhere(
-          (state) => state['code'] == 'LA' || state['name'].toLowerCase().contains('lagos'),
+          (state) =>
+              state['code'] == 'LA' ||
+              state['name'].toLowerCase().contains('lagos'),
           orElse: () => _states.first,
         );
         if (lagosState.isNotEmpty) {
           await _loadCitiesForState(lagosState['code'], isBilling: true);
         }
       }
-
     } catch (e) {
       print('❌ Error loading initial data: $e');
+      if (!mounted) return;
       _setDefaultData();
     }
   }
@@ -385,19 +393,21 @@ class _CheckoutPageState extends State<CheckoutPage> {
   // ============================================================
   // 🏙️ ENHANCED: Dynamic City Loading from TellMe Plugin
   // ============================================================
-  Future<void> _loadCitiesForState(String stateCode, {bool isBilling = false, bool isShipping = false}) async {
+  Future<void> _loadCitiesForState(String stateCode,
+      {bool isBilling = false, bool isShipping = false}) async {
     try {
       if (isBilling) {
-        setState(() => _isLoadingBillingCities = true);
+        _safeSetState(() => _isLoadingBillingCities = true);
       }
       if (isShipping) {
-        setState(() => _isLoadingShippingCities = true);
+        _safeSetState(() => _isLoadingShippingCities = true);
       }
 
       print('🏙️ Fetching cities for state: $stateCode from TellMe plugin...');
       final fetchedCities = await authService.getTellmeCities(stateCode);
+      if (!mounted) return;
 
-      setState(() {
+      _safeSetState(() {
         if (isBilling || (!isBilling && !isShipping)) {
           // Update cities for billing or when called generally
           _cities = _deduplicateCities(fetchedCities);
@@ -413,10 +423,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
       });
 
       print('✅ Loaded ${fetchedCities.length} cities for state: $stateCode');
-
     } catch (e) {
       print('❌ Error loading cities for state $stateCode: $e');
-      setState(() {
+      _safeSetState(() {
         _isLoadingBillingCities = false;
         _isLoadingShippingCities = false;
       });
@@ -429,7 +438,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   Future<void> _calculateDynamicShippingCost() async {
     // 🔒 Wallet top-up: never calculate shipping
     if (widget.isWalletTopUp) {
-      setState(() {
+      _safeSetState(() {
         _calculatedShippingCost = 0.0;
         _shippingCalculationError = null;
         _isCalculatingShipping = false;
@@ -438,12 +447,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
 
     // Determine which city to use for shipping calculation
-    String? targetCity  = _shipToSameAddress ? _selectedBillingCity  : _selectedShippingCity;
-    String? targetState = _shipToSameAddress ? _selectedBillingState : _selectedShippingState;
+    String? targetCity =
+        _shipToSameAddress ? _selectedBillingCity : _selectedShippingCity;
+    String? targetState =
+        _shipToSameAddress ? _selectedBillingState : _selectedShippingState;
 
     if (targetCity == null || targetState == null) {
       print('🚚 Cannot calculate shipping: City or state not selected');
-      setState(() {
+      _safeSetState(() {
         _calculatedShippingCost = null;
         _shippingCalculationError = null;
       });
@@ -451,12 +462,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
 
     try {
-      setState(() {
+      _safeSetState(() {
         _isCalculatingShipping = true;
         _shippingCalculationError = null;
       });
 
-      print('🚚 Calculating dynamic shipping cost for city: $targetCity, state: $targetState');
+      print(
+          '🚚 Calculating dynamic shipping cost for city: $targetCity, state: $targetState');
 
       // Find the selected city data
       final selectedCityData = _cities.firstWhere(
@@ -473,9 +485,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
       // Get cart provider and calculate shipping
       final cartProvider = Provider.of<CartProvider>(context, listen: false);
-      final shippingResult = await cartProvider.calculateShippingForCity(selectedCityData);
+      final shippingResult =
+          await cartProvider.calculateShippingForCity(selectedCityData);
+      if (!mounted) return;
 
-      setState(() {
+      _safeSetState(() {
         if (shippingResult['success'] == true) {
           _calculatedShippingCost =
               (shippingResult['shipping_cost'] as num?)?.toDouble() ?? 0.0;
@@ -490,7 +504,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       print('✅ Dynamic shipping cost calculated: ₦$_calculatedShippingCost');
     } catch (e) {
       print('❌ Error calculating dynamic shipping: $e');
-      setState(() {
+      _safeSetState(() {
         _calculatedShippingCost = null;
         _shippingCalculationError =
             'Failed to calculate shipping cost: ${e.toString()}';
@@ -502,7 +516,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
   // ============================================================
   // 🔍 ENHANCED: Data Deduplication & Filtering
   // ============================================================
-  List<Map<String, dynamic>> _deduplicateStates(List<Map<String, dynamic>> states) {
+  List<Map<String, dynamic>> _deduplicateStates(
+      List<Map<String, dynamic>> states) {
     final seen = <String>{};
     return states.where((state) {
       final key = '${state['code']}_${state['country'] ?? 'NG'}';
@@ -510,7 +525,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }).toList();
   }
 
-  List<Map<String, dynamic>> _deduplicateCities(List<Map<String, dynamic>> cities) {
+  List<Map<String, dynamic>> _deduplicateCities(
+      List<Map<String, dynamic>> cities) {
     final seen = <String>{};
     return cities.where((city) {
       final key = '${city['code']}_${city['state']}_${city['country'] ?? 'NG'}';
@@ -519,8 +535,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   void _setDefaultData() {
-    setState(() {
-      _countries = [{'code': 'NG', 'name': 'Nigeria'}];
+    _safeSetState(() {
+      _countries = [
+        {'code': 'NG', 'name': 'Nigeria'}
+      ];
       _states = [
         {'code': 'LA', 'name': 'Lagos', 'country': 'NG'},
         {'code': 'AB', 'name': 'Abuja (FCT)', 'country': 'NG'},
@@ -530,12 +548,32 @@ class _CheckoutPageState extends State<CheckoutPage> {
       ];
       _cities = [
         {'code': 'ikeja', 'name': 'Ikeja', 'state': 'LA', 'country': 'NG'},
-        {'code': 'surulere', 'name': 'Surulere', 'state': 'LA', 'country': 'NG'},
-        {'code': 'victoria_island', 'name': 'Victoria Island', 'state': 'LA', 'country': 'NG'},
+        {
+          'code': 'surulere',
+          'name': 'Surulere',
+          'state': 'LA',
+          'country': 'NG'
+        },
+        {
+          'code': 'victoria_island',
+          'name': 'Victoria Island',
+          'state': 'LA',
+          'country': 'NG'
+        },
       ];
       _shippingMethods = [
-        {'id': '1', 'title': 'Standard Delivery', 'cost': '1500', 'zone': 'Nigeria'},
-        {'id': '2', 'title': 'Express Delivery', 'cost': '2500', 'zone': 'Nigeria'},
+        {
+          'id': '1',
+          'title': 'Standard Delivery',
+          'cost': '1500',
+          'zone': 'Nigeria'
+        },
+        {
+          'id': '2',
+          'title': 'Express Delivery',
+          'cost': '2500',
+          'zone': 'Nigeria'
+        },
       ];
       _selectedBillingCountry = 'NG';
       _selectedBillingState = 'LA';
@@ -568,7 +606,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   List<Map<String, dynamic>> _getStatesForCountry(String? countryCode) {
     if (countryCode == null) return [];
-    return _states.where((state) => (state['country'] ?? 'NG') == countryCode).toList();
+    return _states
+        .where((state) => (state['country'] ?? 'NG') == countryCode)
+        .toList();
   }
 
   List<Map<String, dynamic>> _getCitiesForState(String? stateCode) {
@@ -628,7 +668,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
       final user = userProvider.currentUser;
 
       if (user == null) {
-        throw PaymentException('User not logged in', PaymentErrorType.userError);
+        throw PaymentException(
+            'User not logged in', PaymentErrorType.userError);
       }
 
       // Shipping cost (for metadata only – amount itself comes from _calculateFinalTotal)
@@ -642,9 +683,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
       final double finalTotal = _calculateFinalTotal();
 
       // Generate unique reference
-      final reference = 'TM_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(1000)}';
+      final reference =
+          'TM_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(1000)}';
 
-      print('🔄 Attempting Paystack payment initialization (attempt ${_paystackRetryCount + 1}/$_maxRetryAttempts)');
+      print(
+          '🔄 Attempting Paystack payment initialization (attempt ${_paystackRetryCount + 1}/$_maxRetryAttempts)');
       print('   Subtotal: ${widget.subtotal}');
       print('   Shipping: $shippingCost');
       print('   Loyalty discount: $loyaltyDiscount');
@@ -658,14 +701,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
         reference: reference,
         metadata: {
           'customer_id': user['id'],
-          'customer_name': '${_billingFirstNameController.text} ${_billingLastNameController.text}',
+          'customer_name':
+              '${_billingFirstNameController.text} ${_billingLastNameController.text}',
           'customer_phone': _billingPhoneController.text,
           'order_items': widget.cartItems.length,
           'app_name': 'TellMe.ng',
           'platform': 'flutter_app',
           'shipping_method': 'dynamic_calculation',
           'shipping_cost': shippingCost.toString(),
-          'shipping_address': '${_billingAddressController.text}, ${_selectedBillingCity}, ${_selectedBillingState}',
+          'shipping_address':
+              '${_billingAddressController.text}, ${_selectedBillingCity}, ${_selectedBillingState}',
 
           // 💰 Wallet top-up metadata
           'is_wallet_topup': widget.isWalletTopUp.toString(),
@@ -692,13 +737,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
         final paymentUrl = paymentData['data']['authorization_url'];
         await _launchPaymentWithTracking(paymentUrl, reference);
       } else {
-        final errorMessage = paymentData['message'] ?? 'Unknown payment initialization error';
-        throw PaymentException(
-          'Payment initialization failed: $errorMessage',
-          PaymentErrorType.paystackError
-        );
+        final errorMessage =
+            paymentData['message'] ?? 'Unknown payment initialization error';
+        throw PaymentException('Payment initialization failed: $errorMessage',
+            PaymentErrorType.paystackError);
       }
-
     } catch (e) {
       await _handlePaymentError(e);
     } finally {
@@ -719,18 +762,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
       // Strategy 1: Extended timeout (60s) to accommodate slow DNS
       try {
-        return await authService.initializePaystackTransaction(
+        return await authService
+            .initializePaystackTransaction(
           email: email,
           amount: amount,
           reference: reference,
           metadata: metadata,
-        ).timeout(
+        )
+            .timeout(
           Duration(seconds: 60), // Extended from 30s to 60s
           onTimeout: () {
             throw PaymentException(
-              'Payment request timed out after 60 seconds. Your DNS resolution is slow.',
-              PaymentErrorType.networkTimeout
-            );
+                'Payment request timed out after 60 seconds. Your DNS resolution is slow.',
+                PaymentErrorType.networkTimeout);
           },
         );
       } catch (e) {
@@ -740,38 +784,33 @@ class _CheckoutPageState extends State<CheckoutPage> {
         if (e.toString().contains('Failed host lookup') ||
             e.toString().contains('timeout')) {
           print('🔄 Trying direct IP connection to bypass DNS...');
-          return await _tryDirectIPConnection(email, amount, reference, metadata);
+          return await _tryDirectIPConnection(
+              email, amount, reference, metadata);
         }
         rethrow;
       }
-
     } catch (e) {
       // Categorize and re-throw with appropriate error type
       if (e is PaymentException) {
         rethrow;
       } else if (e.toString().contains('Failed host lookup') ||
-                 e.toString().contains('api.paystack.co')) {
+          e.toString().contains('api.paystack.co')) {
         throw PaymentException(
-          'DNS resolution failed. Your network cannot find api.paystack.co. Try switching networks.',
-          PaymentErrorType.networkError
-        );
+            'DNS resolution failed. Your network cannot find api.paystack.co. Try switching networks.',
+            PaymentErrorType.networkError);
       } else if (e.toString().contains('SocketException') ||
-                 e.toString().contains('Network is unreachable')) {
+          e.toString().contains('Network is unreachable')) {
         throw PaymentException(
-          'Network connection failed. Please check your internet settings.',
-          PaymentErrorType.networkError
-        );
+            'Network connection failed. Please check your internet settings.',
+            PaymentErrorType.networkError);
       } else if (e.toString().contains('TimeoutException') ||
-                 e.toString().contains('timeout')) {
+          e.toString().contains('timeout')) {
         throw PaymentException(
-          'Connection timed out. Your DNS is too slow. Try mobile data or different WiFi.',
-          PaymentErrorType.networkTimeout
-        );
+            'Connection timed out. Your DNS is too slow. Try mobile data or different WiFi.',
+            PaymentErrorType.networkTimeout);
       } else {
-        throw PaymentException(
-          'Payment initialization failed: ${e.toString()}',
-          PaymentErrorType.unknown
-        );
+        throw PaymentException('Payment initialization failed: ${e.toString()}',
+            PaymentErrorType.unknown);
       }
     }
   }
@@ -783,67 +822,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
     String reference,
     Map<String, dynamic>? metadata,
   ) async {
-    try {
-      final int amountInKobo = (amount * 100).round();
-
-      // ✅ Read the Paystack secret at build time (NOT hard-coded)
-      const String paystackSecretKey =
-          String.fromEnvironment('PAYSTACK_SECRET_KEY');
-
-      if (paystackSecretKey.isEmpty) {
-        return {
-          'status': false,
-          'message': 'Missing Paystack secret. Provide via --dart-define.',
-        };
-      }
-
-      debugPrint('🎯 Attempting direct IP connection to bypass DNS...');
-      debugPrint('🎯 Using IP: 104.18.28.7 (Paystack Cloudflare edge server)');
-
-      final uri = Uri.parse('https://104.18.28.7/transaction/initialize');
-
-      final headers = <String, String>{
-        // Tell Cloudflare/Paystack the intended host (preserves TLS SNI)
-        'Host': 'api.paystack.co',
-        'Authorization': 'Bearer $paystackSecretKey',
-        'Content-Type': 'application/json',
-        'User-Agent': 'TellMe-Flutter-App/1.0',
-      };
-
-      final body = json.encode({
-        'email': email,
-        'amount': amountInKobo,
-        'reference': reference,
-        'metadata': metadata ?? {},
-      });
-
-      final response = await http
-          .post(uri, headers: headers, body: body)
-          .timeout(const Duration(seconds: 30));
-
-      debugPrint('🔁 Paystack response status: ${response.statusCode}');
-      debugPrint('🔁 Paystack response body: ${response.body}');
-
-      final Map<String, dynamic> parsed =
-          (response.body.isNotEmpty) ? json.decode(response.body) as Map<String, dynamic> : {};
-
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return parsed;
-      } else {
-        return {
-          'status': false,
-          'httpStatus': response.statusCode,
-          'message': parsed['message'] ?? 'Paystack initialization failed',
-          'body': parsed,
-        };
-      }
-    } catch (e, st) {
-      debugPrint('⚠️ _tryDirectIPConnection error: $e\n$st');
-      return {
-        'status': false,
-        'message': 'Network or unexpected error: $e',
-      };
-    }
+    return {
+      'status': false,
+      'message':
+          'Payment initialization must be handled by the TellMe backend. Please try again.',
+    };
   }
 
   /// 🚨 Comprehensive error handling with user-friendly messages and recovery options
@@ -864,7 +847,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
           errorString.contains('network') ||
           errorString.contains('socket')) {
         errorType = PaymentErrorType.networkError;
-        userFriendlyMessage = 'Cannot connect to payment server. Please check your internet connection.';
+        userFriendlyMessage =
+            'Cannot connect to payment server. Please check your internet connection.';
       } else if (errorString.contains('timeout')) {
         errorType = PaymentErrorType.networkTimeout;
         userFriendlyMessage = 'Payment request timed out. Please try again.';
@@ -902,7 +886,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
       barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
               Icon(
@@ -950,7 +935,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.lightbulb_outline, color: Colors.orange, size: 20),
+                          Icon(Icons.lightbulb_outline,
+                              color: Colors.orange, size: 20),
                           const SizedBox(width: 8),
                           Text(
                             'Alternative Payment Option',
@@ -978,7 +964,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
               onPressed: () {
                 Navigator.of(context).pop();
                 setState(() {
-                  _showPaymentMethodAlternatives = _paystackRetryCount >= _maxRetryAttempts;
+                  _showPaymentMethodAlternatives =
+                      _paystackRetryCount >= _maxRetryAttempts;
                 });
               },
               child: const Text('Cancel'),
@@ -992,7 +979,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   _processPaystackPayment(); // Retry the payment
                 },
                 icon: const Icon(Icons.refresh),
-                label: Text('Try Again (${_maxRetryAttempts - _paystackRetryCount} left)'),
+                label: Text(
+                    'Try Again (${_maxRetryAttempts - _paystackRetryCount} left)'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
                   foregroundColor: Colors.white,
@@ -1069,10 +1057,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 ],
               ),
               const SizedBox(height: 8),
-              Text('• Check your internet connection', style: TextStyle(color: Colors.blue.shade700)),
-              Text('• Try switching between WiFi and mobile data', style: TextStyle(color: Colors.blue.shade700)),
-              Text('• Restart your internet connection', style: TextStyle(color: Colors.blue.shade700)),
-              Text('• Move to an area with better signal strength', style: TextStyle(color: Colors.blue.shade700)),
+              Text('• Check your internet connection',
+                  style: TextStyle(color: Colors.blue.shade700)),
+              Text('• Try switching between WiFi and mobile data',
+                  style: TextStyle(color: Colors.blue.shade700)),
+              Text('• Restart your internet connection',
+                  style: TextStyle(color: Colors.blue.shade700)),
+              Text('• Move to an area with better signal strength',
+                  style: TextStyle(color: Colors.blue.shade700)),
             ],
           ),
         );
@@ -1102,9 +1094,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 ],
               ),
               const SizedBox(height: 8),
-              Text('• Your connection may be slow', style: TextStyle(color: Colors.amber.shade700)),
-              Text('• Try again with a stronger internet connection', style: TextStyle(color: Colors.amber.shade700)),
-              Text('• Wait a moment before retrying', style: TextStyle(color: Colors.amber.shade700)),
+              Text('• Your connection may be slow',
+                  style: TextStyle(color: Colors.amber.shade700)),
+              Text('• Try again with a stronger internet connection',
+                  style: TextStyle(color: Colors.amber.shade700)),
+              Text('• Wait a moment before retrying',
+                  style: TextStyle(color: Colors.amber.shade700)),
             ],
           ),
         );
@@ -1134,9 +1129,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 ],
               ),
               const SizedBox(height: 8),
-              Text('• The payment service may be temporarily unavailable', style: TextStyle(color: Colors.red.shade700)),
-              Text('• Try again in a few minutes', style: TextStyle(color: Colors.red.shade700)),
-              Text('• Use Bank Transfer as an alternative', style: TextStyle(color: Colors.red.shade700)),
+              Text('• The payment service may be temporarily unavailable',
+                  style: TextStyle(color: Colors.red.shade700)),
+              Text('• Try again in a few minutes',
+                  style: TextStyle(color: Colors.red.shade700)),
+              Text('• Use Bank Transfer as an alternative',
+                  style: TextStyle(color: Colors.red.shade700)),
             ],
           ),
         );
@@ -1152,7 +1150,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
               const Icon(Icons.account_balance, color: Colors.green, size: 28),
@@ -1196,10 +1195,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text('1. Complete your order', style: TextStyle(color: Colors.green.shade700)),
-                    Text('2. You\'ll receive bank account details', style: TextStyle(color: Colors.green.shade700)),
-                    Text('3. Transfer the total amount to the provided account', style: TextStyle(color: Colors.green.shade700)),
-                    Text('4. Your order will be processed after payment confirmation', style: TextStyle(color: Colors.green.shade700)),
+                    Text('1. Complete your order',
+                        style: TextStyle(color: Colors.green.shade700)),
+                    Text('2. You\'ll receive bank account details',
+                        style: TextStyle(color: Colors.green.shade700)),
+                    Text('3. Transfer the total amount to the provided account',
+                        style: TextStyle(color: Colors.green.shade700)),
+                    Text(
+                        '4. Your order will be processed after payment confirmation',
+                        style: TextStyle(color: Colors.green.shade700)),
                   ],
                 ),
               ),
@@ -1210,7 +1214,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
               onPressed: () {
                 Navigator.of(context).pop();
                 setState(() {
-                  _selectedPaymentMethod = 'paystack'; // Switch back to Paystack
+                  _selectedPaymentMethod =
+                      'paystack'; // Switch back to Paystack
                   _showPaymentMethodAlternatives = false;
                 });
               },
@@ -1285,7 +1290,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
   // ============================================================
   Future<void> _processPayment() async {
     // 💰 SPECIAL HANDLING FOR WALLET TOP-UP - FIXED DETECTION
-    final isWalletTopUp = widget.isWalletTopUp == true && widget.walletTopUpAmount != null;
+    final isWalletTopUp =
+        widget.isWalletTopUp == true && widget.walletTopUpAmount != null;
 
     if (isWalletTopUp) {
       await _processWalletTopUpPayment();
@@ -1293,12 +1299,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
 
     if (!_formKey.currentState!.validate()) {
-      _showErrorDialog('Form Error', 'Please fill in all required fields correctly.');
+      _showErrorDialog(
+          'Form Error', 'Please fill in all required fields correctly.');
       return;
     }
 
     // If Paystack has failed multiple times, guide user to Bank Transfer
-    if (_selectedPaymentMethod == 'paystack' && _paystackRetryCount >= _maxRetryAttempts) {
+    if (_selectedPaymentMethod == 'paystack' &&
+        _paystackRetryCount >= _maxRetryAttempts) {
       _showBankTransferSuggestionDialog();
       return;
     }
@@ -1314,7 +1322,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
         await _processBankTransferOrder();
         break;
       default:
-        _showErrorDialog('Payment Error', 'Please select a valid payment method.');
+        _showErrorDialog(
+            'Payment Error', 'Please select a valid payment method.');
     }
   }
 
@@ -1330,7 +1339,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
         throw Exception('User not logged in');
       }
 
-      _showProgressDialog('Processing Top-Up', 'Setting up your wallet top-up...');
+      _showProgressDialog(
+          'Processing Top-Up', 'Setting up your wallet top-up...');
 
       // ✅ DIRECT PAYSTACK PAYMENT FOR WALLET TOP-UP (no order creation)
       final reference =
@@ -1373,9 +1383,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
         if (Navigator.of(context, rootNavigator: true).canPop()) {
           Navigator.of(context, rootNavigator: true).pop();
         }
-        throw Exception(paymentData['message'] ?? 'Top-up initialization failed');
+        throw Exception(
+            paymentData['message'] ?? 'Top-up initialization failed');
       }
-
     } catch (e) {
       // ✅ FIX: Ensure dialog is dismissed on error
       if (Navigator.of(context, rootNavigator: true).canPop()) {
@@ -1391,7 +1401,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   // 💰 NEW: Dedicated Wallet Top-Up Payment Launch
-  Future<void> _launchWalletTopUpPayment(String paymentUrl, String reference) async {
+  Future<void> _launchWalletTopUpPayment(
+      String paymentUrl, String reference) async {
     print('🚀 Launching Paystack WebView for wallet top-up: $reference');
 
     setState(() {
@@ -1402,7 +1413,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   // 💰 NEW: Dedicated Wallet Top-Up WebView
-  Future<void> _showWalletTopUpWebView(String paymentUrl, String reference) async {
+  Future<void> _showWalletTopUpWebView(
+      String paymentUrl, String reference) async {
     if (!mounted) return;
 
     return showDialog<void>(
@@ -1412,7 +1424,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
         return PaystackWebViewDialog(
           paymentUrl: paymentUrl,
           reference: reference,
-          onPaymentComplete: (bool success, String? transactionReference) async {
+          onPaymentComplete:
+              (bool success, String? transactionReference) async {
             Navigator.of(context).pop(); // Close WebView dialog
 
             if (success && transactionReference != null) {
@@ -1431,7 +1444,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 _awaitingPaymentConfirmation = false;
               });
 
-              _showErrorDialog('Top-Up Failed', 'Payment was not completed. Please try again.');
+              _showErrorDialog('Top-Up Failed',
+                  'Payment was not completed. Please try again.');
             }
           },
           onCancel: () {
@@ -1465,24 +1479,30 @@ class _CheckoutPageState extends State<CheckoutPage> {
       }
 
       // Show verification progress
-      _showProgressDialog('Verifying Payment', 'Please wait while we confirm your top-up...');
+      _showProgressDialog(
+          'Verifying Payment', 'Please wait while we confirm your top-up...');
 
       // ✅ STEP 1: Verify payment with Paystack
-      final verification = await authService.verifyPaystackTransaction(_paystackReference!);
+      final verification =
+          await authService.verifyPaystackTransaction(_paystackReference!);
       print('🔍 Verification response: ${verification['data']['status']}');
 
       if (verification['data']['status'] != 'success') {
-        Navigator.of(context, rootNavigator: true).pop(); // Close progress dialog
-        throw Exception('Payment verification failed. Please contact support if amount was debited.');
+        Navigator.of(context, rootNavigator: true)
+            .pop(); // Close progress dialog
+        throw Exception(
+            'Payment verification failed. Please contact support if amount was debited.');
       }
 
       // Update progress
-      Navigator.of(context, rootNavigator: true).pop(); // Close verification dialog
-      _showProgressDialog('Crediting Wallet', 'Payment confirmed! Adding funds to your wallet...');
+      Navigator.of(context, rootNavigator: true)
+          .pop(); // Close verification dialog
+      _showProgressDialog('Crediting Wallet',
+          'Payment confirmed! Adding funds to your wallet...');
 
       // ✅ STEP 2: Credit the wallet directly
       final creditResult = await authService.creditWallet(
-        int.parse(user['id'].toString()),
+        int.tryParse(user['id'].toString()),
         widget.walletTopUpAmount!,
         'Wallet top-up via Paystack - Reference: $_paystackReference',
       );
@@ -1521,7 +1541,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('💰 Wallet topped up successfully! ₦${widget.walletTopUpAmount} added'),
+                content: Text(
+                    '💰 Wallet topped up successfully! ₦${widget.walletTopUpAmount} added'),
                 backgroundColor: Colors.green,
                 duration: Duration(seconds: 4),
               ),
@@ -1529,9 +1550,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
           }
         }
       } else {
-        throw Exception('Wallet credit failed: ${creditResult['error'] ?? 'Unknown error'}');
+        throw Exception(
+            'Wallet credit failed: ${creditResult['error'] ?? 'Unknown error'}');
       }
-
     } catch (e) {
       print('❌ Wallet top-up verification error: $e');
 
@@ -1550,10 +1571,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
         });
 
         // Show error message but stay on current page
-        _showErrorDialog(
-          'Top-Up Issue',
-          'Payment was successful but we encountered an issue: ${e.toString()}\n\nYour funds are safe. Please contact support if this persists.'
-        );
+        _showErrorDialog('Top-Up Issue',
+            'Payment was successful but we encountered an issue: ${e.toString()}\n\nYour funds are safe. Please contact support if this persists.');
       }
     } finally {
       // ✅ FIXED: FINALLY - Only update state if still mounted
@@ -1572,7 +1591,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
               const Icon(Icons.info_outline, color: Colors.orange, size: 28),
@@ -1677,7 +1697,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
         throw Exception('Insufficient wallet balance for this purchase');
       }
 
-      _showProgressDialog('Processing Wallet Payment', 'Deducting amount from your wallet...');
+      _showProgressDialog(
+          'Processing Wallet Payment', 'Deducting amount from your wallet...');
 
       // ✅ NEW: Pass real customer data to PaymentIntegration
       final result = await paymentIntegration.processPayment(
@@ -1690,7 +1711,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
           'email': user['email'],
         },
         billingAddress: _buildBillingAddressData(),
-        shippingAddress: _shipToSameAddress ? null : _buildShippingAddressData(),
+        shippingAddress:
+            _shipToSameAddress ? null : _buildShippingAddressData(),
       );
 
       // ✅ FIX: Use rootNavigator to ensure dialog dismissal
@@ -1699,9 +1721,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
       }
 
       // ✅ ENHANCED: Check for explicit order creation flags
-      if (result != null && result['success'] == true &&
+      if (result != null &&
+          result['success'] == true &&
           (result['order_created'] == true || result['orderData'] != null)) {
-
         print('💰 Wallet payment successful, refreshing balance...');
         await _loadWalletBalance();
         print('💰 Wallet balance refreshed!');
@@ -1722,11 +1744,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
         );
 
         return; // Exit early to avoid finally block
-
       } else {
         throw Exception(result?['message'] ?? 'Wallet payment failed');
       }
-
     } catch (e) {
       // ✅ FIX: Use rootNavigator for error dismissal too
       if (Navigator.of(context, rootNavigator: true).canPop()) {
@@ -1754,7 +1774,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
         throw Exception('User not logged in');
       }
 
-      _showProgressDialog('Creating Order', 'Setting up your bank transfer order...');
+      _showProgressDialog(
+          'Creating Order', 'Setting up your bank transfer order...');
 
       // ✅ NEW: Pass real customer data to PaymentIntegration
       final result = await paymentIntegration.processPayment(
@@ -1767,7 +1788,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
           'email': user['email'],
         },
         billingAddress: _buildBillingAddressData(),
-        shippingAddress: _shipToSameAddress ? null : _buildShippingAddressData(),
+        shippingAddress:
+            _shipToSameAddress ? null : _buildShippingAddressData(),
       );
 
       // ✅ FIX: Use rootNavigator to ensure dialog dismissal
@@ -1776,10 +1798,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
       }
 
       // ✅ ENHANCED: Check for explicit order creation flags
-      if (result != null && result['success'] == true &&
+      if (result != null &&
+          result['success'] == true &&
           (result['order_created'] == true || result['orderData'] != null)) {
-
-        print('✅ Bank transfer order created successfully, navigating to confirmation...');
+        print(
+            '✅ Bank transfer order created successfully, navigating to confirmation...');
 
         // Clear cart
         final cartProvider = Provider.of<CartProvider>(context, listen: false);
@@ -1797,11 +1820,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
         );
 
         return; // Exit early to avoid finally block
-
       } else {
         throw Exception(result?['message'] ?? 'Bank transfer order failed');
       }
-
     } catch (e) {
       // ✅ FIX: Use rootNavigator for error dismissal too
       if (Navigator.of(context, rootNavigator: true).canPop()) {
@@ -1819,10 +1840,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   String _getPaymentMethodTitle() {
     switch (_selectedPaymentMethod) {
-      case 'wallet': return 'TeraWallet';
-      case 'bank_transfer': return 'Bank Transfer';
-      case 'paystack': return 'Paystack';
-      default: return 'Paystack';
+      case 'wallet':
+        return 'TellMe Wallet';
+      case 'bank_transfer':
+        return 'Bank Transfer';
+      case 'paystack':
+        return 'Paystack';
+      default:
+        return 'Paystack';
     }
   }
 
@@ -1848,7 +1873,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
         return PaystackWebViewDialog(
           paymentUrl: paymentUrl,
           reference: reference,
-          onPaymentComplete: (bool success, String? transactionReference) async {
+          onPaymentComplete:
+              (bool success, String? transactionReference) async {
             Navigator.of(context).pop(); // Close WebView dialog
 
             if (success && transactionReference != null) {
@@ -1867,7 +1893,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 _awaitingPaymentConfirmation = false;
               });
 
-              _showErrorDialog('Payment Failed', 'Payment was not completed. Please try again.');
+              _showErrorDialog('Payment Failed',
+                  'Payment was not completed. Please try again.');
             }
           },
           onCancel: () {
@@ -1932,7 +1959,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
         );
 
         final creditResult = await authService.creditWallet(
-          int.parse(user['id'].toString()),
+          int.tryParse(user['id'].toString()),
           widget.walletTopUpAmount!,
           'Wallet top-up via Paystack - Reference: $_paystackReference',
         );
@@ -1988,7 +2015,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
           'email': user['email'],
         },
         billingAddress: _buildBillingAddressData(),
-        shippingAddress: _shipToSameAddress ? null : _buildShippingAddressData(),
+        shippingAddress:
+            _shipToSameAddress ? null : _buildShippingAddressData(),
       );
 
       if (Navigator.of(context, rootNavigator: true).canPop()) {
@@ -2051,8 +2079,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
   }
 
-
-
   // ============================================================
   // 🧩 Simple reusable dialogs (progress + error)
   // ============================================================
@@ -2104,10 +2130,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
-
   /// 🔧 Run comprehensive network diagnostics for Paystack connectivity
   Future<void> _runNetworkDiagnostics() async {
-    _showLoadingDialog('Network Diagnostics', 'Testing connection to Paystack...');
+    _showLoadingDialog(
+        'Network Diagnostics', 'Testing connection to Paystack...');
 
     try {
       final diagnostics = await _performNetworkTests();
@@ -2125,9 +2151,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
     // Test 1: Basic internet connectivity
     try {
-      final response = await http.get(
-        Uri.parse('https://www.google.com'),
-      ).timeout(Duration(seconds: 10));
+      final response = await http
+          .get(
+            Uri.parse('https://www.google.com'),
+          )
+          .timeout(Duration(seconds: 10));
       results['internet'] = {
         'status': 'success',
         'message': 'Internet connection is working',
@@ -2147,7 +2175,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
       results['api_dns'] = {
         'status': 'success',
         'message': 'API DNS resolution successful',
-        'details': 'api.paystack.co → ${apiAddresses.map((a) => a.address).join(', ')}'
+        'details':
+            'api.paystack.co → ${apiAddresses.map((a) => a.address).join(', ')}'
       };
     } catch (e) {
       results['api_dns'] = {
@@ -2158,11 +2187,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
 
     try {
-      final checkoutAddresses = await InternetAddress.lookup('checkout.paystack.com');
+      final checkoutAddresses =
+          await InternetAddress.lookup('checkout.paystack.com');
       results['checkout_dns'] = {
         'status': 'success',
         'message': 'Checkout DNS resolution successful',
-        'details': 'checkout.paystack.com → ${checkoutAddresses.map((a) => a.address).join(', ')}'
+        'details':
+            'checkout.paystack.com → ${checkoutAddresses.map((a) => a.address).join(', ')}'
       };
     } catch (e) {
       results['checkout_dns'] = {
@@ -2292,7 +2323,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   /// 🔧 Build individual diagnostic test result
-  Widget _buildDiagnosticItem(String title, Map<String, dynamic> result, IconData icon) {
+  Widget _buildDiagnosticItem(
+      String title, Map<String, dynamic> result, IconData icon) {
     final isSuccess = result['status'] == 'success';
     final color = isSuccess ? Colors.green : Colors.red;
 
@@ -2360,7 +2392,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final apiDNS = results['api_dns']['status'] == 'success';
     final checkoutDNS = results['checkout_dns']['status'] == 'success';
     final apiReachable = results['paystack_api']['status'] == 'success';
-    final checkoutReachable = results['paystack_checkout']['status'] == 'success';
+    final checkoutReachable =
+        results['paystack_checkout']['status'] == 'success';
 
     // Pattern: DNS works but HTTP fails (timeout issues)
     if (apiDNS && checkoutDNS && !apiReachable) {
@@ -2379,7 +2412,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
       suggestions.add('• Move closer to WiFi source');
       suggestions.add('• Try different network entirely');
       suggestions.add('• App will now try direct IP connection automatically');
-      return _buildSuggestionWidget('DNS Timeout Issue', suggestions, Colors.orange);
+      return _buildSuggestionWidget(
+          'DNS Timeout Issue', suggestions, Colors.orange);
     }
 
     // Check for selective domain blocking
@@ -2398,7 +2432,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
       suggestions.add('• Use VPN to bypass restrictions');
       suggestions.add('• Change DNS to 8.8.8.8 or 1.1.1.1');
       suggestions.add('• Use Bank Transfer as alternative');
-      return _buildSuggestionWidget('Selective API Blocking', suggestions, Colors.orange);
+      return _buildSuggestionWidget(
+          'Selective API Blocking', suggestions, Colors.orange);
     }
 
     if (!apiDNS && !checkoutDNS) {
@@ -2406,7 +2441,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
       suggestions.add('Try changing DNS to 8.8.8.8 or 1.1.1.1');
       suggestions.add('Restart your router/modem');
       suggestions.add('Contact your ISP about DNS issues');
-      return _buildSuggestionWidget('DNS Resolution Failed', suggestions, Colors.red);
+      return _buildSuggestionWidget(
+          'DNS Resolution Failed', suggestions, Colors.red);
     }
 
     if (!apiReachable && !checkoutReachable) {
@@ -2414,14 +2450,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
       suggestions.add('Paystack may be temporarily unavailable');
       suggestions.add('Try again in a few minutes');
       suggestions.add('Use Bank Transfer as alternative');
-      return _buildSuggestionWidget('Paystack Unavailable', suggestions, Colors.amber);
+      return _buildSuggestionWidget(
+          'Paystack Unavailable', suggestions, Colors.amber);
     }
 
     if (apiReachable && checkoutReachable) {
       suggestions.add('All Paystack services are accessible!');
       suggestions.add('The payment should work now.');
       suggestions.add('Try the payment again.');
-      return _buildSuggestionWidget('All Systems Operational', suggestions, Colors.green);
+      return _buildSuggestionWidget(
+          'All Systems Operational', suggestions, Colors.green);
     }
 
     // Fallback
@@ -2431,7 +2469,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   /// 🎨 Build styled suggestion widget
-  Widget _buildSuggestionWidget(String title, List<String> suggestions, Color color) {
+  Widget _buildSuggestionWidget(
+      String title, List<String> suggestions, Color color) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -2456,13 +2495,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
             ],
           ),
           const SizedBox(height: 8),
-          ...suggestions.map((suggestion) => Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Text(
-              suggestion.startsWith('•') ? suggestion : '• $suggestion',
-              style: TextStyle(color: color),
-            ),
-          )).toList(),
+          ...suggestions
+              .map((suggestion) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      suggestion.startsWith('•') ? suggestion : '• $suggestion',
+                      style: TextStyle(color: color),
+                    ),
+                  ))
+              .toList(),
         ],
       ),
     );
@@ -2471,7 +2512,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   /// 🔄 Check if retry option should be shown based on diagnostics
   bool _shouldShowRetryOption(Map<String, dynamic> results) {
     return results['internet']['status'] == 'success' &&
-           results['paystack_api']['status'] == 'success';
+        results['paystack_api']['status'] == 'success';
   }
 
   @override
@@ -2482,13 +2523,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.isWalletTopUp ? '💰 Wallet Top-Up' : 'Secure Checkout'),
+        title:
+            Text(widget.isWalletTopUp ? '💰 Wallet Top-Up' : 'Secure Checkout'),
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: widget.isWalletTopUp
-                ? [Color(0xFF10B981), Color(0xFF059669)] // Green gradient for wallet top-up
-                : [primaryBlue, skyBlue],
+                  ? [
+                      Color(0xFF10B981),
+                      Color(0xFF059669)
+                    ] // Green gradient for wallet top-up
+                  : [primaryBlue, skyBlue],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -2498,7 +2543,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
         elevation: 2,
         centerTitle: true,
       ),
-
       body: (_isLoadingLocationData || _isLoadingShippingData)
           ? Center(
               child: Column(
@@ -2523,7 +2567,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 ],
               ),
             )
-
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
               child: Form(
@@ -2548,13 +2591,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.verified_user, color: accentGreen, size: 22),
+                          Icon(Icons.verified_user,
+                              color: accentGreen, size: 22),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               widget.isWalletTopUp
-                                ? '💰 Secure wallet top-up via Paystack'
-                                : '🔒 Secure checkout powered by Paystack',
+                                  ? '💰 Secure wallet top-up via Paystack'
+                                  : '🔒 Secure checkout powered by Paystack',
                               style: TextStyle(
                                 color: Colors.green,
                                 fontWeight: FontWeight.w600,
@@ -2584,250 +2628,250 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       const SizedBox(height: 24),
                     ],
 
-                   // Ship to same address checkbox (skip for wallet top-up)
-                   if (!widget.isWalletTopUp) ...[
-                     CheckboxListTile(
-                       title: const Text('Ship to same address'),
-                       value: _shipToSameAddress,
-                       onChanged: (value) {
-                         setState(() {
-                           _shipToSameAddress = value ?? true;
-                         });
-                         _calculateDynamicShippingCost();
-                       },
-                       activeColor: primaryBlue,
-                       checkColor: Colors.white,
-                     ),
+                    // Ship to same address checkbox (skip for wallet top-up)
+                    if (!widget.isWalletTopUp) ...[
+                      CheckboxListTile(
+                        title: const Text('Ship to same address'),
+                        value: _shipToSameAddress,
+                        onChanged: (value) {
+                          setState(() {
+                            _shipToSameAddress = value ?? true;
+                          });
+                          _calculateDynamicShippingCost();
+                        },
+                        activeColor: primaryBlue,
+                        checkColor: Colors.white,
+                      ),
 
-                     // Shipping Address (if different)
-                     if (!_shipToSameAddress) ...[
-                       const SizedBox(height: 16),
-                       _buildSectionTitle('Shipping Address'),
-                       _buildShippingAddressForm(),
-                       const SizedBox(height: 24),
-                     ],
-                   ],
-
+                      // Shipping Address (if different)
+                      if (!_shipToSameAddress) ...[
+                        const SizedBox(height: 16),
+                        _buildSectionTitle('Shipping Address'),
+                        _buildShippingAddressForm(),
+                        const SizedBox(height: 24),
+                      ],
+                    ],
 
                     // Final Order Summary
                     _buildFinalOrderSummary(),
                     const SizedBox(height: 24),
 
-                   // 💳 Enhanced Payment Method Selection
-                                     _buildPaymentMethodSection(),
-                                     const SizedBox(height: 24),
+                    // 💳 Enhanced Payment Method Selection
+                    _buildPaymentMethodSection(),
+                    const SizedBox(height: 24),
 
-                                     // 💳 Blue-themed Complete Order Button
-                                     _buildEnhancedCompleteOrderButton(),
-                                     const SizedBox(height: 16),
+                    // 💳 Blue-themed Complete Order Button
+                    _buildEnhancedCompleteOrderButton(),
+                    const SizedBox(height: 16),
 
-                                     // ✨ Payment button status indicator (skip for wallet top-up)
-                                     if (!widget.isWalletTopUp && _calculatedShippingCost == null)
-                                       Container(
-                                         padding: const EdgeInsets.all(12),
-                                         decoration: BoxDecoration(
-                                           color: skyBlue.withOpacity(0.1),
-                                           borderRadius: BorderRadius.circular(8),
-                                           border: Border.all(color: skyBlue.withOpacity(0.3)),
-                                         ),
-                                         child: Row(
-                                           children: [
-                                             Icon(Icons.info, color: primaryBlue, size: 18),
-                                             const SizedBox(width: 8),
-                                             Expanded(
-                                               child: Text(
-                                                 'Please select a city to calculate shipping costs before proceeding.',
-                                                 style: TextStyle(
-                                                   fontSize: 12,
-                                                   color: primaryBlue.withOpacity(0.8),
-                                                 ),
-                                               ),
-                                             ),
-                                           ],
-                                         ),
-                                       ),
-
-                                     const SizedBox(height: 16),
-
-                                     // Payment methods info
-                                     _buildPaymentMethodsInfo(),
-                                   ],
-                                 ),
-                               ),
-                             ),
-                     );
-                   }
-
-                   /////////////////////////////////////////////////////////
-                   //////////////////////////////////////////////////////// Block where I fixed
-                   // 💰 Build wallet top-up header
-                   Widget _buildWalletTopUpHeader() {
-                     return Container(
-                       width: double.infinity,
-                       padding: const EdgeInsets.all(20),
-                       decoration: BoxDecoration(
-                         gradient: const LinearGradient(
-                           colors: [Color(0xFF10B981), Color(0xFF059669)],
-                           begin: Alignment.topLeft,
-                           end: Alignment.bottomRight,
-                         ),
-                         borderRadius: BorderRadius.circular(12),
-                       ),
-                       child: Column(
-                         crossAxisAlignment: CrossAxisAlignment.start,
-                         children: [
-                           Row(
-                             children: [
-                               Icon(Icons.account_balance_wallet, color: Colors.white, size: 32),
-                               const SizedBox(width: 12),
-                               const Text(
-                                 '💰 Wallet Top-Up',
-                                 style: TextStyle(
-                                   fontSize: 24,
-                                   fontWeight: FontWeight.bold,
-                                   color: Colors.white,
-                                 ),
-                               ),
-                             ],
-                           ),
-                           const SizedBox(height: 12),
-                           Text(
-                             'You are adding ₦${NumberFormat("#,###").format(widget.walletTopUpAmount)} to your wallet',
-                             style: const TextStyle(
-                               fontSize: 16,
-                               color: Colors.white,
-                               fontWeight: FontWeight.w500,
-                             ),
-                           ),
-                           const SizedBox(height: 8),
-                           Container(
-                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                             decoration: BoxDecoration(
-                               color: Colors.white.withOpacity(0.2),
-                               borderRadius: BorderRadius.circular(20),
-                             ),
-                             child: Text(
-                               'Payment method: Paystack',
-                               style: TextStyle(
-                                 fontSize: 14,
-                                 color: Colors.white,
-                                 fontWeight: FontWeight.w500,
-                               ),
-                             ),
-                           ),
-                         ],
-                       ),
-                     );
-                   }
-
-                   // 💳 ENHANCED: Payment Method Selection Widget with Error State Handling
-                   Widget _buildPaymentMethodSection() {
-                     if (widget.isWalletTopUp) {
-                       return _buildSimpleWalletPaymentMethodSelection();
-                     } else {
-                       return _buildEnhancedPaymentMethodSelection();
-                     }
-                   }
-
-                   // SIMPLE WALLET PAYMENT METHOD SELECTION
-                   Widget _buildSimpleWalletPaymentMethodSelection() {
-                     // Force Paystack for wallet top-up
-                     _selectedPaymentMethod = 'paystack';
-
-                     return Container(
-                       padding: const EdgeInsets.all(16),
-                       decoration: BoxDecoration(
-                         border: Border.all(color: Colors.grey.shade300),
-                         borderRadius: BorderRadius.circular(12),
-                       ),
-                       child: Column(
-                         crossAxisAlignment: CrossAxisAlignment.start,
-                         children: [
-                           Text(
-                             'Payment Method',
-                             style: TextStyle(
-                               fontSize: 16,
-                               fontWeight: FontWeight.w600,
-                               color: Colors.grey[800],
-                             ),
-                           ),
-                           SizedBox(height: 12),
-
-                           // Forced Paystack for wallet top-up
-                           Container(
-                             width: double.infinity,
-                             padding: const EdgeInsets.all(16),
-                             decoration: BoxDecoration(
-                               border: Border.all(color: Color(0xFF10B981), width: 2),
-                               borderRadius: BorderRadius.circular(8),
-                               color: Color(0xFF10B981).withOpacity(0.1),
-                             ),
-                             child: Row(
-                               children: [
-                                 Icon(Icons.payment, color: Color(0xFF10B981)),
-                                 const SizedBox(width: 12),
-                                 const Expanded(
-                                   child: Text(
-                                     'Paystack - Required for Wallet Top-Up',
-                                     style: TextStyle(
-                                       fontWeight: FontWeight.w500,
-                                       color: Color(0xFF10B981),
-                                     ),
-                                   ),
-                                 ),
-                               ],
-                             ),
-                           ),
-                         ],
-                       ),
-                     );
-                   }
-
-  // ENHANCED PAYMENT METHOD SELECTION (for regular purchases)
-    Widget _buildEnhancedPaymentMethodSelection() {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Payment Method',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[800],
-              ),
-            ),
-            SizedBox(height: 12),
-
-            // Show payment error summary if there was an error
-            if (_lastPaymentError != null && _showPaymentMethodAlternatives) ...[
-              Container(
-                padding: const EdgeInsets.all(12),
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.shade200),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.warning_amber, color: Colors.red.shade600),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Paystack payment failed after $_paystackRetryCount attempts. Consider using Bank Transfer instead.',
-                        style: TextStyle(color: Colors.red.shade700),
+                    // ✨ Payment button status indicator (skip for wallet top-up)
+                    if (!widget.isWalletTopUp &&
+                        _calculatedShippingCost == null)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: skyBlue.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: skyBlue.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info, color: primaryBlue, size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Please select a city to calculate shipping costs before proceeding.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: primaryBlue.withOpacity(0.8),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Payment methods info
+                    _buildPaymentMethodsInfo(),
                   ],
                 ),
               ),
+            ),
+    );
+  }
+
+  /////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////// Block where I fixed
+  // 💰 Build wallet top-up header
+  Widget _buildWalletTopUpHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF10B981), Color(0xFF059669)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.account_balance_wallet, color: Colors.white, size: 32),
+              const SizedBox(width: 12),
+              const Text(
+                '💰 Wallet Top-Up',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
             ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'You are adding ₦${NumberFormat("#,###").format(widget.walletTopUpAmount)} to your wallet',
+            style: const TextStyle(
+              fontSize: 16,
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              'Payment method: Paystack',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 💳 ENHANCED: Payment Method Selection Widget with Error State Handling
+  Widget _buildPaymentMethodSection() {
+    if (widget.isWalletTopUp) {
+      return _buildSimpleWalletPaymentMethodSelection();
+    } else {
+      return _buildEnhancedPaymentMethodSelection();
+    }
+  }
+
+  // SIMPLE WALLET PAYMENT METHOD SELECTION
+  Widget _buildSimpleWalletPaymentMethodSelection() {
+    // Force Paystack for wallet top-up
+    _selectedPaymentMethod = 'paystack';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Payment Method',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[800],
+            ),
+          ),
+          SizedBox(height: 12),
+
+          // Forced Paystack for wallet top-up
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              border: Border.all(color: Color(0xFF10B981), width: 2),
+              borderRadius: BorderRadius.circular(8),
+              color: Color(0xFF10B981).withOpacity(0.1),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.payment, color: Color(0xFF10B981)),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Paystack - Required for Wallet Top-Up',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF10B981),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ENHANCED PAYMENT METHOD SELECTION (for regular purchases)
+  Widget _buildEnhancedPaymentMethodSelection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Payment Method',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[800],
+            ),
+          ),
+          SizedBox(height: 12),
+
+          // Show payment error summary if there was an error
+          if (_lastPaymentError != null && _showPaymentMethodAlternatives) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.warning_amber, color: Colors.red.shade600),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Paystack payment failed after $_paystackRetryCount attempts. Consider using Bank Transfer instead.',
+                      style: TextStyle(color: Colors.red.shade700),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
 
           // Wallet Option (with enhanced error handling)
           if (_walletBalance != null && _walletBalance!['success'] == true)
@@ -2838,12 +2882,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
               subtitle: _buildWalletSubtitle(),
               isEnabled: !_hasInsufficientWalletBalance(),
               trailing: _isLoadingWallet
-                ? SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : null,
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : null,
             )
           else if (_isLoadingWallet)
             Container(
@@ -2899,15 +2943,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
           Container(
             decoration: BoxDecoration(
               border: Border.all(
-                color: _selectedPaymentMethod == 'paystack' ? Colors.orange : Colors.grey.shade300,
+                color: _selectedPaymentMethod == 'paystack'
+                    ? Colors.orange
+                    : Colors.grey.shade300,
                 width: _selectedPaymentMethod == 'paystack' ? 2 : 1,
               ),
               borderRadius: BorderRadius.circular(8),
               color: _selectedPaymentMethod == 'paystack'
-                ? Colors.orange.shade50
-                : (_lastErrorType != null && _paystackRetryCount >= _maxRetryAttempts
-                  ? Colors.red.shade50
-                  : Colors.white),
+                  ? Colors.orange.shade50
+                  : (_lastErrorType != null &&
+                          _paystackRetryCount >= _maxRetryAttempts
+                      ? Colors.red.shade50
+                      : Colors.white),
             ),
             child: RadioListTile<String>(
               title: Row(
@@ -2926,20 +2973,23 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           ),
                         ),
                         Text(
-                          _lastErrorType != null && _paystackRetryCount >= _maxRetryAttempts
-                            ? 'Payment failed - experiencing connection issues'
-                            : 'Visa, Mastercard, Verve • Powered by Paystack',
+                          _lastErrorType != null &&
+                                  _paystackRetryCount >= _maxRetryAttempts
+                              ? 'Payment failed - experiencing connection issues'
+                              : 'Visa, Mastercard, Verve • Powered by Paystack',
                           style: TextStyle(
                             fontSize: 12,
-                            color: _lastErrorType != null && _paystackRetryCount >= _maxRetryAttempts
-                              ? Colors.red.shade600
-                              : Colors.grey[600],
+                            color: _lastErrorType != null &&
+                                    _paystackRetryCount >= _maxRetryAttempts
+                                ? Colors.red.shade600
+                                : Colors.grey[600],
                           ),
                         ),
                       ],
                     ),
                   ),
-                  if (_lastErrorType != null && _paystackRetryCount >= _maxRetryAttempts) ...[
+                  if (_lastErrorType != null &&
+                      _paystackRetryCount >= _maxRetryAttempts) ...[
                     Icon(Icons.warning, color: Colors.red, size: 16),
                   ],
                 ],
@@ -2968,13 +3018,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
           Container(
             decoration: BoxDecoration(
               border: Border.all(
-                color: _selectedPaymentMethod == 'bank_transfer' ? Colors.green : Colors.grey.shade300,
+                color: _selectedPaymentMethod == 'bank_transfer'
+                    ? Colors.green
+                    : Colors.grey.shade300,
                 width: _selectedPaymentMethod == 'bank_transfer' ? 2 : 1,
               ),
               borderRadius: BorderRadius.circular(8),
               color: _selectedPaymentMethod == 'bank_transfer'
-                ? Colors.green.shade50
-                : (_showPaymentMethodAlternatives ? Colors.green.shade50 : Colors.white),
+                  ? Colors.green.shade50
+                  : (_showPaymentMethodAlternatives
+                      ? Colors.green.shade50
+                      : Colors.white),
             ),
             child: RadioListTile<String>(
               title: Row(
@@ -2997,7 +3051,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                             if (_showPaymentMethodAlternatives) ...[
                               const SizedBox(width: 8),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: Colors.green,
                                   borderRadius: BorderRadius.circular(10),
@@ -3059,17 +3114,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
         ),
         borderRadius: BorderRadius.circular(8),
         color: isEnabled
-          ? (isSelected ? Colors.orange.withOpacity(0.1) : Colors.white)
-          : Colors.grey[100],
+            ? (isSelected ? Colors.orange.withOpacity(0.1) : Colors.white)
+            : Colors.grey[100],
       ),
       child: RadioListTile<String>(
         value: value,
         groupValue: _selectedPaymentMethod,
-        onChanged: isEnabled ? (String? newValue) {
-          setState(() {
-            _selectedPaymentMethod = newValue ?? 'paystack';
-          });
-        } : null,
+        onChanged: isEnabled
+            ? (String? newValue) {
+                setState(() {
+                  _selectedPaymentMethod = newValue ?? 'paystack';
+                });
+              }
+            : null,
         activeColor: Colors.orange,
         title: Row(
           children: [
@@ -3105,10 +3162,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   // BLUE-THEMED: Complete Order Button with Error State Handling
   Widget _buildEnhancedCompleteOrderButton() {
-    final finalTotal = widget.isWalletTopUp ? (widget.walletTopUpAmount ?? 0.0) : _calculateFinalTotal();
+    final finalTotal = widget.isWalletTopUp
+        ? (widget.walletTopUpAmount ?? 0.0)
+        : _calculateFinalTotal();
 
-    final bool isPaystackFailed =
-        _selectedPaymentMethod == 'paystack' && _paystackRetryCount >= _maxRetryAttempts;
+    final bool isPaystackFailed = _selectedPaymentMethod == 'paystack' &&
+        _paystackRetryCount >= _maxRetryAttempts;
 
     return Container(
       width: double.infinity,
@@ -3117,19 +3176,22 @@ class _CheckoutPageState extends State<CheckoutPage> {
         gradient: isPaystackFailed || widget.isWalletTopUp
             ? null
             : LinearGradient(
-                colors: [Color(0xFF1565C0), Color(0xFF42A5F5)], // deep blue → sky blue
+                colors: [
+                  Color(0xFF1565C0),
+                  Color(0xFF42A5F5)
+                ], // deep blue → sky blue
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
         color: isPaystackFailed || widget.isWalletTopUp
-          ? (widget.isWalletTopUp ? Color(0xFF10B981) : Colors.grey[400])
-          : null,
+            ? (widget.isWalletTopUp ? Color(0xFF10B981) : Colors.grey[400])
+            : null,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
             color: (isPaystackFailed || widget.isWalletTopUp
-              ? (widget.isWalletTopUp ? Color(0xFF10B981) : Colors.grey)
-              : Color(0xFF1565C0))
+                    ? (widget.isWalletTopUp ? Color(0xFF10B981) : Colors.grey)
+                    : Color(0xFF1565C0))
                 .withOpacity(0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
@@ -3137,7 +3199,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
         ],
       ),
       child: ElevatedButton(
-        onPressed: (_isLoading || (!widget.isWalletTopUp && _calculatedShippingCost == null))
+        onPressed: (_isLoading ||
+                (!widget.isWalletTopUp && _calculatedShippingCost == null))
             ? null
             : _processPayment,
         style: ElevatedButton.styleFrom(
@@ -3184,7 +3247,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        widget.isWalletTopUp ? 'Top Up Wallet' : _getCompleteOrderButtonText(finalTotal),
+                        widget.isWalletTopUp
+                            ? 'Top Up Wallet'
+                            : _getCompleteOrderButtonText(finalTotal),
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -3194,8 +3259,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       if (!isPaystackFailed)
                         Text(
                           widget.isWalletTopUp
-                            ? '₦${NumberFormat("#,###").format(widget.walletTopUpAmount)}'
-                            : _formatCurrency(finalTotal),
+                              ? '₦${NumberFormat("#,###").format(widget.walletTopUpAmount)}'
+                              : _formatCurrency(finalTotal),
                           style: const TextStyle(
                             fontSize: 14,
                             color: Colors.white70,
@@ -3222,7 +3287,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
 
     try {
-      final currentBalance = authService.getWalletBalanceAmount(_walletBalance!);
+      final currentBalance =
+          authService.getWalletBalanceAmount(_walletBalance!);
       final finalTotal = _calculateFinalTotal();
       final formattedBalance = authService.formatWalletBalance(_walletBalance!);
 
@@ -3242,9 +3308,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
     if (widget.isWalletTopUp) return Icons.account_balance_wallet;
 
     switch (_selectedPaymentMethod) {
-      case 'wallet': return Icons.account_balance_wallet;
-      case 'bank_transfer': return Icons.account_balance;
-      default: return Icons.lock;
+      case 'wallet':
+        return Icons.account_balance_wallet;
+      case 'bank_transfer':
+        return Icons.account_balance;
+      default:
+        return Icons.lock;
     }
   }
 
@@ -3302,7 +3371,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   ///////////////////////////////////////////////////////////
   /////////////////////////////////////////////////////////where I fixed
-    // ✨ NEW: Dynamic Shipping Cost Display Section
+  // ✨ NEW: Dynamic Shipping Cost Display Section
   Widget _buildDynamicShippingSection() {
     return Card(
       elevation: 2,
@@ -3322,7 +3391,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
               ],
             ),
             const SizedBox(height: 12),
-
             if (_isCalculatingShipping)
               Container(
                 padding: const EdgeInsets.all(16),
@@ -3467,7 +3535,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
               const SizedBox(height: 8),
 
               // Show current wallet balance if available
-              if (_walletBalance != null && _walletBalance!['success'] == true) ...[
+              if (_walletBalance != null &&
+                  _walletBalance!['success'] == true) ...[
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -3502,7 +3571,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       ),
                       Text(
                         // ✅ FIXED: Use proper helper methods for balance calculation
-                        _formatCurrency(authService.getWalletBalanceAmount(_walletBalance!) + widget.walletTopUpAmount!),
+                        _formatCurrency(authService
+                                .getWalletBalanceAmount(_walletBalance!) +
+                            widget.walletTopUpAmount!),
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -3515,24 +3586,30 @@ class _CheckoutPageState extends State<CheckoutPage> {
               ],
             ] else ...[
               // Regular cart items
-              ...widget.cartItems.map((item) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '${item['name']} × ${item['quantity']}',
-                        style: TextStyle(fontSize: 14),
-                      ),
-                    ),
-                    Text(
-                      _formatCurrency((double.tryParse(item['price'].toString()) ?? 0.0) * (item['quantity'] ?? 1)),
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                    ),
-                  ],
-                ),
-              )).toList(),
+              ...widget.cartItems
+                  .map((item) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '${item['name']} × ${item['quantity']}',
+                                style: TextStyle(fontSize: 14),
+                              ),
+                            ),
+                            Text(
+                              _formatCurrency(
+                                  (double.tryParse(item['price'].toString()) ??
+                                          0.0) *
+                                      (item['quantity'] ?? 1)),
+                              style: TextStyle(
+                                  fontSize: 14, fontWeight: FontWeight.w500),
+                            ),
+                          ],
+                        ),
+                      ))
+                  .toList(),
             ],
           ],
         ),
@@ -3646,12 +3723,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 labelText: 'State *',
                 border: const OutlineInputBorder(),
                 suffixIcon: _isLoadingLocationData
-                  ? SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange),
-                    )
-                  : null,
+                    ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.orange),
+                      )
+                    : null,
               ),
               items: _getStatesForCountry(_selectedBillingCountry).map((state) {
                 return DropdownMenuItem<String>(
@@ -3688,7 +3766,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator(color: Colors.orange, strokeWidth: 2),
+                      child: CircularProgressIndicator(
+                          color: Colors.orange, strokeWidth: 2),
                     ),
                     const SizedBox(width: 12),
                     Text(
@@ -3713,21 +3792,20 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 labelText: 'City *',
                 border: const OutlineInputBorder(),
                 suffixIcon: _isLoadingBillingCities
-                  ? SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange),
-                    )
-                  : null,
+                    ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.orange),
+                      )
+                    : null,
               ),
-              items: _getCitiesForState(_selectedBillingState)
-                  .map((city) {
-                    return DropdownMenuItem<String>(
-                      value: city['code'],
-                      child: Text(city['name']),
-                    );
-                  })
-                  .toList(),
+              items: _getCitiesForState(_selectedBillingState).map((city) {
+                return DropdownMenuItem<String>(
+                  value: city['code'],
+                  child: Text(city['name']),
+                );
+              }).toList(),
               onChanged: (value) async {
                 setState(() {
                   _selectedBillingCity = value;
@@ -3826,7 +3904,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       border: OutlineInputBorder(),
                     ),
                     validator: (value) {
-                      if (!_shipToSameAddress && (value == null || value.isEmpty)) {
+                      if (!_shipToSameAddress &&
+                          (value == null || value.isEmpty)) {
                         return 'Please enter first name';
                       }
                       return null;
@@ -3842,7 +3921,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       border: OutlineInputBorder(),
                     ),
                     validator: (value) {
-                      if (!_shipToSameAddress && (value == null || value.isEmpty)) {
+                      if (!_shipToSameAddress &&
+                          (value == null || value.isEmpty)) {
                         return 'Please enter last name';
                       }
                       return null;
@@ -3899,14 +3979,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 labelText: 'State *',
                 border: const OutlineInputBorder(),
                 suffixIcon: _isLoadingLocationData
-                  ? SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange),
-                    )
-                  : null,
+                    ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.orange),
+                      )
+                    : null,
               ),
-              items: _getStatesForCountry(_selectedShippingCountry).map((state) {
+              items:
+                  _getStatesForCountry(_selectedShippingCountry).map((state) {
                 return DropdownMenuItem<String>(
                   value: state['code'],
                   child: Text(state['name']),
@@ -3941,7 +4023,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator(color: Colors.orange, strokeWidth: 2),
+                      child: CircularProgressIndicator(
+                          color: Colors.orange, strokeWidth: 2),
                     ),
                     const SizedBox(width: 12),
                     Text(
@@ -3961,12 +4044,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 labelText: 'City *',
                 border: const OutlineInputBorder(),
                 suffixIcon: _isLoadingShippingCities
-                  ? SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange),
-                    )
-                  : null,
+                    ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.orange),
+                      )
+                    : null,
               ),
               items: _getCitiesForState(_selectedShippingState).map((city) {
                 return DropdownMenuItem<String>(
@@ -3980,7 +4064,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 });
 
                 // ✨ TRIGGER DYNAMIC SHIPPING CALCULATION when shipping city is selected
-                if (value != null && !_shipToSameAddress && !widget.isWalletTopUp) {
+                if (value != null &&
+                    !_shipToSameAddress &&
+                    !widget.isWalletTopUp) {
                   await _calculateDynamicShippingCost();
                 }
               },
@@ -4052,7 +4138,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
     return Card(
       elevation: 2,
       child: Padding(
-        padding: const EdgeInsets.all(16.0), // FIXED: Added 'padding:' parameter
+        padding:
+            const EdgeInsets.all(16.0), // FIXED: Added 'padding:' parameter
         child: Column(
           children: [
             // Row: Subtotal / Top-up amount
@@ -4174,7 +4261,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
       ),
     );
   }
-
 
   @override
   void dispose() {
@@ -4420,7 +4506,8 @@ class _PaystackWebViewDialogState extends State<PaystackWebViewDialog> {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.green.withOpacity(0.1),
-                  border: Border(bottom: BorderSide(color: Colors.green.withOpacity(0.3))),
+                  border: Border(
+                      bottom: BorderSide(color: Colors.green.withOpacity(0.3))),
                 ),
                 child: Row(
                   children: [
@@ -4461,17 +4548,22 @@ class _PaystackWebViewDialogState extends State<PaystackWebViewDialog> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.info_outline, color: Colors.blue, size: 16),
+                      const Icon(Icons.info_outline,
+                          color: Colors.blue, size: 16),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           _paymentCompleted
-                            ? 'Payment complete! Creating your order...'
-                            : 'Complete your payment above. The app will automatically continue when done.',
+                              ? 'Payment complete! Creating your order...'
+                              : 'Complete your payment above. The app will automatically continue when done.',
                           style: TextStyle(
                             fontSize: 12,
-                            color: _paymentCompleted ? Colors.green[700] : Colors.grey[700],
-                            fontWeight: _paymentCompleted ? FontWeight.w600 : FontWeight.normal,
+                            color: _paymentCompleted
+                                ? Colors.green[700]
+                                : Colors.grey[700],
+                            fontWeight: _paymentCompleted
+                                ? FontWeight.w600
+                                : FontWeight.normal,
                           ),
                         ),
                       ),
@@ -4492,7 +4584,8 @@ class _PaystackWebViewDialogState extends State<PaystackWebViewDialog> {
   }
 
   void _showCancelConfirmation() {
-    if (_paymentCompleted) return; // ✅ Don't allow cancel if payment is processing
+    if (_paymentCompleted)
+      return; // ✅ Don't allow cancel if payment is processing
 
     showDialog(
       context: context,

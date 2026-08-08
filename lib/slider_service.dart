@@ -3,18 +3,20 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AppSlide {
+  static const String _siteBaseUrl = 'https://tellme.ng';
+
   final String title;
   final String subtitle;
   final String buttonText;
-  final String buttonUrl;     // deep link or web URL
+  final String buttonUrl; // deep link or web URL
   final String gradientStart; // hex like #1565C0
-  final String gradientEnd;   // hex like #00BFFF
-  final String image;         // full URL
+  final String gradientEnd; // hex like #00BFFF
+  final String image; // full URL
 
   // NEW display flags
-  final bool imageOnly;       // render full-bleed image (no gradient/text/button)
-  final bool hideTitle;       // hide title text even in gradient layout
-  final bool hideButton;      // hide CTA button even in gradient layout
+  final bool imageOnly; // render full-bleed image (no gradient/text/button)
+  final bool hideTitle; // hide title text even in gradient layout
+  final bool hideButton; // hide CTA button even in gradient layout
 
   AppSlide({
     required this.title,
@@ -42,22 +44,102 @@ class AppSlide {
     return false;
   }
 
-  factory AppSlide.fromJson(Map<String, dynamic> j) => AppSlide(
-        title: _s(j['title']),
-        subtitle: _s(j['subtitle']),
-        buttonText: _s(j['button_text'], 'Learn More'),
-        buttonUrl: _s(j['button_url']),
-        gradientStart: _s(j['gradient_start'], '#1565C0').isEmpty
-            ? '#1565C0'
-            : _s(j['gradient_start']),
-        gradientEnd: _s(j['gradient_end'], '#00BFFF').isEmpty
-            ? '#00BFFF'
-            : _s(j['gradient_end']),
-        image: _s(j['image']),
-        imageOnly: _b(j['image_only']),
-        hideTitle: _b(j['hide_title']),
-        hideButton: _b(j['hide_button']),
-      );
+  static String _firstString(Map<String, dynamic> source, List<String> keys) {
+    for (final key in keys) {
+      final value = source[key];
+      if (value == null) continue;
+
+      final text = value.toString().trim();
+      if (text.isNotEmpty) return text;
+    }
+
+    return '';
+  }
+
+  static String _absoluteUrl(dynamic value) {
+    final text = _s(value).trim();
+    if (text.isEmpty) return '';
+    final uri = Uri.tryParse(text);
+    if (uri != null && uri.hasScheme) return text;
+    if (text.startsWith('//')) return 'https:$text';
+    if (text.startsWith('/')) return '$_siteBaseUrl$text';
+    return '$_siteBaseUrl/$text';
+  }
+
+  static bool looksLikeSlide(Map<String, dynamic> source) {
+    return _firstString(source, [
+      'image',
+      'imageSrc',
+      'imageUrl',
+      'desktopImage',
+      'desktopImageUrl',
+      'mobileImage',
+      'mobileImageUrl',
+      'src',
+    ]).isNotEmpty;
+  }
+
+  factory AppSlide.fromJson(Map<String, dynamic> j) {
+    final title = _firstString(j, ['title', 'heading', 'headline', 'name']);
+    final subtitle = _firstString(j, [
+      'subtitle',
+      'subTitle',
+      'description',
+      'caption',
+      'text',
+    ]);
+    final buttonText = _firstString(j, [
+      'button_text',
+      'buttonText',
+      'cta',
+      'ctaText',
+      'cta_label',
+      'label',
+    ]);
+    final buttonUrl = _absoluteUrl(
+      _firstString(j, [
+        'button_url',
+        'buttonUrl',
+        'ctaUrl',
+        'cta_url',
+        'link',
+        'linkUrl',
+        'href',
+        'url',
+      ]),
+    );
+    final image = _absoluteUrl(
+      _firstString(j, [
+        'image',
+        'imageSrc',
+        'imageUrl',
+        'desktopImage',
+        'desktopImageUrl',
+        'mobileImage',
+        'mobileImageUrl',
+        'src',
+        'url',
+      ]),
+    );
+
+    final gradientStart =
+        _firstString(j, ['gradient_start', 'gradientStart', 'fromColor']);
+    final gradientEnd =
+        _firstString(j, ['gradient_end', 'gradientEnd', 'toColor']);
+
+    return AppSlide(
+      title: title,
+      subtitle: subtitle,
+      buttonText: buttonText.isEmpty ? 'Learn More' : buttonText,
+      buttonUrl: buttonUrl,
+      gradientStart: gradientStart.isEmpty ? '#1565C0' : gradientStart,
+      gradientEnd: gradientEnd.isEmpty ? '#00BFFF' : gradientEnd,
+      image: image,
+      imageOnly: _b(j['image_only'] ?? j['imageOnly']),
+      hideTitle: _b(j['hide_title'] ?? j['hideTitle']),
+      hideButton: _b(j['hide_button'] ?? j['hideButton']),
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'title': title,
@@ -74,25 +156,34 @@ class AppSlide {
 }
 
 class SliderService {
-  // Update this to your domain if different:
-  static const _endpoint = 'https://tellme.ng/wp-json/tellme/v1/sliders';
-  static const _cacheKey = 'app_slides_cache_v2'; // bumped for new fields
+  static const _appearanceEndpoint = 'https://tellme.ng/api/v1/appearance';
+  static const _legacyEndpoint = 'https://tellme.ng/wp-json/tellme/v1/sliders';
+  static const _cacheKey = 'app_slides_cache_v3';
+  static const _legacyCacheKey = 'app_slides_cache_v2';
 
   Future<List<AppSlide>> fetchSlides() async {
+    final websiteSlides = await _fetchFromEndpoint(_appearanceEndpoint);
+    if (websiteSlides.isNotEmpty) return websiteSlides;
+
+    final legacySlides = await _fetchFromEndpoint(_legacyEndpoint);
+    if (legacySlides.isNotEmpty) return legacySlides;
+
+    return _cachedSlides();
+  }
+
+  Future<List<AppSlide>> _fetchFromEndpoint(String endpoint) async {
     try {
       final r = await http.get(
-        Uri.parse(_endpoint),
+        Uri.parse(endpoint),
         headers: const {
           'Accept': 'application/json',
-          // help avoid stale responses while editing in WP
           'Cache-Control': 'no-cache',
         },
       ).timeout(const Duration(seconds: 10));
 
       if (r.statusCode == 200) {
         final decoded = json.decode(r.body);
-        final List rawList =
-            (decoded is Map && decoded['slides'] is List) ? decoded['slides'] : const [];
+        final rawList = _extractSlides(decoded);
 
         final slides = rawList
             .whereType<Map>()
@@ -100,26 +191,74 @@ class SliderService {
             .map<AppSlide>(AppSlide.fromJson)
             .toList();
 
-        // cache the raw list
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString(_cacheKey, json.encode(rawList));
+        if (slides.isNotEmpty) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString(_cacheKey, json.encode(rawList));
+        }
 
         return slides;
       }
     } catch (_) {
-      // ignore (we'll use cache)
+      // Ignore and try the next source/cache.
     }
 
-    // Fallback to cache
+    return [];
+  }
+
+  List _extractSlides(dynamic decoded) {
+    if (decoded is List) return decoded;
+    if (decoded is! Map) return const [];
+
+    final map = decoded.cast<String, dynamic>();
+
+    if (AppSlide.looksLikeSlide(map)) return [map];
+
+    for (final key in [
+      'slides',
+      'heroSlides',
+      'banners',
+      'items',
+      'data',
+    ]) {
+      final value = map[key];
+      if (value is List) return value;
+    }
+
+    for (final key in [
+      'appearance',
+      'storefrontAppearance',
+      'home',
+      'homepage',
+      'hero',
+      'heroPromo',
+      'slider',
+      'carousel',
+    ]) {
+      final value = map[key];
+      final nested = _extractSlides(value);
+      if (nested.isNotEmpty) return nested;
+    }
+
+    return const [];
+  }
+
+  Future<List<AppSlide>> _cachedSlides() async {
     final prefs = await SharedPreferences.getInstance();
-    final cached = prefs.getString(_cacheKey);
-    if (cached != null) {
-      final List rawList = json.decode(cached) as List;
-      return rawList
-          .whereType<Map>()
-          .map<Map<String, dynamic>>((m) => m.cast<String, dynamic>())
-          .map<AppSlide>(AppSlide.fromJson)
-          .toList();
+    for (final cacheKey in [_cacheKey, _legacyCacheKey]) {
+      final cached = prefs.getString(cacheKey);
+      if (cached == null) continue;
+
+      try {
+        final List rawList = json.decode(cached) as List;
+        final slides = rawList
+            .whereType<Map>()
+            .map<Map<String, dynamic>>((m) => m.cast<String, dynamic>())
+            .map<AppSlide>(AppSlide.fromJson)
+            .toList();
+        if (slides.isNotEmpty) return slides;
+      } catch (_) {
+        await prefs.remove(cacheKey);
+      }
     }
 
     return [];

@@ -6,24 +6,165 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:math';
 
+import 'tellme_account_api.dart';
+
 class WooCommerceAuthService {
   // ✅ WooCommerce site base
   static const String baseUrl = 'https://tellme.ng';
+  static const String apiBaseUrl = '$baseUrl/api/v1';
 
   // 🔐 WooCommerce API keys
-  static const String consumerKey = 'ck_0d41e4b1b9151e611ced4220bed993ac87afb94d';
-  static const String consumerSecret = 'cs_125a35108b788b64900b292f4ea4d678e461637e';
+  static const String consumerKey =
+      'ck_0d41e4b1b9151e611ced4220bed993ac87afb94d';
+  static const String consumerSecret =
+      'cs_125a35108b788b64900b292f4ea4d678e461637e';
 
   // 💳 Paystack API keys (read securely at build time)
-  static const String paystackSecretKey =
-      String.fromEnvironment('PAYSTACK_SECRET_KEY'); // injected with --dart-define
-  static const String paystackPublicKey =
-      String.fromEnvironment('PAYSTACK_PUBLIC_KEY'); // injected with --dart-define
-
+  static const String paystackSecretKey = String.fromEnvironment(
+      'PAYSTACK_SECRET_KEY'); // injected with --dart-define
+  static const String paystackPublicKey = String.fromEnvironment(
+      'PAYSTACK_PUBLIC_KEY'); // injected with --dart-define
 
   // 🔥 Firebase instances for admin verification
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final TellmeAccountApi _accountApi = TellmeAccountApi();
+
+  Uri _apiUri(String path, [Map<String, String>? queryParameters]) {
+    final cleanPath = path.startsWith('/') ? path.substring(1) : path;
+    return Uri.parse('$apiBaseUrl/$cleanPath')
+        .replace(queryParameters: queryParameters);
+  }
+
+  Map<String, String> get _jsonHeaders => {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      };
+
+  String _cleanString(dynamic value) => value?.toString().trim() ?? '';
+
+  String _firstText(Map<dynamic, dynamic> data, List<String> keys) {
+    for (final key in keys) {
+      final value = _cleanString(data[key]);
+      if (value.isNotEmpty) return value;
+    }
+    return '';
+  }
+
+  bool _isHex32(String? value) {
+    if (value == null) return false;
+    return RegExp(r'^[a-fA-F0-9]{32}$').hasMatch(value.trim());
+  }
+
+  String _slugify(String value) {
+    return value
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9\s-]'), '')
+        .replaceAll(RegExp(r'\s+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_|_$'), '');
+  }
+
+  double _toNairaAmount(dynamic value) {
+    if (value == null) return 0.0;
+    final raw = value is num
+        ? value.toDouble()
+        : double.tryParse(value.toString().replaceAll(RegExp(r'[^\d.]'), '')) ??
+            0.0;
+    return raw >= 10000 ? raw / 100 : raw;
+  }
+
+  String _formatNaira(double amount) => 'NGN ${amount.toStringAsFixed(2)}';
+
+  String? _extractVariantId(Map<dynamic, dynamic> item) {
+    final direct = _firstText(item, [
+      'variantId',
+      'variant_id',
+      'backendVariantId',
+      'backend_variant_id',
+    ]);
+    if (_isHex32(direct)) return direct;
+
+    final variants = item['variants'];
+    if (variants is List && variants.isNotEmpty && variants.first is Map) {
+      final variantId = _firstText(variants.first as Map, ['id', 'variantId']);
+      if (_isHex32(variantId)) return variantId;
+    }
+
+    return null;
+  }
+
+  Map<String, String> _stringOptions(dynamic options) {
+    if (options is! Map) return {};
+    return options.map(
+      (key, value) => MapEntry(key.toString(), value?.toString() ?? ''),
+    );
+  }
+
+  Map<String, dynamic>? _normalizeCatalogProduct(Map<String, dynamic> product) {
+    final variants =
+        product['variants'] is List ? product['variants'] as List : <dynamic>[];
+    final firstVariant = variants.whereType<Map>().isNotEmpty
+        ? variants.whereType<Map>().first.cast<String, dynamic>()
+        : <String, dynamic>{};
+    final price = firstVariant['price'] is Map
+        ? (firstVariant['price'] as Map)['amount']
+        : product['price'];
+    final rawId = product['legacyId'] ?? product['id'];
+    final numericId =
+        rawId is int ? rawId : int.tryParse(rawId?.toString() ?? '');
+
+    return {
+      'id': numericId ?? rawId,
+      'product_id': numericId ?? rawId,
+      'backendId': product['id'],
+      'variant_id': firstVariant['id'],
+      'variantId': firstVariant['id'],
+      'name': product['name'] ?? '',
+      'price': _toNairaAmount(price).toStringAsFixed(2),
+      'regular_price': _toNairaAmount(price).toStringAsFixed(2),
+      'sale_price': '',
+      'shipping_class': '',
+      'shipping_class_id': 0,
+      'weight': '',
+      'dimensions': {},
+      'categories': [
+        {
+          'name': product['category'],
+          'slug': product['categorySlug'],
+        }
+      ],
+      'images': [
+        {'src': product['imageUrl'] ?? product['visual'] ?? ''}
+      ],
+      'stock_status': firstVariant['stockStatus'] ?? 'instock',
+      'manage_stock': false,
+      'stock_quantity': null,
+      'sku': firstVariant['sku'] ?? product['sku'] ?? '',
+      'variants': variants,
+      'average_rating': product['average_rating'] ??
+          product['averageRating'] ??
+          product['rating_average'] ??
+          product['ratingAverage'] ??
+          product['review_average'] ??
+          product['reviewAverage'] ??
+          (product['reviews'] is Map
+              ? (product['reviews'] as Map)['average']
+              : null) ??
+          product['rating'] ??
+          '0',
+      'rating_count': product['rating_count'] ??
+          product['ratingCount'] ??
+          product['review_count'] ??
+          product['reviewCount'] ??
+          product['reviews_count'] ??
+          product['reviewsCount'] ??
+          (product['reviews'] is Map
+              ? (product['reviews'] as Map)['count']
+              : null) ??
+          0,
+    };
+  }
 
   // 🔑 Generate a strong random password for social signups
   String _generateRandomPassword([int length = 12]) {
@@ -31,163 +172,169 @@ class WooCommerceAuthService {
     const chars =
         'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789@#\$%&*!?';
     final rnd = Random.secure();
-    return List.generate(length, (_) => chars[rnd.nextInt(chars.length)]).join();
+    return List.generate(length, (_) => chars[rnd.nextInt(chars.length)])
+        .join();
   }
 
-/// 🔑 Request password reset (tries several endpoints; returns true on success)
+  /// 🔑 Request password reset (tries several endpoints; returns true on success)
 
-Future<bool> requestPasswordReset(String email) async {
-  try {
-    final e = email.trim();
-    if (e.isEmpty || !_isValidEmail(e)) {
-      print('❌ requestPasswordReset: invalid email "$e"');
+  Future<bool> requestPasswordReset(String email) async {
+    try {
+      final e = email.trim();
+      if (e.isEmpty || !_isValidEmail(e)) {
+        print('❌ requestPasswordReset: invalid email "$e"');
+        return false;
+      }
+
+      // 1) TellMe custom endpoint
+      final r1 = await http.post(
+        Uri.parse('$baseUrl/wp-json/tellme/v1/password-reset'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'email': e}),
+      );
+      if (_pwResetOk(r1)) {
+        print('✅ Password reset: tellme/v1/password-reset OK');
+        return true;
+      } else {
+        print(
+            'ℹ️ tellme/v1/password-reset failed/unavailable: ${r1.statusCode} ${r1.body}');
+      }
+
+      // 2) Popular plugin: bdpwr
+      final r2 = await http.post(
+        Uri.parse('$baseUrl/wp-json/bdpwr/v1/reset-password'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'email': e}),
+      );
+      if (_pwResetOk(r2)) {
+        print('✅ Password reset: bdpwr/v1/reset-password OK');
+        return true;
+      } else {
+        print(
+            'ℹ️ bdpwr/v1/reset-password failed/unavailable: ${r2.statusCode} ${r2.body}');
+      }
+
+      // 3) Another common pattern
+      final r3 = await http.post(
+        Uri.parse('$baseUrl/wp-json/wp/v2/users/lostpassword'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'email': e}),
+      );
+      if (_pwResetOk(r3)) {
+        print('✅ Password reset: wp/v2/users/lostpassword OK');
+        return true;
+      } else {
+        print(
+            'ℹ️ wp/v2/users/lostpassword failed/unavailable: ${r3.statusCode} ${r3.body}');
+      }
+
+      // 4) Fallback to classic form (WP usually replies 302 -> checkemail=confirm)
+      final r4 = await http.post(
+        Uri.parse('$baseUrl/wp-login.php?action=lostpassword'),
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'user_login=${Uri.encodeQueryComponent(e)}&redirect_to=',
+      );
+      if (_pwResetOk(r4)) {
+        print('✅ Password reset via wp-login.php (lostpassword) OK');
+        return true;
+      }
+
+      print(
+          '❌ All password reset attempts failed. Last status: ${r4.statusCode} ${r4.body}');
+      return false;
+    } catch (e) {
+      print('❌ requestPasswordReset exception: $e');
       return false;
     }
-
-    // 1) TellMe custom endpoint
-    final r1 = await http.post(
-      Uri.parse('$baseUrl/wp-json/tellme/v1/password-reset'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({'email': e}),
-    );
-    if (_pwResetOk(r1)) {
-      print('✅ Password reset: tellme/v1/password-reset OK');
-      return true;
-    } else {
-      print('ℹ️ tellme/v1/password-reset failed/unavailable: ${r1.statusCode} ${r1.body}');
-    }
-
-    // 2) Popular plugin: bdpwr
-    final r2 = await http.post(
-      Uri.parse('$baseUrl/wp-json/bdpwr/v1/reset-password'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({'email': e}),
-    );
-    if (_pwResetOk(r2)) {
-      print('✅ Password reset: bdpwr/v1/reset-password OK');
-      return true;
-    } else {
-      print('ℹ️ bdpwr/v1/reset-password failed/unavailable: ${r2.statusCode} ${r2.body}');
-    }
-
-    // 3) Another common pattern
-    final r3 = await http.post(
-      Uri.parse('$baseUrl/wp-json/wp/v2/users/lostpassword'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({'email': e}),
-    );
-    if (_pwResetOk(r3)) {
-      print('✅ Password reset: wp/v2/users/lostpassword OK');
-      return true;
-    } else {
-      print('ℹ️ wp/v2/users/lostpassword failed/unavailable: ${r3.statusCode} ${r3.body}');
-    }
-
-    // 4) Fallback to classic form (WP usually replies 302 -> checkemail=confirm)
-    final r4 = await http.post(
-      Uri.parse('$baseUrl/wp-login.php?action=lostpassword'),
-      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body: 'user_login=${Uri.encodeQueryComponent(e)}&redirect_to=',
-    );
-    if (_pwResetOk(r4)) {
-      print('✅ Password reset via wp-login.php (lostpassword) OK');
-      return true;
-    }
-
-    print('❌ All password reset attempts failed. Last status: ${r4.statusCode} ${r4.body}');
-    return false;
-  } catch (e) {
-    print('❌ requestPasswordReset exception: $e');
-    return false;
   }
-}
 
 // ---------- Helpers (keep inside the class) ----------
 
-bool _isValidEmail(String e) {
-  final re = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-  return re.hasMatch(e);
-}
-
-/// Tolerant success detector.
-/// Accepts:
-///  - 2xx with typical success JSON/messages
-///  - 302/303 redirect whose Location contains "checkemail=confirm" (WP classic)
-///  - 2xx HTML with success phrases
-bool _pwResetOk(http.Response r) {
-  final code = r.statusCode;
-  final bodyLower = r.body.toLowerCase();
-
-  // ✅ Handle WP classic redirect success
-  if (code >= 300 && code < 400) {
-    final loc = (r.headers['location'] ?? r.headers['Location'] ?? '').toLowerCase();
-    if (loc.contains('checkemail=confirm') || loc.contains('resetpass')) {
-      return true;
-    }
-    // Some hosts rewrite but still indicate success in body
-    if (_containsSuccessText(bodyLower)) return true;
+  bool _isValidEmail(String e) {
+    final re = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+    return re.hasMatch(e);
   }
 
-  // ✅ Normal JSON/HTML 2xx success
-  if (code >= 200 && code < 300) {
-    // Heuristic success text first (works for HTML pages)
-    if (_containsSuccessText(bodyLower)) return true;
+  /// Tolerant success detector.
+  /// Accepts:
+  ///  - 2xx with typical success JSON/messages
+  ///  - 302/303 redirect whose Location contains "checkemail=confirm" (WP classic)
+  ///  - 2xx HTML with success phrases
+  bool _pwResetOk(http.Response r) {
+    final code = r.statusCode;
+    final bodyLower = r.body.toLowerCase();
 
-    // Then try JSON patterns
-    try {
-      final dynamic j = json.decode(r.body);
-      if (j is Map) {
-        if (j['success'] == true) return true;
-        final status = (j['status'] ?? '').toString().toLowerCase();
-        if (status == 'ok') return true;
-        if (j['data'] is Map && ((j['data']['status'] == 200) || (j['data']['success'] == true))) {
-          return true;
-        }
-        final codeStr = (j['code'] ?? '').toString().toLowerCase();
-        if (codeStr.contains('password_reset_email_sent')) return true;
-        final msg = (j['message'] ?? '').toString().toLowerCase();
-        if (_containsSuccessText(msg)) return true;
+    // ✅ Handle WP classic redirect success
+    if (code >= 300 && code < 400) {
+      final loc =
+          (r.headers['location'] ?? r.headers['Location'] ?? '').toLowerCase();
+      if (loc.contains('checkemail=confirm') || loc.contains('resetpass')) {
+        return true;
       }
-    } catch (_) {
-      // non-JSON; we've already checked for success text
+      // Some hosts rewrite but still indicate success in body
+      if (_containsSuccessText(bodyLower)) return true;
     }
 
-    // If body doesn't contain hard error terms, accept 2xx as success
-    if (!_containsHardError(bodyLower)) return true;
+    // ✅ Normal JSON/HTML 2xx success
+    if (code >= 200 && code < 300) {
+      // Heuristic success text first (works for HTML pages)
+      if (_containsSuccessText(bodyLower)) return true;
+
+      // Then try JSON patterns
+      try {
+        final dynamic j = json.decode(r.body);
+        if (j is Map) {
+          if (j['success'] == true) return true;
+          final status = (j['status'] ?? '').toString().toLowerCase();
+          if (status == 'ok') return true;
+          if (j['data'] is Map &&
+              ((j['data']['status'] == 200) ||
+                  (j['data']['success'] == true))) {
+            return true;
+          }
+          final codeStr = (j['code'] ?? '').toString().toLowerCase();
+          if (codeStr.contains('password_reset_email_sent')) return true;
+          final msg = (j['message'] ?? '').toString().toLowerCase();
+          if (_containsSuccessText(msg)) return true;
+        }
+      } catch (_) {
+        // non-JSON; we've already checked for success text
+      }
+
+      // If body doesn't contain hard error terms, accept 2xx as success
+      if (!_containsHardError(bodyLower)) return true;
+    }
+
+    return false;
   }
 
-  return false;
-}
+  bool _containsSuccessText(String s) {
+    const hints = <String>[
+      'check your email',
+      'password reset email',
+      'reset link sent',
+      'we have emailed',
+      'please check your inbox',
+      'if the email address exists',
+      'mail has been sent',
+      'e-mail has been sent',
+      'email has been sent',
+    ];
+    return hints.any((h) => s.contains(h));
+  }
 
-bool _containsSuccessText(String s) {
-  const hints = <String>[
-    'check your email',
-    'password reset email',
-    'reset link sent',
-    'we have emailed',
-    'please check your inbox',
-    'if the email address exists',
-    'mail has been sent',
-    'e-mail has been sent',
-    'email has been sent',
-  ];
-  return hints.any((h) => s.contains(h));
-}
-
-bool _containsHardError(String s) {
-  const errs = <String>[
-    'user not found',
-    'invalid email',
-    'invalid_username',
-    'no such user',
-    'could not',
-    'error:',
-    'failed',
-  ];
-  return errs.any((h) => s.contains(h));
-}
-
-
+  bool _containsHardError(String s) {
+    const errs = <String>[
+      'user not found',
+      'invalid email',
+      'invalid_username',
+      'no such user',
+      'could not',
+      'error:',
+      'failed',
+    ];
+    return errs.any((h) => s.contains(h));
+  }
 
   // ———————————————————————————————————————————————————————————————
   // 👑 ADMIN VERIFICATION METHODS
@@ -264,7 +411,8 @@ bool _containsHardError(String s) {
 
         // Check if user has admin or shop_manager role
         if (roles != null &&
-            (roles.contains('administrator') || roles.contains('shop_manager'))) {
+            (roles.contains('administrator') ||
+                roles.contains('shop_manager'))) {
           print('✅ Admin role confirmed!');
 
           return {
@@ -295,13 +443,15 @@ bool _containsHardError(String s) {
   // ———————————————————————————————————————————————————————————————
   // 🔑 Authentication + Signature Helpers
   // ———————————————————————————————————————————————————————————————
-  String _generateSignature(String method, String url, Map<String, String> params) {
+  String _generateSignature(
+      String method, String url, Map<String, String> params) {
     var sortedParams = Map.fromEntries(
       params.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
     );
 
     String paramString = sortedParams.entries
-        .map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
+        .map((e) =>
+            '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
         .join('&');
 
     String signatureBaseString =
@@ -367,7 +517,10 @@ bool _containsHardError(String s) {
 
       final response = await http.post(
         Uri.parse(url),
-        headers: {'Content-Type': 'application/json', 'Authorization': authHeader},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': authHeader
+        },
         body: json.encode(customerData),
       );
 
@@ -386,14 +539,16 @@ bool _containsHardError(String s) {
         }
       }
 
-      print('❌ Failed to create customer: ${response.statusCode} - ${response.body}');
+      print(
+          '❌ Failed to create customer: ${response.statusCode} - ${response.body}');
     } catch (e) {
       print('❌ Exception creating customer: $e');
     }
     return null;
   }
 
-  Future<Map<String, dynamic>?> validateCustomer(String email, String password) async {
+  Future<Map<String, dynamic>?> validateCustomer(
+      String email, String password) async {
     try {
       // NOTE: Validation here only checks existence by email (Woo REST can’t validate password directly)
       final url = '$baseUrl/wp-json/wc/v3/customers';
@@ -412,7 +567,8 @@ bool _containsHardError(String s) {
         final List<dynamic> users = json.decode(response.body);
         if (users.isNotEmpty) return users.first as Map<String, dynamic>;
       } else {
-        print('❌ validateCustomer failed: ${response.statusCode} - ${response.body}');
+        print(
+            '❌ validateCustomer failed: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       print('❌ Exception validating customer: $e');
@@ -477,15 +633,15 @@ bool _containsHardError(String s) {
         final List<dynamic> users = json.decode(response.body);
         if (users.isNotEmpty) return users.first as Map<String, dynamic>;
       } else {
-        print('❌ getCustomerByEmail failed: ${response.statusCode} - ${response.body}');
+        print(
+            '❌ getCustomerByEmail failed: ${response.statusCode} - ${response.body}');
       }
       return null;
     } catch (e) {
       print('❌ Error fetching customer by email: $e');
       return null;
     }
-    }
-
+  }
 
   // ———————————————————————————————————————————————————————————————
   // 📦 PRODUCT DETAILS + SHIPPING CLASS FETCHING
@@ -494,59 +650,50 @@ bool _containsHardError(String s) {
   /// 📦 Get detailed product information including shipping class
   Future<Map<String, dynamic>?> getProductDetails(int productId) async {
     try {
-      print('📦 Fetching product details for ID: $productId');
-      final url = '$baseUrl/wp-json/wc/v3/products/$productId';
-      var authParams = _getAuthParams();
-
-      var signature = _generateSignature('GET', url, authParams);
-      authParams['oauth_signature'] = signature;
-
-      String query = authParams.entries
-          .map((e) => '${e.key}=${Uri.encodeComponent(e.value)}')
-          .join('&');
-      final fullUrl = '$url?$query';
-
-      final response = await http.get(Uri.parse(fullUrl));
+      print('Fetching product details from TellMe catalog for ID: $productId');
+      final response = await http.get(
+        _apiUri('products', {'q': productId.toString(), 'per_page': '20'}),
+        headers: {'Accept': 'application/json'},
+      );
 
       if (response.statusCode == 200) {
-        final productData = json.decode(response.body);
-        print('✅ Product details loaded: ${productData['name']}');
+        final decoded = json.decode(response.body);
+        final products = decoded is Map && decoded['data'] is List
+            ? decoded['data'] as List
+            : <dynamic>[];
 
-        // Extract shipping class information
-        final shippingClass = productData['shipping_class'] ?? '';
-        final shippingClassId = productData['shipping_class_id'] ?? 0;
+        for (final product in products.whereType<Map>()) {
+          final legacyId = int.tryParse(product['legacyId']?.toString() ?? '');
+          final id = int.tryParse(product['id']?.toString() ?? '');
+          if (legacyId == productId || id == productId) {
+            final normalized =
+                _normalizeCatalogProduct(product.cast<String, dynamic>());
+            if (normalized != null) {
+              print('Product details loaded: ${normalized['name']}');
+              return normalized;
+            }
+          }
+        }
 
-        return {
-          'id': productData['id'],
-          'name': productData['name'],
-          'price': productData['price'],
-          'regular_price': productData['regular_price'],
-          'sale_price': productData['sale_price'],
-          'shipping_class': shippingClass,
-          'shipping_class_id': shippingClassId,
-          'weight': productData['weight'],
-          'dimensions': productData['dimensions'],
-          'categories': productData['categories'],
-          'images': productData['images'],
-          'stock_status': productData['stock_status'],
-          'manage_stock': productData['manage_stock'],
-          'stock_quantity': productData['stock_quantity'],
-        };
-      } else {
-        print('❌ Failed to fetch product details: ${response.statusCode}');
+        print('Product $productId was not returned by the TellMe catalog.');
         return null;
       }
+
+      print('Failed to fetch product details: ${response.statusCode}');
+      return null;
     } catch (e) {
-      print('❌ Exception fetching product details: $e');
+      print('Exception fetching product details: $e');
       return null;
     }
   }
 
   /// 📦 Get shipping class details by ID
-  Future<Map<String, dynamic>?> getShippingClassDetails(int shippingClassId) async {
+  Future<Map<String, dynamic>?> getShippingClassDetails(
+      int shippingClassId) async {
     try {
       print('📦 Fetching shipping class details for ID: $shippingClassId');
-      final url = '$baseUrl/wp-json/wc/v3/products/shipping_classes/$shippingClassId';
+      final url =
+          '$baseUrl/wp-json/wc/v3/products/shipping_classes/$shippingClassId';
       var authParams = _getAuthParams();
 
       var signature = _generateSignature('GET', url, authParams);
@@ -601,13 +748,15 @@ bool _containsHardError(String s) {
         final List<dynamic> classesData = json.decode(response.body);
         print('✅ ${classesData.length} shipping classes loaded');
 
-        return classesData.map((classData) => {
-          'id': classData['id'],
-          'name': classData['name'],
-          'slug': classData['slug'],
-          'description': classData['description'],
-          'count': classData['count'],
-        }).toList();
+        return classesData
+            .map((classData) => {
+                  'id': classData['id'],
+                  'name': classData['name'],
+                  'slug': classData['slug'],
+                  'description': classData['description'],
+                  'count': classData['count'],
+                })
+            .toList();
       } else {
         print('❌ Failed to fetch shipping classes: ${response.statusCode}');
         return [];
@@ -659,7 +808,8 @@ bool _containsHardError(String s) {
   }
 
   /// 📝 Search products by name
-  Future<List<dynamic>> searchProductsByName(String name, {int perPage = 20}) async {
+  Future<List<dynamic>> searchProductsByName(String name,
+      {int perPage = 20}) async {
     return await searchProducts(name, perPage: perPage);
   }
 
@@ -698,7 +848,8 @@ bool _containsHardError(String s) {
   }
 
   /// 🗂️ Search products by category
-  Future<List<dynamic>> searchProductsByCategory(String categorySlug, {int perPage = 20}) async {
+  Future<List<dynamic>> searchProductsByCategory(String categorySlug,
+      {int perPage = 20}) async {
     try {
       print('🗂️ Searching products in category: "$categorySlug"');
       final url = '$baseUrl/wp-json/wc/v3/products';
@@ -720,7 +871,8 @@ bool _containsHardError(String s) {
 
       if (response.statusCode == 200) {
         final List<dynamic> products = json.decode(response.body);
-        print('✅ Found ${products.length} products in category "$categorySlug"');
+        print(
+            '✅ Found ${products.length} products in category "$categorySlug"');
         return products;
       } else {
         print('❌ Category search failed: ${response.statusCode}');
@@ -818,131 +970,134 @@ bool _containsHardError(String s) {
   /// 🏛️ Get Nigerian states from TellMe Shipping plugin
   Future<List<Map<String, dynamic>>> getTellmeStates() async {
     try {
-      print('📍 Fetching Nigerian states from TellMe plugin...');
-      final url = Uri.parse('$baseUrl/wp-json/tellme/v1/states');
-      final response = await http.get(url);
+      print('Fetching Nigerian states from TellMe delivery API...');
+      final response = await http.get(
+        _apiUri('delivery/places'),
+        headers: {'Accept': 'application/json'},
+      );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        print('✅ States API response: $data');
+        final rawStates = data is Map && data['states'] is List
+            ? data['states'] as List
+            : data is List
+                ? data
+                : <dynamic>[];
 
-        if (data is Map) {
-          // Transform from {'LA': 'LA', 'AB': 'AB'} to expected format
-          List<Map<String, dynamic>> states = [];
-          data.forEach((code, name) {
-            states.add({
-              'code': code.toString(),
-              'name': _getStateName(code.toString()),
-              'country': 'NG'
-            });
-          });
+        final states = rawStates
+            .map<Map<String, dynamic>>((state) {
+              if (state is Map) {
+                final code = _firstText(state, [
+                  'code',
+                  'stateCode',
+                  'id',
+                  'slug',
+                  'abbreviation',
+                ]);
+                final name = _firstText(state, ['name', 'label', 'stateName']);
+                return {
+                  'code': code.isNotEmpty ? code : _slugify(name),
+                  'name': name.isNotEmpty ? name : _getStateName(code),
+                  'country': 'NG',
+                };
+              }
 
-          print('✅ Transformed ${states.length} states');
+              final name = state.toString();
+              return {
+                'code': _slugify(name),
+                'name': name,
+                'country': 'NG',
+              };
+            })
+            .where((state) => state['name'].toString().isNotEmpty)
+            .toList();
+
+        states.sort(
+            (a, b) => a['name'].toString().compareTo(b['name'].toString()));
+
+        if (states.isNotEmpty) {
+          print('Transformed ${states.length} states');
           return states;
         }
       }
 
-      print('❌ States API failed with status: ${response.statusCode}');
-      throw Exception('Failed to load TellMe states: ${response.statusCode}');
+      print('States API failed with status: ${response.statusCode}');
+      return _getDefaultStates();
     } catch (e) {
-      print('❌ Exception in getTellmeStates: $e');
-      throw Exception('Failed to load TellMe states: $e');
+      print('Exception in getTellmeStates: $e');
+      return _getDefaultStates();
     }
   }
 
   /// 🏙️ Get cities for a specific state from TellMe Shipping plugin
   Future<List<Map<String, dynamic>>> getTellmeCities(String stateCode) async {
     try {
-      print('🏙️ Fetching cities for state: $stateCode from TellMe plugin...');
-      final url = Uri.parse('$baseUrl/wp-json/tellme/v1/cities/$stateCode');
-      final response = await http.get(url);
+      print(
+          'Fetching cities for state: $stateCode from TellMe delivery API...');
+      final response = await http.get(
+        _apiUri('delivery/places', {'state': stateCode}),
+        headers: {'Accept': 'application/json'},
+      );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        print('✅ Cities API response type: ${data.runtimeType}');
+        final rawCities = data is Map && data['cities'] is List
+            ? data['cities'] as List
+            : data is List
+                ? data
+                : <dynamic>[];
 
-        List<Map<String, dynamic>> cities = [];
-
-        if (data is Map) {
-          // Parse the TellMe plugin data structure:
-          // 'Abule Egba' => array('Agbado Ijaye Road' => 1, 'Ajasa Command Rd' => 1)
-          // OR 'Agbara' => 1 (direct city)
-
-          data.forEach((cityKey, cityValue) {
-            String cityName = cityKey.toString();
-
-            if (cityValue is num || (cityValue is String && _isShippingZoneId(cityValue))) {
-              // Direct city assignment (e.g., 'Agbara' => 1)
-              cities.add({
-                'code': _generateCityCode(cityName),
-                'name': cityName,
-                'state': stateCode,
-                'country': 'NG',
-                'shipping_zone': cityValue.toString(),
-              });
-            } else if (cityValue is Map) {
-              // City with areas (e.g., 'Abule Egba' => {'Agbado Ijaye Road' => 1, ...})
-              cityValue.forEach((areaKey, areaValue) {
-                if (_isShippingZoneId(areaValue)) {
-                  String areaName = areaKey.toString();
-                  String fullLocationName = '$cityName - $areaName';
-
-                  cities.add({
-                    'code': _generateCityCode(fullLocationName),
-                    'name': fullLocationName,
-                    'state': stateCode,
-                    'country': 'NG',
-                    'city': cityName,
-                    'area': areaName,
-                    'shipping_zone': areaValue.toString(),
-                  });
-                }
-              });
-            } else if (cityValue is List) {
-              // Handle list of areas for a city
-              for (var area in cityValue) {
-                if (area is String) {
-                  String fullLocationName = '$cityName - $area';
-                  cities.add({
-                    'code': _generateCityCode(fullLocationName),
-                    'name': fullLocationName,
-                    'state': stateCode,
-                    'country': 'NG',
-                    'city': cityName,
-                    'area': area,
-                  });
-                }
+        final cities = rawCities
+            .map<Map<String, dynamic>>((city) {
+              if (city is Map) {
+                final name =
+                    _firstText(city, ['name', 'label', 'city', 'cityName']);
+                final code =
+                    _firstText(city, ['code', 'cityCode', 'id', 'slug']);
+                final zone = _firstText(city, [
+                  'shipping_zone',
+                  'zoneId',
+                  'deliveryZoneId',
+                  'deliveryZone',
+                ]);
+                return {
+                  'code': code.isNotEmpty ? code : _slugify(name),
+                  'name': name,
+                  'state': _firstText(city, ['state', 'stateCode']).isNotEmpty
+                      ? _firstText(city, ['state', 'stateCode'])
+                      : stateCode,
+                  'country': 'NG',
+                  'shipping_zone': zone.isNotEmpty ? zone : code,
+                };
               }
-            }
-          });
-        } else if (data is List) {
-          // Handle simple list structure (fallback)
-          for (var city in data) {
-            if (city is String) {
-              cities.add({
-                'code': _generateCityCode(city),
-                'name': city,
+
+              final name = city.toString();
+              return {
+                'code': _slugify(name),
+                'name': name,
                 'state': stateCode,
                 'country': 'NG',
-              });
-            }
-          }
+                'shipping_zone': _slugify(name),
+              };
+            })
+            .where((city) => city['name'].toString().isNotEmpty)
+            .toList();
+
+        cities.sort(
+            (a, b) => a['name'].toString().compareTo(b['name'].toString()));
+
+        if (cities.isNotEmpty) {
+          print(
+              'Transformed ${cities.length} cities/areas for state $stateCode');
+          return cities;
         }
-
-        // Sort cities alphabetically by name
-        cities.sort((a, b) => a['name'].toString().compareTo(b['name'].toString()));
-
-        print('✅ Transformed ${cities.length} cities/areas for state $stateCode');
-        print('✅ Sample cities: ${cities.take(3).map((c) => c['name']).join(', ')}...');
-        return cities;
       }
 
-      print('❌ Cities API failed with status: ${response.statusCode}');
-      print('❌ Cities API response: ${response.body}');
-      throw Exception('Failed to load cities for $stateCode: ${response.statusCode}');
+      print('Cities API failed with status: ${response.statusCode}');
+      return _getDefaultCitiesForState(stateCode);
     } catch (e) {
-      print('❌ Exception in getTellmeCities: $e');
-      throw Exception('Failed to load cities for $stateCode: $e');
+      print('Exception in getTellmeCities: $e');
+      return _getDefaultCitiesForState(stateCode);
     }
   }
 
@@ -959,23 +1114,55 @@ bool _containsHardError(String s) {
   String _generateCityCode(String name) {
     return name
         .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9\s]'), '') // Remove special chars except spaces
+        .replaceAll(
+            RegExp(r'[^a-z0-9\s]'), '') // Remove special chars except spaces
         .replaceAll(RegExp(r'\s+'), '_') // Replace spaces with underscore
-        .replaceAll(RegExp(r'_+'), '_') // Replace multiple underscores with single
-        .replaceAll(RegExp(r'^_|_$'), ''); // Remove leading/trailing underscores
+        .replaceAll(
+            RegExp(r'_+'), '_') // Replace multiple underscores with single
+        .replaceAll(
+            RegExp(r'^_|_$'), ''); // Remove leading/trailing underscores
   }
 
   /// 📍 Helper method to get full state name from code
   String _getStateName(String code) {
     const stateNames = {
-      'AB': 'Abia', 'FC': 'Abuja', 'AD': 'Adamawa', 'AK': 'Akwa Ibom', 'AN': 'Anambra',
-      'BA': 'Bauchi', 'BY': 'Bayelsa', 'BE': 'Benue', 'BO': 'Borno', 'CR': 'Cross River',
-      'DE': 'Delta', 'EB': 'Ebonyi', 'ED': 'Edo', 'EK': 'Ekiti', 'EN': 'Enugu',
-      'GO': 'Gombe', 'IM': 'Imo', 'JI': 'Jigawa', 'KD': 'Kaduna', 'KN': 'Kano',
-      'KT': 'Katsina', 'KE': 'Kebbi', 'KO': 'Kogi', 'KW': 'Kwara', 'LA': 'Lagos',
-      'NA': 'Nasarawa', 'NI': 'Niger', 'OG': 'Ogun', 'ON': 'Ondo', 'OS': 'Osun',
-      'OY': 'Oyo', 'PL': 'Plateau', 'RI': 'Rivers', 'SO': 'Sokoto',
-      'TA': 'Taraba', 'YO': 'Yobe', 'ZA': 'Zamfara',
+      'AB': 'Abia',
+      'FC': 'Abuja',
+      'AD': 'Adamawa',
+      'AK': 'Akwa Ibom',
+      'AN': 'Anambra',
+      'BA': 'Bauchi',
+      'BY': 'Bayelsa',
+      'BE': 'Benue',
+      'BO': 'Borno',
+      'CR': 'Cross River',
+      'DE': 'Delta',
+      'EB': 'Ebonyi',
+      'ED': 'Edo',
+      'EK': 'Ekiti',
+      'EN': 'Enugu',
+      'GO': 'Gombe',
+      'IM': 'Imo',
+      'JI': 'Jigawa',
+      'KD': 'Kaduna',
+      'KN': 'Kano',
+      'KT': 'Katsina',
+      'KE': 'Kebbi',
+      'KO': 'Kogi',
+      'KW': 'Kwara',
+      'LA': 'Lagos',
+      'NA': 'Nasarawa',
+      'NI': 'Niger',
+      'OG': 'Ogun',
+      'ON': 'Ondo',
+      'OS': 'Osun',
+      'OY': 'Oyo',
+      'PL': 'Plateau',
+      'RI': 'Rivers',
+      'SO': 'Sokoto',
+      'TA': 'Taraba',
+      'YO': 'Yobe',
+      'ZA': 'Zamfara',
     };
     return stateNames[code] ?? code;
   }
@@ -1071,7 +1258,8 @@ bool _containsHardError(String s) {
 
       final ladders = shippingData['ladders'] as Map<String, dynamic>;
       final baseCosts = shippingData['base_costs'] as Map<String, dynamic>;
-      final shippingClasses = shippingData['shipping_classes'] as Map<String, dynamic>;
+      final shippingClasses =
+          shippingData['shipping_classes'] as Map<String, dynamic>;
 
       print('💰 Available ladders: ${ladders.keys.toList()}');
       print('💰 Available base costs: ${baseCosts.keys.toList()}');
@@ -1086,9 +1274,11 @@ bool _containsHardError(String s) {
         final quantity = (item['quantity'] ?? 1).toInt();
         final productName = item['name'] ?? 'Unknown Product';
 
-        print('💰 Processing item: $productName (class: $shippingClass, qty: $quantity)');
+        print(
+            '💰 Processing item: $productName (class: $shippingClass, qty: $quantity)');
 
-        if (shippingClass.isNotEmpty && shippingClasses.containsKey(shippingClass)) {
+        if (shippingClass.isNotEmpty &&
+            shippingClasses.containsKey(shippingClass)) {
           final ladderKey = shippingClasses[shippingClass];
           print('💰 Using ladder key: $ladderKey for class: $shippingClass');
 
@@ -1109,7 +1299,8 @@ bool _containsHardError(String s) {
                 'total_cost': itemTotalCost,
               });
 
-              print('💰 Item cost: $quantity x ₦$perItemCost = ₦$itemTotalCost');
+              print(
+                  '💰 Item cost: $quantity x ₦$perItemCost = ₦$itemTotalCost');
             } else {
               print('⚠️ Zone $zoneId not found in ladder $ladderKey');
             }
@@ -1142,7 +1333,6 @@ bool _containsHardError(String s) {
         'item_breakdown': itemBreakdown,
         'calculation_method': 'enhanced_tellme_logic',
       };
-
     } catch (e) {
       print('❌ Error calculating enhanced shipping cost: $e');
       return {
@@ -1159,64 +1349,90 @@ bool _containsHardError(String s) {
     required List<Map<String, dynamic>> cartItems,
   }) async {
     try {
-      print('🔄 Calculating enhanced shipping for: ${cityData['name']}');
+      print('Calculating delivery for: ${cityData['name']}');
 
-      final String? zoneId = cityData['shipping_zone'];
-      if (zoneId == null || zoneId.isEmpty) {
+      final lines = <Map<String, dynamic>>[];
+      for (final item in cartItems) {
+        final variantId = _extractVariantId(item);
+        if (variantId == null) continue;
+        lines.add({
+          'variantId': variantId,
+          'quantity': int.tryParse(item['quantity']?.toString() ?? '') ?? 1,
+        });
+      }
+
+      if (lines.isEmpty) {
         return {
           'success': false,
-          'error': 'No shipping zone found for this city',
+          'error':
+              'Cart items need current TellMe product variants before delivery can be calculated.',
           'shipping_method': 'No Method Available',
           'shipping_cost': 0.0,
-          'formatted_cost': '₦0.00',
+          'formatted_cost': _formatNaira(0),
         };
       }
 
-      // Use the enhanced calculation
-      final costResult = await calculateEnhancedShippingCost(
-        zoneId: zoneId,
-        cartItems: cartItems,
+      final cityName = _firstText(cityData, ['name', 'city', 'label']);
+      final state = _firstText(cityData, ['state', 'stateCode', 'state_code']);
+      final response = await http.post(
+        _apiUri('delivery/calculate'),
+        headers: _jsonHeaders,
+        body: json.encode({
+          'state': state,
+          'city': cityName,
+          'lines': lines,
+        }),
       );
 
-      if (costResult['success'] == true) {
-        final totalCost = costResult['total_cost'] ?? 0.0;
-        final formattedCost = costResult['formatted_cost'] ?? '₦0.00';
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final decoded = json.decode(response.body);
+        final delivery = decoded is Map && decoded['delivery'] is Map
+            ? decoded['delivery'] as Map
+            : decoded is Map
+                ? decoded
+                : <String, dynamic>{};
+        final totalCost = _toNairaAmount(
+          delivery['amount'] ?? delivery['cost'] ?? delivery['total'],
+        );
+        final zoneId =
+            _firstText(delivery, ['zoneId', 'zone', 'deliveryZoneId'])
+                    .isNotEmpty
+                ? _firstText(delivery, ['zoneId', 'zone', 'deliveryZoneId'])
+                : _cleanString(cityData['shipping_zone']);
 
         return {
           'success': true,
-          'shipping_method': 'TellMe Enhanced Delivery',
+          'shipping_method':
+              _firstText(delivery, ['method', 'label']).isNotEmpty
+                  ? _firstText(delivery, ['method', 'label'])
+                  : 'TellMe Delivery',
           'shipping_cost': totalCost,
-          'formatted_cost': formattedCost,
-          'shipping_description': 'Enhanced delivery to ${cityData['name']}',
+          'formatted_cost': _formatNaira(totalCost),
+          'shipping_description': 'Delivery to $cityName',
           'zone_id': zoneId,
-          'method_id': 'tellme_enhanced_$zoneId',
-          'item_cost': costResult['item_cost'],
-          'base_cost': costResult['base_cost'],
-          'item_breakdown': costResult['item_breakdown'],
-          'calculation_details': costResult,
-        };
-      } else {
-        // Fallback to simple calculation
-        final fallbackCost = costResult['fallback_cost'] ?? 1500.0;
-        return {
-          'success': true,
-          'shipping_method': 'Standard Delivery',
-          'shipping_cost': fallbackCost,
-          'formatted_cost': '₦${fallbackCost.toStringAsFixed(2)}',
-          'shipping_description': 'Standard delivery to ${cityData['name']}',
-          'zone_id': zoneId,
-          'method_id': 'tellme_fallback',
-          'fallback_reason': costResult['error'],
+          'method_id':
+              'tellme_delivery_${zoneId.isNotEmpty ? zoneId : _slugify(cityName)}',
+          'calculation_details': decoded,
         };
       }
+
+      print(
+          'Delivery calculation failed: ${response.statusCode} ${response.body}');
+      return {
+        'success': false,
+        'error': 'Delivery calculation failed',
+        'shipping_method': 'Unknown Method',
+        'shipping_cost': 0.0,
+        'formatted_cost': _formatNaira(0),
+      };
     } catch (e) {
-      print('❌ Error calculating enhanced shipping: $e');
+      print('Error calculating enhanced shipping: $e');
       return {
         'success': false,
         'error': 'Enhanced calculation error: $e',
         'shipping_method': 'Unknown Method',
         'shipping_cost': 0.0,
-        'formatted_cost': '₦0.00',
+        'formatted_cost': _formatNaira(0),
       };
     }
   }
@@ -1259,7 +1475,8 @@ bool _containsHardError(String s) {
         headers: {'Content-Type': 'application/json'},
       );
 
-      print('💰 Shipping zones response: ${response.statusCode} - ${response.body}');
+      print(
+          '💰 Shipping zones response: ${response.statusCode} - ${response.body}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -1298,63 +1515,38 @@ bool _containsHardError(String s) {
   }
 
   /// 📦 Get shipping methods/costs for a selected city (legacy method)
-  Future<Map<String, dynamic>> getShippingMethodsForCity(Map<String, dynamic> cityData) async {
+  Future<Map<String, dynamic>> getShippingMethodsForCity(
+      Map<String, dynamic> cityData) async {
     try {
-      print('📦 Getting shipping methods for city: ${cityData['name']}');
+      print('Getting fallback shipping method for city: ${cityData['name']}');
 
-      final String? zoneId = cityData['shipping_zone'];
-      if (zoneId == null || zoneId.isEmpty) {
-        return {
-          'success': false,
-          'error': 'No shipping zone found for this city',
-          'shipping_options': [],
-        };
-      }
+      final zoneId = _cleanString(cityData['shipping_zone']).isNotEmpty
+          ? _cleanString(cityData['shipping_zone'])
+          : _slugify(_cleanString(cityData['name']));
+      final cost = _toNairaAmount(
+        cityData['shipping_cost'] ??
+            cityData['cost'] ??
+            cityData['amount'] ??
+            1500,
+      );
 
-      // Get the cost for this zone
-      final costResult = await getShippingCostForZone(zoneId);
-
-      if (costResult['success'] == true) {
-        final cost = costResult['cost'] ?? 1500.0;
-        final formattedCost = costResult['formatted_cost'] ?? '₦${cost.toStringAsFixed(2)}';
-
-        return {
-          'success': true,
-          'city_name': cityData['name'],
-          'zone_id': zoneId,
-          'shipping_options': [
-            {
-              'id': 'tellme_$zoneId',
-              'title': 'TellMe Delivery',
-              'cost': cost,
-              'formatted_cost': formattedCost,
-              'description': 'Delivery to ${cityData['name']}',
-              'zone': zoneId,
-            }
-          ],
-        };
-      } else {
-        // Fallback with default cost
-        final fallbackCost = costResult['fallback_cost'] ?? 1500.0;
-        return {
-          'success': true,
-          'city_name': cityData['name'],
-          'zone_id': zoneId,
-          'shipping_options': [
-            {
-              'id': 'tellme_default',
-              'title': 'Standard Delivery',
-              'cost': fallbackCost,
-              'formatted_cost': '₦${fallbackCost.toStringAsFixed(2)}',
-              'description': 'Standard delivery to ${cityData['name']}',
-              'zone': zoneId,
-            }
-          ],
-          'note': 'Using fallback cost due to: ${costResult['error']}',
-        };
-      }
+      return {
+        'success': true,
+        'city_name': cityData['name'],
+        'zone_id': zoneId,
+        'shipping_options': [
+          {
+            'id': 'tellme_$zoneId',
+            'title': 'TellMe Delivery',
+            'cost': cost,
+            'formatted_cost': _formatNaira(cost),
+            'description': 'Delivery to ${cityData['name']}',
+            'zone': zoneId,
+          }
+        ],
+      };
     } catch (e) {
-      print('❌ Error getting shipping methods for city: $e');
+      print('Error getting shipping methods for city: $e');
       return {
         'success': false,
         'error': 'Failed to get shipping methods: $e',
@@ -1364,13 +1556,15 @@ bool _containsHardError(String s) {
   }
 
   /// 🔄 Calculate shipping for selected city (legacy method)
-  Future<Map<String, dynamic>> calculateShippingForCity(Map<String, dynamic> cityData) async {
+  Future<Map<String, dynamic>> calculateShippingForCity(
+      Map<String, dynamic> cityData) async {
     try {
       print('🔄 Calculating shipping for: ${cityData['name']}');
 
       final shippingResult = await getShippingMethodsForCity(cityData);
 
-      if (shippingResult['success'] == true && shippingResult['shipping_options'].isNotEmpty) {
+      if (shippingResult['success'] == true &&
+          shippingResult['shipping_options'].isNotEmpty) {
         final shippingOption = shippingResult['shipping_options'][0];
 
         return {
@@ -1426,8 +1620,12 @@ bool _containsHardError(String s) {
   // ———————————————————————————————————————————————————————————————
 
   /// 💳 Get wallet balance for a specific user
-  Future<Map<String, dynamic>> getWalletBalance(int userId) async {
+  Future<Map<String, dynamic>> getWalletBalance([int? userId]) async {
     try {
+      final apiResult = await _accountApi.getWalletBalance(userId: userId);
+      if (apiResult['success'] == true) return apiResult;
+      if (userId == null || userId <= 0) return apiResult;
+
       print('💰 Fetching wallet balance for user: $userId');
       final response = await http.get(
         Uri.parse('$baseUrl/wp-json/wallet/v1/balance?user_id=$userId'),
@@ -1436,7 +1634,8 @@ bool _containsHardError(String s) {
         },
       );
 
-      print('💰 Wallet balance response: ${response.statusCode} - ${response.body}');
+      print(
+          '💰 Wallet balance response: ${response.statusCode} - ${response.body}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -1473,17 +1672,27 @@ bool _containsHardError(String s) {
   }
 
   /// 📊 Get wallet transactions for a specific user
-  Future<Map<String, dynamic>> getWalletTransactions(int userId, {int limit = 10}) async {
+  Future<Map<String, dynamic>> getWalletTransactions(int? userId,
+      {int limit = 10}) async {
     try {
+      final apiResult = await _accountApi.getWalletHistory(
+        userId: userId,
+        limit: limit,
+      );
+      if (apiResult['success'] == true) return apiResult;
+      if (userId == null || userId <= 0) return apiResult;
+
       print('📊 Fetching wallet transactions for user: $userId');
       final response = await http.get(
-        Uri.parse('$baseUrl/wp-json/wallet/v1/transactions?user_id=$userId&limit=$limit'),
+        Uri.parse(
+            '$baseUrl/wp-json/wallet/v1/transactions?user_id=$userId&limit=$limit'),
         headers: {
           'Content-Type': 'application/json',
         },
       );
 
-      print('📊 Wallet transactions response: ${response.statusCode} - ${response.body}');
+      print(
+          '📊 Wallet transactions response: ${response.statusCode} - ${response.body}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -1521,8 +1730,17 @@ bool _containsHardError(String s) {
   }
 
   /// ➕ Add funds to wallet (FIXED - no kobo conversion needed)
-  Future<Map<String, dynamic>> addWalletFunds(int userId, double amount, {String? description}) async {
+  Future<Map<String, dynamic>> addWalletFunds(int? userId, double amount,
+      {String? description}) async {
     try {
+      final apiResult = await _accountApi.createWalletTopUp(
+        userId: userId,
+        amount: amount,
+        description: description ?? 'Funds added via mobile app',
+      );
+      if (apiResult['success'] == true) return apiResult;
+      if (userId == null || userId <= 0) return apiResult;
+
       print('➕ Adding ₦$amount to wallet for user: $userId');
       final response = await http.post(
         Uri.parse('$baseUrl/wp-json/wallet/v1/add-funds'),
@@ -1531,12 +1749,14 @@ bool _containsHardError(String s) {
         },
         body: json.encode({
           'user_id': userId,
-          'amount': amount, // ✅ No kobo conversion needed - PHP handles this internally
+          'amount':
+              amount, // ✅ No kobo conversion needed - PHP handles this internally
           'description': description ?? 'Funds added via mobile app',
         }),
       );
 
-      print('➕ Add wallet funds response: ${response.statusCode} - ${response.body}');
+      print(
+          '➕ Add wallet funds response: ${response.statusCode} - ${response.body}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -1592,7 +1812,8 @@ bool _containsHardError(String s) {
         },
         body: json.encode({
           'user_id': userId,
-          'amount': amount, // ✅ POSITIVE amount (plugin handles conversion internally)
+          'amount':
+              amount, // ✅ POSITIVE amount (plugin handles conversion internally)
           'description': description ?? 'Payment for Order #$orderId',
           if (orderId != null) 'order_id': int.parse(orderId),
         }),
@@ -1612,7 +1833,8 @@ bool _containsHardError(String s) {
       } else {
         final errorData = json.decode(response.body);
         throw Exception(
-          errorData['message'] ?? 'Wallet debit failed with status ${response.statusCode}',
+          errorData['message'] ??
+              'Wallet debit failed with status ${response.statusCode}',
         );
       }
     } catch (e) {
@@ -1631,7 +1853,10 @@ bool _containsHardError(String s) {
 
       // Always use the raw amount and format it properly in Flutter
       // ✅ FIXED: Convert to double to handle both int and double from API
-      final amount = (balance['raw'] ?? 0.0).toDouble();
+      final rawAmount = balance['raw'] ?? balance['amount'] ?? 0.0;
+      final amount = rawAmount is num
+          ? rawAmount.toDouble()
+          : double.tryParse(rawAmount.toString()) ?? 0.0;
       final symbol = balance['currency_symbol'] ?? '₦';
 
       // Format the amount with thousands separators
@@ -1662,82 +1887,99 @@ bool _containsHardError(String s) {
   double getWalletBalanceAmount(Map<String, dynamic> balanceData) {
     if (balanceData['success'] == true && balanceData['balance'] != null) {
       final balance = balanceData['balance'];
-      return (balance['raw'] ?? 0.0).toDouble();
+      final raw =
+          balance is Map ? balance['raw'] ?? balance['amount'] : balance;
+      if (raw is num) return raw.toDouble();
+      return double.tryParse(raw?.toString() ?? '') ?? 0.0;
     }
     return 0.0;
   }
 
   /// ✅ Check if user has sufficient wallet balance for a purchase
-  bool hasSufficientWalletBalance(Map<String, dynamic> balanceData, double requiredAmount) {
+  bool hasSufficientWalletBalance(
+      Map<String, dynamic> balanceData, double requiredAmount) {
     final currentBalance = getWalletBalanceAmount(balanceData);
     return currentBalance >= requiredAmount;
   }
 
-/// 💳 Credit wallet (add funds) - for wallet top-up functionality - FIXED VERSION
-Future<Map<String, dynamic>> creditWallet(
-  int userId,
-  double amount, [
-  String description = 'Wallet Top-Up',
-]) async {
-  try {
-    print('💳 Crediting ₦$amount to wallet for user: $userId');
+  /// 💳 Credit wallet (add funds) - for wallet top-up functionality - FIXED VERSION
+  Future<Map<String, dynamic>> creditWallet(
+    int? userId,
+    double amount, [
+    String description = 'Wallet Top-Up',
+  ]) async {
+    try {
+      final referenceMatch =
+          RegExp(r'Reference:\s*([A-Za-z0-9_\-]+)').firstMatch(description);
+      final apiResult = await _accountApi.createWalletTopUp(
+        userId: userId,
+        amount: amount,
+        reference: referenceMatch?.group(1),
+        description: description,
+      );
+      if (apiResult['success'] == true) return apiResult;
+      if (userId == null || userId <= 0) return apiResult;
 
-    // ✅ FIXED: Use the correct endpoint that matches your PHP code
-    final response = await http.post(
-      Uri.parse('$baseUrl/wp-json/wallet/v1/add-funds'),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: json.encode({
-        'user_id': userId,
-        'amount': amount,
-        'description': description,
-      }),
-    );
+      print('💳 Crediting ₦$amount to wallet for user: $userId');
 
-    print('💳 Credit wallet response: ${response.statusCode} - ${response.body}');
+      // ✅ FIXED: Use the correct endpoint that matches your PHP code
+      final response = await http.post(
+        Uri.parse('$baseUrl/wp-json/wallet/v1/add-funds'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'user_id': userId,
+          'amount': amount,
+          'description': description,
+        }),
+      );
 
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
+      print(
+          '💳 Credit wallet response: ${response.statusCode} - ${response.body}');
 
-      if (data['success'] == true) {
-        print('✅ Wallet credited successfully!');
-        return {
-          'success': true,
-          'message': data['message'],
-          'transaction_id': data['transaction_id'],
-          'amount_credited': data['amount_added'],
-          'new_balance': data['new_balance'],
-          'timestamp': data['timestamp'],
-        };
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+
+        if (data['success'] == true) {
+          print('✅ Wallet credited successfully!');
+          return {
+            'success': true,
+            'message': data['message'],
+            'transaction_id': data['transaction_id'],
+            'amount_credited': data['amount_added'],
+            'new_balance': data['new_balance'],
+            'timestamp': data['timestamp'],
+          };
+        } else {
+          print('❌ Wallet credit failed in API response');
+          return {
+            'success': false,
+            'error': data['message'] ?? 'Failed to credit wallet',
+            'details': data,
+          };
+        }
       } else {
-        print('❌ Wallet credit failed in API response');
+        print('❌ HTTP error in wallet credit: ${response.statusCode}');
+        final errorData = json.decode(response.body);
         return {
           'success': false,
-          'error': data['message'] ?? 'Failed to credit wallet',
-          'details': data,
+          'error': errorData['message'] ??
+              'Failed to credit wallet - HTTP ${response.statusCode}',
+          'code': errorData['code'] ?? 'http_error',
+          'status_code': response.statusCode,
         };
       }
-    } else {
-      print('❌ HTTP error in wallet credit: ${response.statusCode}');
-      final errorData = json.decode(response.body);
+    } catch (e) {
+      print('❌ Error crediting wallet: $e');
       return {
         'success': false,
-        'error': errorData['message'] ?? 'Failed to credit wallet - HTTP ${response.statusCode}',
-        'code': errorData['code'] ?? 'http_error',
-        'status_code': response.statusCode,
+        'error': 'Network error: $e',
       };
     }
-  } catch (e) {
-    print('❌ Error crediting wallet: $e');
-    return {
-      'success': false,
-      'error': 'Network error: $e',
-    };
   }
-}
 
-  // 💳 ENHANCED: Paystack payment initialization with DNS fallback
+  // Paystack payment initialization must happen on the TellMe backend.
   Future<Map<String, dynamic>> initializePaystackTransaction({
     required String email,
     required double amount,
@@ -1745,89 +1987,47 @@ Future<Map<String, dynamic>> creditWallet(
     Map<String, dynamic>? metadata,
   }) async {
     try {
-      print('💳 Initializing Paystack transaction with enhanced error handling...');
-      print('💳 Email: $email, Amount: $amount, Reference: $reference');
+      print('Initializing Paystack transaction on TellMe backend...');
+      print('Email: $email, Amount: $amount, Reference: $reference');
 
-      final response = await http.post(
-        Uri.parse('https://api.paystack.co/transaction/initialize'),
-        headers: {
-          'Authorization': 'Bearer $paystackSecretKey',
-          'Content-Type': 'application/json',
-          'User-Agent': 'TellMe-Flutter-App/1.0',
-        },
-        body: json.encode({
-          'email': email,
-          'amount': (amount * 100).toInt(), // Convert to kobo
-          'reference': reference,
-          'metadata': metadata ?? {},
-        }),
-      ).timeout(Duration(seconds: 30));
-
-      final result = json.decode(response.body);
-      print('💳 Paystack initialization response: ${response.statusCode}');
+      final result = await _accountApi.initializePaystackTransaction(
+        email: email,
+        amount: amount,
+        reference: reference,
+        metadata: metadata,
+      );
 
       if (result['status'] == true) {
-        print('✅ Paystack transaction initialized successfully');
+        print('Paystack transaction initialized successfully');
         return result;
-      } else {
-        print('❌ Paystack initialization failed: ${result['message']}');
-        return {
-          'status': false,
-          'message': result['message'] ?? 'Payment initialization failed',
-          'errors': result['errors'] ?? [],
-        };
       }
-    } catch (e) {
-      print('❌ Paystack initialization error: $e');
 
-      // Enhanced error classification
-      if (e.toString().contains('Failed host lookup') ||
-          e.toString().contains('SocketException') ||
-          e.toString().contains('OS Error')) {
-        return {
-          'status': false,
-          'message': 'Network error: Cannot connect to payment server. Please check your internet connection.',
-          'error_type': 'network_error',
-          'original_error': e.toString(),
-        };
-      } else if (e.toString().contains('TimeoutException')) {
-        return {
-          'status': false,
-          'message': 'Connection timeout. Please try again.',
-          'error_type': 'timeout',
-          'original_error': e.toString(),
-        };
-      } else {
-        return {
-          'status': false,
-          'message': 'Payment initialization failed: $e',
-          'error_type': 'unknown',
-          'original_error': e.toString(),
-        };
-      }
+      return {
+        'status': false,
+        'message': result['message'] ??
+            result['error'] ??
+            'Payment initialization failed',
+        'errors': result['errors'] ?? result['details'] ?? [],
+      };
+    } catch (e) {
+      print('Paystack initialization error: $e');
+      return {
+        'status': false,
+        'message': 'Payment initialization failed: $e',
+        'error_type': 'backend_initialize_error',
+        'original_error': e.toString(),
+      };
     }
   }
 
-  /// ✅ Enhanced Paystack transaction verification
-  Future<Map<String, dynamic>> verifyPaystackTransaction(String reference) async {
+  /// Verify Paystack transaction on the TellMe backend.
+  Future<Map<String, dynamic>> verifyPaystackTransaction(
+      String reference) async {
     try {
-      print('🔍 Verifying Paystack transaction: $reference');
-
-      final response = await http.get(
-        Uri.parse('https://api.paystack.co/transaction/verify/$reference'),
-        headers: {
-          'Authorization': 'Bearer $paystackSecretKey',
-          'Content-Type': 'application/json',
-        },
-      ).timeout(Duration(seconds: 30));
-
-      final result = json.decode(response.body);
-      print('🔍 Verification response: ${response.statusCode}');
-      print('🔍 Transaction status: ${result['data']['status']}');
-
-      return result;
+      print('Verifying Paystack transaction on TellMe backend: $reference');
+      return await _accountApi.verifyPaystackTransaction(reference);
     } catch (e) {
-      print('❌ Payment verification error: $e');
+      print('Payment verification error: $e');
       return {
         'status': false,
         'message': 'Payment verification failed: $e',
@@ -1865,7 +2065,6 @@ Future<Map<String, dynamic>> creditWallet(
     return 1; // Replace with actual user management logic
   }
 
-
   // ———————————————————————————————————————————————————————————————
   // 🛒 ORDER CREATION (All Payment Methods)
   // ———————————————————————————————————————————————————————————————
@@ -1882,111 +2081,113 @@ Future<Map<String, dynamic>> creditWallet(
     Map<String, dynamic>? metadata,
   }) async {
     try {
-      print('🛒 Creating order for customer: $customerId with payment method: $paymentMethod');
-      final url = '$baseUrl/wp-json/wc/v3/orders';
-      var authParams = _getAuthParams();
+      print('Creating TellMe order for customer: $customerId');
 
-      // ✅ Normalize and handle Bank Transfer (bacs)
-      if (status == 'pending_payment' || status == 'awaiting_bank_transfer') {
-        status = 'pending';
-      }
-      if (paymentMethod == 'bacs') {
-        print('🏦 Detected Bank Transfer (bacs) → Setting status to on-hold');
-        status = 'on-hold';
+      final lines = <Map<String, dynamic>>[];
+      for (final line in lineItems) {
+        final variantId = _extractVariantId(line);
+        if (variantId == null) {
+          return {
+            'error': true,
+            'message':
+                'Cart items need current TellMe variant IDs before checkout can continue.',
+          };
+        }
+
+        lines.add({
+          'variantId': variantId,
+          'quantity': int.tryParse(line['quantity']?.toString() ?? '') ?? 1,
+          if (_cleanString(line['variantLabel']).isNotEmpty)
+            'variantLabel': _cleanString(line['variantLabel']),
+          if (_stringOptions(line['selectedOptions']).isNotEmpty)
+            'selectedOptions': _stringOptions(line['selectedOptions']),
+        });
       }
 
-      var orderData = {
-        'customer_id': customerId,
-        'line_items': lineItems,
-        'billing': billing,
-        'shipping': shipping,
-        'status': status,
+      final email = billing['email'] ?? shipping['email'] ?? '';
+      final firstName =
+          billing['first_name'] ?? shipping['first_name'] ?? 'Customer';
+      final lastName =
+          billing['last_name'] ?? shipping['last_name'] ?? 'TellMe';
+      final phone = billing['phone'] ?? shipping['phone'] ?? '';
+      final city = shipping['city'] ?? billing['city'] ?? '';
+      final state = shipping['state'] ?? billing['state'] ?? '';
+      final addressLine1 = shipping['address_1'] ?? billing['address_1'] ?? '';
+      final addressLine2 = shipping['address_2'] ?? billing['address_2'] ?? '';
+
+      final orderData = {
+        'customer': {
+          'email': email,
+          'firstName': firstName,
+          'lastName': lastName,
+          'phone': phone,
+          'addressLine1': addressLine1,
+          if (addressLine2.isNotEmpty) 'addressLine2': addressLine2,
+          'city': city,
+          'state': state,
+          if (metadata != null || paymentReference != null)
+            'note': json.encode({
+              if (paymentMethod != null) 'paymentMethod': paymentMethod,
+              if (paymentMethodTitle != null)
+                'paymentMethodTitle': paymentMethodTitle,
+              if (paymentReference != null)
+                'paymentReference': paymentReference,
+              if (metadata != null) ...metadata,
+              'mobileStatus': status,
+            }),
+        },
+        'billingSameAsDelivery': true,
+        'lines': lines,
       };
 
-      // Add payment method info
-      if (paymentMethod != null) orderData['payment_method'] = paymentMethod;
-      if (paymentMethodTitle != null) orderData['payment_method_title'] = paymentMethodTitle;
-
-      // For wallet payments, mark as paid instantly
-      if (paymentMethod == 'woo-wallet') {
-        orderData['set_paid'] = true;
-        orderData['status'] = 'processing';
-      }
-
-      // For Paystack, include transaction reference
-      if (paymentMethod == 'paystack' && paymentReference != null) {
-        orderData['set_paid'] = true;
-        orderData['transaction_id'] = paymentReference;
-        orderData['meta_data'] = <Map<String, String>>[
-          {'key': 'paystack_reference', 'value': paymentReference},
-        ];
-      }
-
-      // ✅ Add Bank Transfer metadata
-      if (paymentMethod == 'bacs') {
-        orderData['meta_data'] = <Map<String, String>>[
-          {'key': 'awaiting_bank_transfer', 'value': 'true'},
-          {'key': 'payment_note', 'value': 'Customer selected Bank Transfer and will pay manually'},
-          {'key': 'payment_initiated_at', 'value': DateTime.now().toIso8601String()},
-        ];
-      }
-
-      // ✅ Add shipping info (ensure all are String values)
-      if (shippingLines != null) {
-        orderData['shipping_lines'] = <Map<String, String>>[
-          {
-            'method_id': shippingLines['method_id'].toString(),
-            'method_title': shippingLines['title'].toString(),
-            'total': shippingLines['cost'].toString(),
-          }
-        ];
-      }
-
-      // ✅ Add custom metadata (convert all entries to strings)
-      if (metadata != null) {
-        final metadataList = metadata.entries
-            .map((e) => {'key': e.key.toString(), 'value': e.value.toString()})
-            .toList();
-
-        if (orderData['meta_data'] != null) {
-          final existingMetadata = orderData['meta_data'] as List<Map<String, String>>;
-          existingMetadata.addAll(metadataList);
-        } else {
-          orderData['meta_data'] = metadataList;
-        }
-      }
-
-      print('🛒 Final Order Data: ${json.encode(orderData)}');
-
-      var signature = _generateSignature('POST', url, authParams);
-      authParams['oauth_signature'] = signature;
-
-      String authHeader = 'OAuth ' +
-          authParams.entries.map((e) => '${e.key}="${Uri.encodeComponent(e.value)}"').join(', ');
-
       final response = await http.post(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json', 'Authorization': authHeader},
+        _apiUri('checkout/orders'),
+        headers: _jsonHeaders,
         body: json.encode(orderData),
       );
 
-      print('🛒 Order creation response: ${response.statusCode} - ${response.body}');
+      print(
+          'TellMe order creation response: ${response.statusCode} - ${response.body}');
 
-      if (response.statusCode == 201) {
-        final orderResponse = json.decode(response.body);
-        print('✅ Order created successfully: ${orderResponse['id']}');
-        return orderResponse;
-      } else {
-        print('❌ Failed to create order: ${response.statusCode} - ${response.body}');
-        return {
-          'error': true,
-          'message': 'Failed to create order',
-          'status_code': response.statusCode,
-          'response_body': response.body,
-        };
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final decoded = json.decode(response.body);
+        final order = decoded is Map && decoded['order'] is Map
+            ? decoded['order'] as Map
+            : decoded is Map
+                ? decoded
+                : <String, dynamic>{};
+        final normalized = order.map(
+          (key, value) => MapEntry(key.toString(), value),
+        );
+        final orderId = normalized['id'] ??
+            normalized['orderId'] ??
+            normalized['orderNumber'];
+
+        normalized['id'] = orderId;
+        normalized['number'] =
+            normalized['orderNumber'] ?? normalized['number'] ?? orderId;
+        normalized['status'] = decoded is Map
+            ? decoded['status'] ?? normalized['status'] ?? status
+            : normalized['status'] ?? status;
+        if (decoded is Map && decoded['payment'] != null) {
+          normalized['payment'] = decoded['payment'];
+        }
+        normalized['raw'] = decoded;
+
+        print('Order created successfully: $orderId');
+        return normalized;
       }
+
+      print(
+          'Failed to create order: ${response.statusCode} - ${response.body}');
+      return {
+        'error': true,
+        'message': 'Failed to create order',
+        'status_code': response.statusCode,
+        'response_body': response.body,
+      };
     } catch (e) {
-      print('❌ Exception creating order: $e');
+      print('Exception creating order: $e');
       return {'error': true, 'message': 'Exception creating order: $e'};
     }
   }
@@ -2008,7 +2209,8 @@ Future<Map<String, dynamic>> creditWallet(
       // 1️⃣ Check wallet balance
       final balanceData = await getWalletBalance(userId);
       if (balanceData['error'] != null) {
-        throw Exception('Failed to get wallet balance: ${balanceData['error']}');
+        throw Exception(
+            'Failed to get wallet balance: ${balanceData['error']}');
       }
 
       // ✅ FIXED: Use the helper method instead of double.tryParse
@@ -2084,12 +2286,12 @@ Future<Map<String, dynamic>> creditWallet(
     }
   }
 
-
   // ———————————————————————————————————————————————————————————————
   // // 👉 OPTIONAL: customer login via the same custom endpoint used above
   // ———————————————————————————————————————————————————————————————
 
-  Future<Map<String, dynamic>?> loginCustomer(String email, String password) async {
+  Future<Map<String, dynamic>?> loginCustomer(
+      String email, String password) async {
     try {
       final resp = await http.post(
         Uri.parse('$baseUrl/wp-json/tellme/v1/login'),
@@ -2109,7 +2311,6 @@ Future<Map<String, dynamic>> creditWallet(
       return null;
     }
   }
-
 
   Future<bool> revokeAllSessions() async {
     try {
@@ -2140,17 +2341,51 @@ Future<Map<String, dynamic>> creditWallet(
       ],
       'cities': [
         {'code': 'ikeja', 'name': 'Ikeja', 'state': 'LA', 'country': 'NG'},
-        {'code': 'surulere', 'name': 'Surulere', 'state': 'LA', 'country': 'NG'},
-        {'code': 'victoria_island', 'name': 'Victoria Island', 'state': 'LA', 'country': 'NG'},
+        {
+          'code': 'surulere',
+          'name': 'Surulere',
+          'state': 'LA',
+          'country': 'NG'
+        },
+        {
+          'code': 'victoria_island',
+          'name': 'Victoria Island',
+          'state': 'LA',
+          'country': 'NG'
+        },
       ],
     };
+  }
+
+  List<Map<String, dynamic>> _getDefaultStates() {
+    return List<Map<String, dynamic>>.from(
+        _getDefaultLocationData()['states'] as List);
+  }
+
+  List<Map<String, dynamic>> _getDefaultCitiesForState(String stateCode) {
+    final defaultCities = List<Map<String, dynamic>>.from(
+        _getDefaultLocationData()['cities'] as List);
+    final filtered = defaultCities
+        .where((city) => city['state']?.toString() == stateCode)
+        .toList();
+    return filtered.isNotEmpty ? filtered : defaultCities;
   }
 
   Map<String, dynamic> _getDefaultShippingData() {
     return {
       'shipping_options': [
-        {'id': '1', 'title': 'Standard Delivery', 'cost': '1500', 'zone': 'Nigeria'},
-        {'id': '2', 'title': 'Express Delivery', 'cost': '2500', 'zone': 'Nigeria'},
+        {
+          'id': '1',
+          'title': 'Standard Delivery',
+          'cost': '1500',
+          'zone': 'Nigeria'
+        },
+        {
+          'id': '2',
+          'title': 'Express Delivery',
+          'cost': '2500',
+          'zone': 'Nigeria'
+        },
       ],
     };
   }
@@ -2216,7 +2451,8 @@ Future<Map<String, dynamic>> creditWallet(
       }
 
       // Friendlier messages for common auth errors
-      String msg = parsed['message']?.toString() ?? 'Delete failed (HTTP $status)';
+      String msg =
+          parsed['message']?.toString() ?? 'Delete failed (HTTP $status)';
       if (status == 401 || status == 403) {
         msg =
             'Authentication failed. Check the email and Application Password (remove spaces) or enable Application Passwords in WordPress.';
@@ -2236,58 +2472,72 @@ Future<Map<String, dynamic>> creditWallet(
     }
   }
 
-
-/// 🗑️ Delete account using EMAIL + PASSWORD
-/// POST https://tellme.ng/wp-json/tellme/v1/delete-account-password
-/// Body: { email, password, confirm: "DELETE", feedback? }
-Future<Map<String, dynamic>> deleteAccountWithPassword({
-  required String email,
-  required String password,
-  String? feedback,
-}) async {
-  final uri = Uri.parse('$baseUrl/wp-json/tellme/v1/delete-account-password');
-
-  final payload = <String, dynamic>{
-    'email': email.trim(),
-    'password': password,
-    'confirm': 'DELETE',
-    if (feedback != null && feedback.trim().isNotEmpty) 'feedback': feedback.trim(),
-  };
-
-  try {
-    final res = await http.post(
-      uri,
-      headers: const {'Content-Type': 'application/json', 'Accept': 'application/json'},
-      body: jsonEncode(payload),
-    );
-
-    // Normalize response
-    final statusOk = res.statusCode >= 200 && res.statusCode < 300;
-    Map<String, dynamic> body;
+  /// 🗑️ Delete account using EMAIL + PASSWORD
+  /// POST https://tellme.ng/wp-json/tellme/v1/delete-account-password
+  /// Body: { email, password, confirm: "DELETE", feedback? }
+  Future<Map<String, dynamic>> deleteAccountWithPassword({
+    required String email,
+    required String password,
+    String? feedback,
+  }) async {
     try {
-      body = Map<String, dynamic>.from(jsonDecode(res.body));
+      return await _accountApi.deleteAccount(
+        email: email,
+        password: password,
+        confirm: 'DELETE',
+        feedback: feedback,
+      );
     } catch (_) {
-      body = {'message': res.body};
+      // Fall back to the legacy endpoint while the new API is being deployed.
     }
 
-    if (statusOk || (body['success'] == true)) {
+    final uri = Uri.parse('$baseUrl/wp-json/tellme/v1/delete-account-password');
+
+    final payload = <String, dynamic>{
+      'email': email.trim(),
+      'password': password,
+      'confirm': 'DELETE',
+      if (feedback != null && feedback.trim().isNotEmpty)
+        'feedback': feedback.trim(),
+    };
+
+    try {
+      final res = await http.post(
+        uri,
+        headers: const {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: jsonEncode(payload),
+      );
+
+      // Normalize response
+      final statusOk = res.statusCode >= 200 && res.statusCode < 300;
+      Map<String, dynamic> body;
+      try {
+        body = Map<String, dynamic>.from(jsonDecode(res.body));
+      } catch (_) {
+        body = {'message': res.body};
+      }
+
+      if (statusOk || (body['success'] == true)) {
+        return {
+          'success': true,
+          'message': body['message'] ?? 'Account deleted successfully.',
+          'status': res.statusCode,
+        };
+      }
+
       return {
-        'success': true,
-        'message': body['message'] ?? 'Account deleted successfully.',
+        'success': false,
+        'message': body['message']?.toString() ??
+            'Delete failed (HTTP ${res.statusCode}).',
         'status': res.statusCode,
       };
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
     }
-
-    return {
-      'success': false,
-      'message': body['message']?.toString() ?? 'Delete failed (HTTP ${res.statusCode}).',
-      'status': res.statusCode,
-    };
-  } catch (e) {
-    return {'success': false, 'message': 'Network error: $e'};
   }
-}
-
 
   /// Alternate path: delete using an existing **WP cookie** session.
   /// Pass the full Cookie header string if you ever carry WP cookies.
@@ -2332,7 +2582,8 @@ Future<Map<String, dynamic>> deleteAccountWithPassword({
         };
       }
 
-      String msg = parsed['message']?.toString() ?? 'Delete failed (HTTP $status)';
+      String msg =
+          parsed['message']?.toString() ?? 'Delete failed (HTTP $status)';
       if (status == 401 || status == 403) {
         msg =
             'Not authenticated. Make sure the WordPress session (Cookie header) is valid.';
@@ -2366,10 +2617,12 @@ Future<Map<String, dynamic>> deleteAccountWithPassword({
 
       // Add data to params for GET requests
       if (method == 'GET' && data != null) {
-        authParams.addAll(data.map((key, value) => MapEntry(key.toString(), value.toString())));
+        authParams.addAll(data
+            .map((key, value) => MapEntry(key.toString(), value.toString())));
       }
 
-      final signature = _generateSignature(method.toUpperCase(), url, authParams);
+      final signature =
+          _generateSignature(method.toUpperCase(), url, authParams);
       authParams['oauth_signature'] = signature;
 
       final authHeader = 'OAuth ' +
@@ -2429,5 +2682,4 @@ Future<Map<String, dynamic>> deleteAccountWithPassword({
       return null;
     }
   }
-
 }

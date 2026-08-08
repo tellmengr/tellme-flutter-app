@@ -173,7 +173,8 @@ class _ProductDetailSwipeState extends State<ProductDetailSwipe>
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FB),
-      appBar: _glassAppBar(p['name']?.toString() ?? 'Product', primaryColor, accentColor, inkColor),
+      appBar: _glassAppBar(p['name']?.toString() ?? 'Product', primaryColor,
+          accentColor, inkColor),
       body: Column(
         children: [
           // ✅ Swipe Image Gallery (glassy)
@@ -211,7 +212,8 @@ class _ProductDetailSwipeState extends State<ProductDetailSwipe>
                   ),
                   Positioned.fill(
                     child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: kGlassBlur, sigmaY: kGlassBlur),
+                      filter: ImageFilter.blur(
+                          sigmaX: kGlassBlur, sigmaY: kGlassBlur),
                       child: const SizedBox.expand(),
                     ),
                   ),
@@ -262,7 +264,8 @@ class _ProductDetailSwipeState extends State<ProductDetailSwipe>
                                               ),
                                             ),
                                             child: const Center(
-                                              child: CircularProgressIndicator(),
+                                              child:
+                                                  CircularProgressIndicator(),
                                             ),
                                           ),
                                         Image.network(
@@ -270,22 +273,29 @@ class _ProductDetailSwipeState extends State<ProductDetailSwipe>
                                           fit: BoxFit.contain,
                                           width: double.infinity,
                                           height: double.infinity,
-                                          loadingBuilder: (context, child, progress) {
+                                          loadingBuilder:
+                                              (context, child, progress) {
                                             if (progress == null) {
                                               _isImageLoading = false;
                                               return child;
                                             }
                                             return Center(
                                               child: CircularProgressIndicator(
-                                                value: progress.expectedTotalBytes != null
-                                                    ? progress.cumulativeBytesLoaded /
-                                                        progress.expectedTotalBytes!
+                                                value: progress
+                                                            .expectedTotalBytes !=
+                                                        null
+                                                    ? progress
+                                                            .cumulativeBytesLoaded /
+                                                        progress
+                                                            .expectedTotalBytes!
                                                     : null,
                                               ),
                                             );
                                           },
-                                          errorBuilder: (_, __, ___) => const Center(
-                                            child: Icon(Icons.broken_image, color: Colors.grey, size: 80),
+                                          errorBuilder: (_, __, ___) =>
+                                              const Center(
+                                            child: Icon(Icons.broken_image,
+                                                color: Colors.grey, size: 80),
                                           ),
                                         ),
                                       ],
@@ -295,7 +305,8 @@ class _ProductDetailSwipeState extends State<ProductDetailSwipe>
                               );
                             } else {
                               return const Center(
-                                child: Icon(Icons.image_not_supported, size: 120, color: Colors.grey),
+                                child: Icon(Icons.image_not_supported,
+                                    size: 120, color: Colors.grey),
                               );
                             }
                           },
@@ -349,7 +360,8 @@ class _ProductDetailSwipeState extends State<ProductDetailSwipe>
                             margin: const EdgeInsets.symmetric(horizontal: 3),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(4),
-                              color: Colors.white.withOpacity(isActive ? 1 : 0.6),
+                              color:
+                                  Colors.white.withOpacity(isActive ? 1 : 0.6),
                             ),
                           );
                         }).toList(),
@@ -435,7 +447,8 @@ class _ProductDetailSwipeState extends State<ProductDetailSwipe>
 
                         // Price row
                         Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 12, horizontal: 14),
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: [
@@ -444,7 +457,9 @@ class _ProductDetailSwipeState extends State<ProductDetailSwipe>
                               ],
                             ),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: primaryColor.withOpacity(0.18), width: 1),
+                            border: Border.all(
+                                color: primaryColor.withOpacity(0.18),
+                                width: 1),
                           ),
                           child: Row(
                             children: [
@@ -452,7 +467,9 @@ class _ProductDetailSwipeState extends State<ProductDetailSwipe>
                                 amount: _priceFmt.format(price),
                                 bold: true,
                                 size: 28,
-                                color: onSale ? const Color(0xFFD32F2F) : primaryColor,
+                                color: onSale
+                                    ? const Color(0xFFD32F2F)
+                                    : primaryColor,
                               ),
                               const SizedBox(width: 10),
                               if (onSale)
@@ -475,7 +492,8 @@ class _ProductDetailSwipeState extends State<ProductDetailSwipe>
                             (p['sku']?.toString().isNotEmpty ?? false))
                           Text(
                             "ID: ${p['id'] ?? '-'}  •  SKU: ${p['sku']?.toString().isNotEmpty == true ? p['sku'] : '-'}",
-                            style: GoogleFonts.roboto(fontSize: 12.5, color: Colors.black54),
+                            style: GoogleFonts.roboto(
+                                fontSize: 12.5, color: Colors.black54),
                           ),
                       ],
                     ),
@@ -491,7 +509,8 @@ class _ProductDetailSwipeState extends State<ProductDetailSwipe>
                       children: [
                         Text(
                           "Quantity",
-                          style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.w600),
+                          style: GoogleFonts.montserrat(
+                              fontSize: 16, fontWeight: FontWeight.w600),
                         ),
                         const Spacer(),
                         _qtyButton(Icons.remove, primaryColor, () {
@@ -499,7 +518,8 @@ class _ProductDetailSwipeState extends State<ProductDetailSwipe>
                         }),
                         Container(
                           margin: const EdgeInsets.symmetric(horizontal: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 8),
                           decoration: BoxDecoration(
                             color: primaryColor.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
@@ -513,7 +533,8 @@ class _ProductDetailSwipeState extends State<ProductDetailSwipe>
                             ),
                           ),
                         ),
-                        _qtyButton(Icons.add, primaryColor, () => setState(() => _quantity++)),
+                        _qtyButton(Icons.add, primaryColor,
+                            () => setState(() => _quantity++)),
                       ],
                     ),
                   ),
@@ -547,16 +568,19 @@ class _ProductDetailSwipeState extends State<ProductDetailSwipe>
       ),
 
       // ✅ Frosted Sticky Bottom Bar (now uses addToCartWithDetails + validation)
-      bottomNavigationBar: _frostedBottomBar(p, inStock, primaryColor, accentColor),
+      bottomNavigationBar:
+          _frostedBottomBar(p, inStock, primaryColor, accentColor),
     );
   }
 
   // ---------- Glass AppBar ----------
-  PreferredSizeWidget _glassAppBar(String title, Color primaryColor, Color accentColor, Color inkColor) {
+  PreferredSizeWidget _glassAppBar(
+      String title, Color primaryColor, Color accentColor, Color inkColor) {
     return AppBar(
       title: Text(
         title,
-        style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, color: inkColor),
+        style: GoogleFonts.montserrat(
+            fontWeight: FontWeight.w700, color: inkColor),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
@@ -597,13 +621,17 @@ class _ProductDetailSwipeState extends State<ProductDetailSwipe>
       children: [
         Text(
           "Product Options",
-          style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.w800, color: primaryColor),
+          style: GoogleFonts.montserrat(
+              fontSize: 18, fontWeight: FontWeight.w800, color: primaryColor),
         ),
         const SizedBox(height: 14),
         for (int i = 0; i < keys.length; i++) ...[
           Text(
             keys[i],
-            style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[800]),
+            style: GoogleFonts.montserrat(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[800]),
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -636,7 +664,8 @@ class _ProductDetailSwipeState extends State<ProductDetailSwipe>
     return [];
   }
 
-  Widget _variationChip(String attributeName, String value, Color color, bool isSelected) {
+  Widget _variationChip(
+      String attributeName, String value, Color color, bool isSelected) {
     return InkWell(
       onTap: () => setState(() => _selectedAttributes[attributeName] = value),
       borderRadius: BorderRadius.circular(20),
@@ -644,8 +673,12 @@ class _ProductDetailSwipeState extends State<ProductDetailSwipe>
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.18) : Colors.grey.withOpacity(0.1),
-          border: Border.all(color: isSelected ? color : Colors.grey.withOpacity(0.3), width: 1.5),
+          color: isSelected
+              ? color.withOpacity(0.18)
+              : Colors.grey.withOpacity(0.1),
+          border: Border.all(
+              color: isSelected ? color : Colors.grey.withOpacity(0.3),
+              width: 1.5),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -690,17 +723,33 @@ class _ProductDetailSwipeState extends State<ProductDetailSwipe>
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.86),
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: accentColor.withOpacity(0.2), width: 1.5),
+              border:
+                  Border.all(color: accentColor.withOpacity(0.2), width: 1.5),
             ),
             child: ExpansionPanelList.radio(
               elevation: 0,
               animationDuration: const Duration(milliseconds: 220),
               children: [
-                _panel(0, "Description", description.isEmpty ? "No description available" : description, primaryColor, accentColor),
-                _panel(1, "Specification", shortDesc.isEmpty ? "No specification provided" : shortDesc, primaryColor, accentColor),
-                _panel(2, "Customer Reviews", "No reviews yet", primaryColor, accentColor),
-                _panel(3, "Store Policies", "No store policies available", primaryColor, accentColor),
-                _panel(4, "Inquiries", "No inquiries yet", primaryColor, accentColor),
+                _panel(
+                    0,
+                    "Description",
+                    description.isEmpty
+                        ? "No description available"
+                        : description,
+                    primaryColor,
+                    accentColor),
+                _panel(
+                    1,
+                    "Specification",
+                    shortDesc.isEmpty ? "No specification provided" : shortDesc,
+                    primaryColor,
+                    accentColor),
+                _panel(2, "Customer Reviews", "No reviews yet", primaryColor,
+                    accentColor),
+                _panel(3, "Store Policies", "No store policies available",
+                    primaryColor, accentColor),
+                _panel(4, "Inquiries", "No inquiries yet", primaryColor,
+                    accentColor),
               ],
             ),
           ),
@@ -709,7 +758,8 @@ class _ProductDetailSwipeState extends State<ProductDetailSwipe>
     );
   }
 
-  ExpansionPanelRadio _panel(int value, String title, String content, Color primaryColor, Color accentColor) {
+  ExpansionPanelRadio _panel(int value, String title, String content,
+      Color primaryColor, Color accentColor) {
     return ExpansionPanelRadio(
       value: value,
       backgroundColor: Colors.transparent,
@@ -721,7 +771,10 @@ class _ProductDetailSwipeState extends State<ProductDetailSwipe>
               Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [primaryColor.withOpacity(0.14), accentColor.withOpacity(0.1)],
+                    colors: [
+                      primaryColor.withOpacity(0.14),
+                      accentColor.withOpacity(0.1)
+                    ],
                   ),
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -732,7 +785,10 @@ class _ProductDetailSwipeState extends State<ProductDetailSwipe>
               Expanded(
                 child: Text(
                   title,
-                  style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 16, color: primaryColor),
+                  style: GoogleFonts.montserrat(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      color: primaryColor),
                 ),
               ),
             ],
@@ -743,7 +799,8 @@ class _ProductDetailSwipeState extends State<ProductDetailSwipe>
         padding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
         child: Text(
           content,
-          style: GoogleFonts.roboto(fontSize: 14, color: Colors.black87, height: 1.6),
+          style: GoogleFonts.roboto(
+              fontSize: 14, color: Colors.black87, height: 1.6),
         ),
       ),
     );
@@ -767,157 +824,167 @@ class _ProductDetailSwipeState extends State<ProductDetailSwipe>
   }
 
   // ---------- Bottom Bar ----------
-    Widget _frostedBottomBar(Map<String, dynamic> product, bool inStock, Color primaryColor, Color accentColor) {
-      final canPress = inStock && _canAddToCart;
-      final cart = Provider.of<CartProvider>(context, listen: false);
+  Widget _frostedBottomBar(Map<String, dynamic> product, bool inStock,
+      Color primaryColor, Color accentColor) {
+    final canPress = inStock && _canAddToCart;
+    final cart = Provider.of<CartProvider>(context, listen: false);
 
-      return ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: kGlassBlur, sigmaY: kGlassBlur),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.9),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 20,
-                  offset: const Offset(0, -6),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              top: false,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: canPress
-                          ? () async {
-                              await cart.addToCartWithDetails(
-                                productId: product['id'],
-                                name: product['name']?.toString() ?? '',
-                                price: _asDouble(product['price']),
-                                image: _firstImage,
-                                quantity: _quantity,
-                                sku: product['sku']?.toString(),
-                                attributes: Map<String, String>.from(_selectedAttributes),
-                              );
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: kGlassBlur, sigmaY: kGlassBlur),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.9),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 20,
+                offset: const Offset(0, -6),
+              ),
+            ],
+          ),
+          child: SafeArea(
+            top: false,
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: canPress
+                        ? () async {
+                            await cart.addToCartWithDetails(
+                              productId: product['id'],
+                              name: product['name']?.toString() ?? '',
+                              price: _asDouble(product['price']),
+                              image: _firstImage,
+                              quantity: _quantity,
+                              sku: product['sku']?.toString(),
+                              attributes:
+                                  Map<String, String>.from(_selectedAttributes),
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                    "$_quantity × ${product['name'] ?? 'Product'} added to cart"),
+                                backgroundColor: primaryColor,
+                                behavior: SnackBarBehavior.floating,
+                                duration: const Duration(milliseconds: 1400),
+                              ),
+                            );
+                          }
+                        : () {
+                            if (!inStock) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text("$_quantity × ${product['name'] ?? 'Product'} added to cart"),
-                                  backgroundColor: primaryColor,
-                                  behavior: SnackBarBehavior.floating,
+                                const SnackBar(
+                                  content: Text("This item is out of stock."),
+                                  backgroundColor: Colors.redAccent,
+                                ),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                      "Please select all required options."),
+                                  backgroundColor: Colors.redAccent,
                                 ),
                               );
                             }
-                          : () {
-                              if (!inStock) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text("This item is out of stock."),
-                                    backgroundColor: Colors.redAccent,
-                                  ),
-                                );
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text("Please select all required options."),
-                                    backgroundColor: Colors.redAccent,
-                                  ),
-                                );
-                              }
-                            },
-                      icon: const Icon(Icons.shopping_cart_outlined),
-                      label: Text("Add to Cart",
-                          style: GoogleFonts.montserrat(fontWeight: FontWeight.w700)),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: primaryColor,
-                        side: BorderSide(color: primaryColor, width: 1.5),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
+                          },
+                    icon: const Icon(Icons.shopping_cart_outlined),
+                    label: Text("Add to Cart",
+                        style: GoogleFonts.montserrat(
+                            fontWeight: FontWeight.w700)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: primaryColor,
+                      side: BorderSide(color: primaryColor, width: 1.5),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  // Buy Now button - FIXED VERSION
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: canPress
-                            ? LinearGradient(
-                                colors: [primaryColor, accentColor],
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                              )
-                            : const LinearGradient(
-                                colors: [Colors.grey, Colors.grey],
+                ),
+                const SizedBox(width: 12),
+                // Buy Now button - FIXED VERSION
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: canPress
+                          ? LinearGradient(
+                              colors: [primaryColor, accentColor],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                            )
+                          : const LinearGradient(
+                              colors: [Colors.grey, Colors.grey],
+                            ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: canPress
+                          ? [
+                              BoxShadow(
+                                color: primaryColor.withOpacity(0.32),
+                                blurRadius: 10,
+                                offset: const Offset(0, 5),
                               ),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: canPress
-                            ? [
-                                BoxShadow(
-                                  color: primaryColor.withOpacity(0.32),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 5),
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: ElevatedButton.icon(
-                        icon: const Icon(Icons.flash_on),
-                        label: Text("Buy Now",
-                            style: GoogleFonts.montserrat(fontWeight: FontWeight.w700)),
-                        onPressed: canPress
-                            ? () async {
-                                // 1. Add to cart first
-                                await cart.addToCartWithDetails(
-                                  productId: product['id'],
-                                  name: product['name']?.toString() ?? 'Product',
-                                  price: _asDouble(product['price']),
-                                  image: _firstImage ?? '',
-                                  quantity: _quantity,
-                                  sku: product['sku']?.toString(),
-                                  attributes: Map<String, String>.from(_selectedAttributes),
-                                );
+                            ]
+                          : null,
+                    ),
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.flash_on),
+                      label: Text("Buy Now",
+                          style: GoogleFonts.montserrat(
+                              fontWeight: FontWeight.w700)),
+                      onPressed: canPress
+                          ? () async {
+                              // 1. Add to cart first
+                              await cart.addToCartWithDetails(
+                                productId: product['id'],
+                                name: product['name']?.toString() ?? 'Product',
+                                price: _asDouble(product['price']),
+                                image: _firstImage ?? '',
+                                quantity: _quantity,
+                                sku: product['sku']?.toString(),
+                                attributes: Map<String, String>.from(
+                                    _selectedAttributes),
+                              );
 
-                                // 2. Get cart totals
-                                double totalPrice = cart.getTotalPrice();
-                                double shipping = 2500.0;
-                                double total = totalPrice + shipping;
+                              // 2. Get cart totals
+                              double totalPrice = cart.getTotalPrice();
+                              double shipping = 2500.0;
+                              double total = totalPrice + shipping;
 
-                                // 3. Navigate directly to checkout
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => CheckoutPage(
-                                      cartItems: cart.cartItems,
-                                      subtotal: totalPrice,
-                                      shipping: shipping,
-                                      total: total,
-                                    ),
+                              // 3. Navigate directly to checkout
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => CheckoutPage(
+                                    cartItems: cart.cartItems,
+                                    subtotal: totalPrice,
+                                    shipping: shipping,
+                                    total: total,
                                   ),
-                                );
-                              }
-                            : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          shadowColor: Colors.transparent,
-                          foregroundColor: Colors.white,
-                          disabledBackgroundColor: Colors.grey.shade400,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
+                                ),
+                              );
+                            }
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: Colors.grey.shade400,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
-      );
-    }
+      ),
+    );
+  }
 
   // ---------- Small UI helpers ----------
   Widget _arrowButton(IconData icon, {bool enabled = true}) {
@@ -941,18 +1008,25 @@ class _ProductDetailSwipeState extends State<ProductDetailSwipe>
       decoration: BoxDecoration(
         gradient: LinearGradient(colors: [primaryColor, accentColor]),
         borderRadius: BorderRadius.circular(999),
-        boxShadow: [BoxShadow(color: primaryColor.withOpacity(0.25), blurRadius: 10, offset: const Offset(0, 6))],
+        boxShadow: [
+          BoxShadow(
+              color: primaryColor.withOpacity(0.25),
+              blurRadius: 10,
+              offset: const Offset(0, 6))
+        ],
       ),
       child: Text(
         text,
-        style: GoogleFonts.montserrat(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800),
+        style: GoogleFonts.montserrat(
+            color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800),
       ),
     );
   }
 
   Widget _stockBadge(String stockStatus) {
     final inStock = stockStatus.toLowerCase() == 'instock';
-    final label = inStock ? "In stock" : (stockStatus.isEmpty ? "—" : stockStatus);
+    final label =
+        inStock ? "In stock" : (stockStatus.isEmpty ? "—" : stockStatus);
     final color = inStock ? const Color(0xFF2E7D32) : const Color(0xFFD32F2F);
 
     return Container(
@@ -962,7 +1036,9 @@ class _ProductDetailSwipeState extends State<ProductDetailSwipe>
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: color.withOpacity(0.3)),
       ),
-      child: Text(label, style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
+      child: Text(label,
+          style: GoogleFonts.montserrat(
+              fontSize: 12, fontWeight: FontWeight.w700, color: color)),
     );
   }
 
@@ -1026,9 +1102,13 @@ class _GlassCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.86),
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: accentColor.withOpacity(0.18), width: 1.5),
+            border:
+                Border.all(color: accentColor.withOpacity(0.18), width: 1.5),
             boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 22, offset: const Offset(0, 8)),
+              BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 22,
+                  offset: const Offset(0, 8)),
             ],
           ),
           child: child,

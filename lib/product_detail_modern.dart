@@ -90,9 +90,8 @@ class _ProductDetailModernState extends State<ProductDetailModern>
     return ['assets/images/placeholder.png'];
   }
 
-  String get productCategory =>
-      _unescape.convert(
-          (widget.product?['categories']?[0]?['name'] ?? 'General').toString());
+  String get productCategory => _unescape.convert(
+      (widget.product?['categories']?[0]?['name'] ?? 'General').toString());
   double get productRating =>
       double.tryParse(widget.product?['average_rating']?.toString() ?? '0') ??
       0.0;
@@ -121,13 +120,13 @@ class _ProductDetailModernState extends State<ProductDetailModern>
       final firstImage = images.first;
       if (firstImage is Map) {
         return firstImage['src']?.toString() ??
-               firstImage['url']?.toString() ??
-               firstImage['image_url']?.toString();
+            firstImage['url']?.toString() ??
+            firstImage['image_url']?.toString();
       }
     }
     return widget.product?['image']?.toString() ??
-           widget.product?['imageUrl']?.toString() ??
-           widget.product?['image_url']?.toString();
+        widget.product?['imageUrl']?.toString() ??
+        widget.product?['image_url']?.toString();
   }
 
   @override
@@ -139,8 +138,10 @@ class _ProductDetailModernState extends State<ProductDetailModern>
     final currentTheme = themeProvider?.currentTheme;
     final primaryColor = currentTheme?.primaryColor ?? const Color(0xFF004AAD);
     final accentColor = currentTheme?.accentColor ?? const Color(0xFF0096FF);
-    final secondaryColor = currentTheme?.secondaryColor ?? const Color(0xFF004AAD);
-    final gradientColors = currentTheme?.gradient.colors ?? [const Color(0xFF004AAD), const Color(0xFF0096FF)];
+    final secondaryColor =
+        currentTheme?.secondaryColor ?? const Color(0xFF004AAD);
+    final gradientColors = currentTheme?.gradient.colors ??
+        [const Color(0xFF004AAD), const Color(0xFF0096FF)];
     final lightBlue = const Color(0xFFE3F2FD);
     final veryLightBlue = const Color(0xFFF5F8FF);
 
@@ -169,7 +170,8 @@ class _ProductDetailModernState extends State<ProductDetailModern>
                   children: [
                     const SizedBox(height: 20),
                     _buildImageCarousel(primaryColor, accentColor),
-                    _buildInfoCard(settings, primaryColor, accentColor, lightBlue, veryLightBlue),
+                    _buildInfoCard(settings, primaryColor, accentColor,
+                        lightBlue, veryLightBlue),
                     _buildVariations(primaryColor, accentColor),
                     const SizedBox(height: 20),
                     _buildQuantitySelector(primaryColor, accentColor),
@@ -219,7 +221,8 @@ class _ProductDetailModernState extends State<ProductDetailModern>
   }
 
   // 🔹 App Bar with Glass Effect - THEME AWARE
-  Widget _buildAppBar(Color primaryColor, Color accentColor, Color veryLightBlue) {
+  Widget _buildAppBar(
+      Color primaryColor, Color accentColor, Color veryLightBlue) {
     final wish = Provider.of<WishlistProvider>(context);
     final isWishlisted = wish.contains(widget.product);
 
@@ -262,12 +265,11 @@ class _ProductDetailModernState extends State<ProductDetailModern>
     );
   }
 
-  Widget _circleButton(IconData icon, {
-    required Color primaryColor,
-    required Color accentColor,
-    Color color = Colors.black,
-    required VoidCallback onTap
-  }) {
+  Widget _circleButton(IconData icon,
+      {required Color primaryColor,
+      required Color accentColor,
+      Color color = Colors.black,
+      required VoidCallback onTap}) {
     return Container(
       margin: const EdgeInsets.all(8),
       child: ClipRRect(
@@ -418,7 +420,8 @@ class _ProductDetailModernState extends State<ProductDetailModern>
   }
 
   // 🧾 Product Info Card with Glass Effect - THEME AWARE
-  Widget _buildInfoCard(UserSettingsProvider settings, Color primaryColor, Color accentColor, Color lightBlue, Color veryLightBlue) {
+  Widget _buildInfoCard(UserSettingsProvider settings, Color primaryColor,
+      Color accentColor, Color lightBlue, Color veryLightBlue) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: ClipRRect(
@@ -661,11 +664,16 @@ class _ProductDetailModernState extends State<ProductDetailModern>
               elevation: 0,
               expandedHeaderPadding: EdgeInsets.zero,
               children: [
-                _buildPanel(0, "Description", productDescription, primaryColor, accentColor),
-                _buildPanel(1, "Specification", productSpecifications, primaryColor, accentColor),
-                _buildPanel(2, "Customer Reviews", productReviews, primaryColor, accentColor),
-                _buildPanel(3, "Store Policies", productPolicies, primaryColor, accentColor),
-                _buildPanel(4, "Inquiries", productInquiries, primaryColor, accentColor),
+                _buildPanel(0, "Description", productDescription, primaryColor,
+                    accentColor),
+                _buildPanel(1, "Specification", productSpecifications,
+                    primaryColor, accentColor),
+                _buildPanel(2, "Customer Reviews", productReviews, primaryColor,
+                    accentColor),
+                _buildPanel(3, "Store Policies", productPolicies, primaryColor,
+                    accentColor),
+                _buildPanel(4, "Inquiries", productInquiries, primaryColor,
+                    accentColor),
               ],
             ),
           ),
@@ -674,7 +682,8 @@ class _ProductDetailModernState extends State<ProductDetailModern>
     );
   }
 
-  ExpansionPanelRadio _buildPanel(int value, String title, String content, Color primaryColor, Color accentColor) {
+  ExpansionPanelRadio _buildPanel(int value, String title, String content,
+      Color primaryColor, Color accentColor) {
     return ExpansionPanelRadio(
       value: value,
       backgroundColor: Colors.transparent,
@@ -716,8 +725,7 @@ class _ProductDetailModernState extends State<ProductDetailModern>
       body: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         child: Text(
-          _unescape
-              .convert(content.replaceAll(RegExp(r'<[^>]*>'), '').trim()),
+          _unescape.convert(content.replaceAll(RegExp(r'<[^>]*>'), '').trim()),
           style: TextStyle(
             fontSize: 14,
             color: Colors.grey[800],
@@ -918,7 +926,8 @@ class _ProductDetailModernState extends State<ProductDetailModern>
               child: ElevatedButton(
                 onPressed: _canAddToCart
                     ? () async {
-                        final cart = Provider.of<CartProvider>(context, listen: false);
+                        final cart =
+                            Provider.of<CartProvider>(context, listen: false);
 
                         // 1. Add to cart first
                         await cart.addToCartWithDetails(
@@ -928,7 +937,8 @@ class _ProductDetailModernState extends State<ProductDetailModern>
                           image: _getFirstImage() ?? '',
                           quantity: _quantity,
                           sku: widget.product['sku']?.toString(),
-                          attributes: Map<String, String>.from(_selectedAttributes),
+                          attributes:
+                              Map<String, String>.from(_selectedAttributes),
                         );
 
                         // 2. Get cart totals
@@ -953,7 +963,8 @@ class _ProductDetailModernState extends State<ProductDetailModern>
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
-                  foregroundColor: _canAddToCart ? primaryColor : Colors.grey.shade500,
+                  foregroundColor:
+                      _canAddToCart ? primaryColor : Colors.grey.shade500,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -1011,6 +1022,7 @@ class _ProductDetailModernState extends State<ProductDetailModern>
         ),
         backgroundColor: Colors.green,
         behavior: SnackBarBehavior.floating,
+        duration: const Duration(milliseconds: 1400),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
       ),

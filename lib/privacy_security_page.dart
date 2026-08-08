@@ -61,7 +61,6 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
             ),
           ]),
           const SizedBox(height: 24),
-
           _buildSectionHeader('Privacy'),
           const SizedBox(height: 12),
           _buildMenuCard([
@@ -87,7 +86,6 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
             ),
           ]),
           const SizedBox(height: 24),
-
           _buildSectionHeader('Data Management'),
           const SizedBox(height: 12),
           _buildMenuCard([
@@ -102,7 +100,9 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
               icon: Icons.delete_outline,
               title: 'Delete Account',
               subtitle: 'Permanently delete your account',
-              onTap: _deleting ? null : _showDeleteAccountDialog, // ✅ same flow as Profile
+              onTap: _deleting
+                  ? null
+                  : _showDeleteAccountDialog, // ✅ same flow as Profile
               textColor: kRed,
             ),
           ]),
@@ -202,7 +202,8 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text(
             'Change Password',
             style: TextStyle(fontWeight: FontWeight.w700),
@@ -278,13 +279,16 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
                         setDialogState(() => isLoading = true);
 
                         try {
-                          final userProvider = Provider.of<UserProvider>(context, listen: false);
+                          final userProvider =
+                              Provider.of<UserProvider>(context, listen: false);
                           final userId = userProvider.user?['id'];
 
-                          if (userId == null) throw Exception('User not logged in');
+                          if (userId == null)
+                            throw Exception('User not logged in');
 
                           final wooService = WooCommerceService();
-                          final success = await wooService.updateCustomerPassword(
+                          final success =
+                              await wooService.updateCustomerPassword(
                             userId,
                             newPasswordController.text,
                           );

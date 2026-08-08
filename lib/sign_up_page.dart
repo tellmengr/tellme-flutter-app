@@ -7,12 +7,12 @@ import 'celebration_theme_provider.dart';
 
 // 🎨 Brand Colors - LIGHTER THEME
 const kPrimaryBlue = Color(0xFF004AAD);
-const kAccentBlue  = Color(0xFF0096FF);
-const kLightBlue   = Color(0xFFE3F2FD); // Light background
+const kAccentBlue = Color(0xFF0096FF);
+const kLightBlue = Color(0xFFE3F2FD); // Light background
 const kVeryLightBlue = Color(0xFFF5F8FF); // Very light blue
-const kRed         = Color(0xFFE53935);
-const kGreen       = Color(0xFF43A047);
-const kYellow      = Color(0xFFFFB300);
+const kRed = Color(0xFFE53935);
+const kGreen = Color(0xFF43A047);
+const kYellow = Color(0xFFFFB300);
 
 // Custom clipper for curved container
 class ImprovedCurvedClipper extends CustomClipper<Path> {
@@ -22,7 +22,8 @@ class ImprovedCurvedClipper extends CustomClipper<Path> {
     path.lineTo(0, size.height - 60);
     path.quadraticBezierTo(0, size.height, 60, size.height);
     path.lineTo(size.width - 60, size.height);
-    path.quadraticBezierTo(size.width, size.height, size.width, size.height - 60);
+    path.quadraticBezierTo(
+        size.width, size.height, size.width, size.height - 60);
     path.lineTo(size.width, 0);
     path.close();
     return path;
@@ -39,19 +40,20 @@ class SignUpPage extends StatefulWidget {
   State<SignUpPage> createState() => _SignUpPageState();
 }
 
-class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateMixin {
+class _SignUpPageState extends State<SignUpPage>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  final _firstNameController    = TextEditingController();
-  final _lastNameController     = TextEditingController();
-  final _emailController        = TextEditingController();
-  final _passwordController     = TextEditingController();
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
   final _firstNameNode = FocusNode();
-  final _lastNameNode  = FocusNode();
-  final _emailNode     = FocusNode();
-  final _passNode      = FocusNode();
-  final _confirmNode   = FocusNode();
+  final _lastNameNode = FocusNode();
+  final _emailNode = FocusNode();
+  final _passNode = FocusNode();
+  final _confirmNode = FocusNode();
 
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -63,8 +65,10 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
-    _fadeAnimation = CurvedAnimation(parent: _animationController, curve: Curves.easeInOut);
+    _animationController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 700));
+    _fadeAnimation =
+        CurvedAnimation(parent: _animationController, curve: Curves.easeInOut);
     _animationController.forward();
   }
 
@@ -109,7 +113,8 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
     final primaryColor = currentTheme?.primaryColor ?? kPrimaryBlue;
     final accentColor = currentTheme?.accentColor ?? kAccentBlue;
     final secondaryColor = currentTheme?.secondaryColor ?? kPrimaryBlue;
-    final gradientColors = currentTheme?.gradient.colors ?? [kPrimaryBlue, kAccentBlue];
+    final gradientColors =
+        currentTheme?.gradient.colors ?? [kPrimaryBlue, kAccentBlue];
     final badgeColor = currentTheme?.badgeColor ?? kRed;
 
     final kb = MediaQuery.of(context).viewInsets.bottom; // keyboard height
@@ -139,7 +144,8 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
 
           // ✨ Decorative circles with glow effect - LIGHTER
           Positioned(
-            top: -50, right: -50,
+            top: -50,
+            right: -50,
             child: Container(
               width: 200,
               height: 200,
@@ -156,7 +162,8 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
             ),
           ),
           Positioned(
-            bottom: 100, left: -80,
+            bottom: 100,
+            left: -80,
             child: Container(
               width: 180,
               height: 180,
@@ -182,7 +189,8 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                   child: Container(
-                    height: MediaQuery.of(context).size.height * sheetHeightFactor,
+                    height:
+                        MediaQuery.of(context).size.height * sheetHeightFactor,
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.9),
                       boxShadow: [
@@ -199,7 +207,8 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
                       child: AnimatedPadding(
                         duration: const Duration(milliseconds: 200),
                         curve: Curves.easeOut,
-                        padding: EdgeInsets.only(bottom: kb), // push content only by keyboard height
+                        padding: EdgeInsets.only(
+                            bottom: kb), // push content only by keyboard height
                         child: FadeTransition(
                           opacity: _fadeAnimation,
                           child: _buildForm(context, themeProvider),
@@ -261,7 +270,8 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
                 const SizedBox(height: 78),
                 Center(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 12),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.25),
                       borderRadius: BorderRadius.circular(30),
@@ -299,7 +309,8 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
   // ------------------------------------------------------------------
   // 🧾 SIGN UP FORM
   // ------------------------------------------------------------------
-  Widget _buildForm(BuildContext context, CelebrationThemeProvider? themeProvider) {
+  Widget _buildForm(
+      BuildContext context, CelebrationThemeProvider? themeProvider) {
     final currentTheme = themeProvider?.currentTheme;
     final primaryColor = currentTheme?.primaryColor ?? kPrimaryBlue;
     final accentColor = currentTheme?.accentColor ?? kAccentBlue;
@@ -314,7 +325,6 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
           child: Column(
             children: [
               const SizedBox(height: 60),
-
               _buildEnhancedTextField(
                 controller: _firstNameController,
                 focusNode: _firstNameNode,
@@ -322,12 +332,13 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
                 label: "First Name",
                 icon: Icons.person_rounded,
                 textInputAction: TextInputAction.next,
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter your first name' : null,
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Please enter your first name'
+                    : null,
                 autofillHints: const [AutofillHints.givenName],
                 themeProvider: themeProvider,
               ),
               const SizedBox(height: 16),
-
               _buildEnhancedTextField(
                 controller: _lastNameController,
                 focusNode: _lastNameNode,
@@ -335,12 +346,13 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
                 label: "Last Name",
                 icon: Icons.person_outline_rounded,
                 textInputAction: TextInputAction.next,
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter your last name' : null,
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Please enter your last name'
+                    : null,
                 autofillHints: const [AutofillHints.familyName],
                 themeProvider: themeProvider,
               ),
               const SizedBox(height: 16),
-
               _buildEnhancedTextField(
                 controller: _emailController,
                 focusNode: _emailNode,
@@ -354,7 +366,6 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
                 themeProvider: themeProvider,
               ),
               const SizedBox(height: 16),
-
               _buildEnhancedTextField(
                 controller: _passwordController,
                 focusNode: _passNode,
@@ -364,19 +375,25 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
                 obscureText: _obscurePassword,
                 textInputAction: TextInputAction.next,
                 suffix: IconButton(
-                  icon: Icon(_obscurePassword ? Icons.visibility_rounded : Icons.visibility_off_rounded, color: primaryColor),
-                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                  icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_rounded
+                          : Icons.visibility_off_rounded,
+                      color: primaryColor),
+                  onPressed: () =>
+                      setState(() => _obscurePassword = !_obscurePassword),
                 ),
                 validator: (v) {
-                  if (v == null || v.isEmpty) return 'Please enter your password';
-                  if (v.length < 6) return 'Password must be at least 6 characters';
+                  if (v == null || v.isEmpty)
+                    return 'Please enter your password';
+                  if (v.length < 6)
+                    return 'Password must be at least 6 characters';
                   return null;
                 },
                 autofillHints: const [AutofillHints.newPassword],
                 themeProvider: themeProvider,
               ),
               const SizedBox(height: 16),
-
               _buildEnhancedTextField(
                 controller: _confirmPasswordController,
                 focusNode: _confirmNode,
@@ -386,18 +403,24 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _isLoading ? null : _signUp(),
                 suffix: IconButton(
-                  icon: Icon(_obscureConfirmPassword ? Icons.visibility_rounded : Icons.visibility_off_rounded, color: primaryColor),
-                  onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                  icon: Icon(
+                      _obscureConfirmPassword
+                          ? Icons.visibility_rounded
+                          : Icons.visibility_off_rounded,
+                      color: primaryColor),
+                  onPressed: () => setState(
+                      () => _obscureConfirmPassword = !_obscureConfirmPassword),
                 ),
                 validator: (v) {
-                  if (v == null || v.isEmpty) return 'Please confirm your password';
-                  if (v != _passwordController.text) return 'Passwords do not match';
+                  if (v == null || v.isEmpty)
+                    return 'Please confirm your password';
+                  if (v != _passwordController.text)
+                    return 'Passwords do not match';
                   return null;
                 },
                 themeProvider: themeProvider,
               ),
               const SizedBox(height: 28),
-
               _buildPrimaryButton(
                 label: "CREATE ACCOUNT",
                 onPressed: _isLoading ? null : _signUp,
@@ -405,10 +428,10 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
                 themeProvider: themeProvider,
               ),
               const SizedBox(height: 24),
-
               Row(
                 children: [
-                  Expanded(child: Divider(color: Colors.grey[300], thickness: 1)),
+                  Expanded(
+                      child: Divider(color: Colors.grey[300], thickness: 1)),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
@@ -420,15 +443,17 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
                       ),
                     ),
                   ),
-                  Expanded(child: Divider(color: Colors.grey[300], thickness: 1)),
+                  Expanded(
+                      child: Divider(color: Colors.grey[300], thickness: 1)),
                 ],
               ),
               const SizedBox(height: 16),
-
               TextButton(
-                onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+                onPressed:
+                    _isLoading ? null : () => Navigator.of(context).pop(),
                 style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
                 ),
                 child: Text(
                   "SIGN IN INSTEAD",
@@ -497,12 +522,14 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
             textInputAction: textInputAction,
             onFieldSubmitted: (v) {
               if (onSubmitted != null) onSubmitted(v);
-              if (nextFocus != null) FocusScope.of(context).requestFocus(nextFocus);
+              if (nextFocus != null)
+                FocusScope.of(context).requestFocus(nextFocus);
             },
             obscureText: obscureText,
             enabled: !_isLoading,
             autofillHints: autofillHints,
-            scrollPadding: const EdgeInsets.only(bottom: 120), // gentle auto-scroll into view
+            scrollPadding: const EdgeInsets.only(
+                bottom: 120), // gentle auto-scroll into view
             style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w500,
@@ -531,7 +558,8 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
               ),
               suffixIcon: suffix,
               filled: false,
-              contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+              contentPadding:
+                  const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(18),
                 borderSide: BorderSide.none,
@@ -641,7 +669,7 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
 
     setState(() => _isLoading = true);
     final email = _emailController.text.trim();
-    final pass  = _passwordController.text;
+    final pass = _passwordController.text;
 
     try {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
@@ -651,7 +679,7 @@ class _SignUpPageState extends State<SignUpPage> with SingleTickerProviderStateM
         email: email,
         password: pass,
         firstName: _firstNameController.text.trim(),
-        lastName:  _lastNameController.text.trim(),
+        lastName: _lastNameController.text.trim(),
       );
 
       if (!mounted) return;

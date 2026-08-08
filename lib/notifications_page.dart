@@ -52,7 +52,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
     final primaryColor = theme?.primaryColor ?? kPrimaryBlue;
     final accentColor = theme?.accentColor ?? kAccentBlue;
     final secondaryColor = theme?.secondaryColor ?? Colors.white;
-    final gradientColors = theme?.gradient.colors ?? [kPrimaryBlue, kAccentBlue];
+    final gradientColors =
+        theme?.gradient.colors ?? [kPrimaryBlue, kAccentBlue];
     const backgroundColor = kLightGray;
 
     return Scaffold(
@@ -97,14 +98,16 @@ class _NotificationsPageState extends State<NotificationsPage> {
               child: ListView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                 itemCount: _notifications.length,
-                itemBuilder: (_, i) => _buildNotificationCard(_notifications[i], primaryColor: primaryColor, accentColor: accentColor),
+                itemBuilder: (_, i) => _buildNotificationCard(_notifications[i],
+                    primaryColor: primaryColor, accentColor: accentColor),
               ),
             ),
     );
   }
 
   // Notification card
-  Widget _buildNotificationCard(Map<String, dynamic> n, {required Color primaryColor, required Color accentColor}) {
+  Widget _buildNotificationCard(Map<String, dynamic> n,
+      {required Color primaryColor, required Color accentColor}) {
     final title = n['title'] ?? 'New Notification';
     final body = n['body'] ?? '';
     final image = n['image'];
@@ -142,8 +145,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   ),
                 ),
               )
-            : Icon(Icons.notifications_active,
-                color: primaryColor, size: 38),
+            : Icon(Icons.notifications_active, color: primaryColor, size: 38),
         title: Text(
           title,
           style: const TextStyle(
@@ -216,4 +218,3 @@ class _NotificationsPageState extends State<NotificationsPage> {
     );
   }
 }
-

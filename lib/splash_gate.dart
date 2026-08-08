@@ -134,7 +134,9 @@ class _SplashScreenState extends State<SplashScreen>
 
                   // 2) Optional tint (off by default)
                   if (widget.tintOpacity > 0)
-                    Container(color: widget.tintColor.withOpacity(widget.tintOpacity)),
+                    Container(
+                        color:
+                            widget.tintColor.withOpacity(widget.tintOpacity)),
 
                   // 3) Optional centered logo + spinner
                   if (widget.showLogo)

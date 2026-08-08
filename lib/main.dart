@@ -44,6 +44,7 @@ import 'privacy_security_page.dart';
 import 'help_center_page.dart';
 import 'about_page.dart';
 import 'support_chat_page.dart';
+import 'tellme_live_chat_service.dart';
 
 // âœ… WooCommerce + Product Page
 import 'woocommerce_auth_service.dart';
@@ -160,6 +161,24 @@ class AnalyticsHelper {
 Future<void> _handlePushData(Map<String, dynamic> data) async {
   debugPrint('ðŸ”” Push data received: $data');
 
+  final rawRoute = data['route']?.toString().trim() ?? '';
+  final rawType = (data['type'] ?? data['event'] ?? data['kind'])
+          ?.toString()
+          .trim()
+          .toLowerCase() ??
+      '';
+  final isChatNotification = rawRoute == '/support-chat' ||
+      rawRoute == 'support-chat' ||
+      rawType.contains('chat') ||
+      data.containsKey('chatSessionCode') ||
+      data.containsKey('sessionCode');
+
+  if (isChatNotification) {
+    debugPrint('Opening TellMe live chat from notification.');
+    navigatorKey.currentState?.pushNamed('/support-chat');
+    return;
+  }
+
   final rawId = (data['productId'] ??
           data['productID'] ??
           data['product_id'] ??
@@ -206,9 +225,9 @@ Future<void> _handlePushData(Map<String, dynamic> data) async {
     }
   }
 
-  final route = data['route']?.toString();
+  final route = rawRoute;
 
-  if (route != null && route.isNotEmpty) {
+  if (route.isNotEmpty) {
     debugPrint('ðŸ§­ Navigating to named route: $route');
     navigatorKey.currentState?.pushNamed(route);
     return;
@@ -493,6 +512,7 @@ class _PostLaunchInitializerState extends State<_PostLaunchInitializer> {
   bool _started = false;
   StreamSubscription<RemoteMessage>? _onMessageSub;
   StreamSubscription<RemoteMessage>? _onMessageOpenedSub;
+  StreamSubscription<String>? _tokenRefreshSub;
 
   @override
   void initState() {
@@ -549,6 +569,16 @@ class _PostLaunchInitializerState extends State<_PostLaunchInitializer> {
       ).timeout(const Duration(seconds: 8)),
       label: 'NotificationService.init post-launch',
     );
+
+    try {
+      _tokenRefreshSub ??= FirebaseMessaging.instance.onTokenRefresh.listen(
+        (token) {
+          unawaited(TellMeLiveChatService.instance.updatePushToken(token));
+        },
+      );
+    } catch (e, st) {
+      debugPrint('FCM token refresh listener failed: $e\n$st');
+    }
 
     try {
       _onMessageSub ??= FirebaseMessaging.onMessage.listen(
@@ -625,12 +655,25 @@ class _PostLaunchInitializerState extends State<_PostLaunchInitializer> {
       _printAndCopyFcmToken().timeout(const Duration(seconds: 5)),
       label: 'print fcm token post-launch',
     );
+
+    final token = await guard(
+      FirebaseMessaging.instance.getToken().timeout(const Duration(seconds: 5)),
+      label: 'register chat push token post-launch',
+    );
+
+    if (token != null && token.trim().isNotEmpty) {
+      await guard(
+        TellMeLiveChatService.instance.updatePushToken(token),
+        label: 'TellMe chat push token registration',
+      );
+    }
   }
 
   @override
   void dispose() {
     _onMessageSub?.cancel();
     _onMessageOpenedSub?.cancel();
+    _tokenRefreshSub?.cancel();
     super.dispose();
   }
 

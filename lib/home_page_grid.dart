@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import 'cart_provider.dart';
 import 'wishlist_provider.dart';
 import 'product_detail_page.dart';
-import 'celebration_theme_provider.dart'; // Add this import
+import 'celebration_theme_provider.dart';
 
 enum SortType { newest, priceLow, priceHigh, rating, popularity }
 
@@ -15,13 +15,8 @@ class AdvancedProductGridView extends StatefulWidget {
   final bool showTitle;
   final bool showFilters;
   final bool isLoading;
-
-  /// When 0 (default), the grid starts with `pageSize`.
   final int maxItems;
-
   final VoidCallback? onSeeAllPressed;
-
-  // Infinite-scroll hooks
   final ScrollController? parentScrollController;
   final int pageSize;
   final Future<void> Function()? onLoadMore;
@@ -55,16 +50,9 @@ class _AdvancedProductGridViewState extends State<AdvancedProductGridView>
   bool get wantKeepAlive => true;
 
   SortType _sort = SortType.newest;
-
   List<dynamic> _all = [];
   int _limit = 0;
-
-  // 🆕 Track the incoming list length to detect in-place mutations (append)
   int _lastInputLen = 0;
-
-  // Track previous filtered total (for smart auto-bump)
-  int _lastTotal = 0;
-
   bool _askedForMore = false;
 
   @override
@@ -79,9 +67,9 @@ class _AdvancedProductGridViewState extends State<AdvancedProductGridView>
   void didUpdateWidget(covariant AdvancedProductGridView oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Re-attach listener if controller changed
     if (oldWidget.parentScrollController != widget.parentScrollController) {
-      oldWidget.parentScrollController?.removeListener(_maybeLoadMoreFromParent);
+      oldWidget.parentScrollController
+          ?.removeListener(_maybeLoadMoreFromParent);
       widget.parentScrollController?.addListener(_maybeLoadMoreFromParent);
     }
 
@@ -89,8 +77,9 @@ class _AdvancedProductGridViewState extends State<AdvancedProductGridView>
     final instanceChanged = !identical(widget.products, oldWidget.products);
 
     if (instanceChanged || inputLenChanged) {
+      final oldTotal = _all.length;
       _lastInputLen = widget.products.length;
-      _recomputeAndPreserveProgress(oldTotal: _all.length); // 👈 will auto-bump
+      _recomputeAndPreserveProgress(oldTotal: oldTotal);
     }
 
     if (oldWidget.isLoadingMore && !widget.isLoadingMore) {
@@ -104,11 +93,8 @@ class _AdvancedProductGridViewState extends State<AdvancedProductGridView>
     super.dispose();
   }
 
-  // ---------- Filtering, sorting & limiting ----------
-
   void _recomputeAndResetLimit() {
     _all = _filterAndSort(widget.products);
-    _lastTotal = _all.length;
     _limit = _initialLimit();
     setState(() {});
   }
@@ -119,15 +105,12 @@ class _AdvancedProductGridViewState extends State<AdvancedProductGridView>
     final newTotal = _all.length;
 
     int nextLimit = oldLimit.clamp(0, newTotal);
-
-    // If total increased (new page arrived), show one more "page" instantly
     if (newTotal > oldTotal) {
       nextLimit = (nextLimit + widget.pageSize).clamp(0, newTotal);
     }
     if (nextLimit == 0) nextLimit = _initialLimit();
 
     _limit = nextLimit;
-    _lastTotal = newTotal;
     setState(() {});
   }
 
@@ -137,17 +120,15 @@ class _AdvancedProductGridViewState extends State<AdvancedProductGridView>
   }
 
   List<dynamic> _filterAndSort(List<dynamic> source) {
-    // 🚫 Hide products with no/zero price, out-of-stock, no image, or empty name
     final filtered = source.where((p) {
       if (p == null) return false;
-      final price = double.tryParse(p['price']?.toString() ?? '') ?? 0;
+
       final name = p['name']?.toString().trim() ?? '';
       final stock = p['stock_status']?.toString().toLowerCase() ?? '';
-      final images = p['images'];
-      if (price <= 0) return false;
-      if (stock == 'outofstock') return false;
-      if (images == null || (images is List && images.isEmpty)) return false;
+
       if (name.isEmpty) return false;
+      if (stock == 'outofstock') return false;
+
       return true;
     }).toList();
 
@@ -163,41 +144,36 @@ class _AdvancedProductGridViewState extends State<AdvancedProductGridView>
             _num(b['average_rating']).compareTo(_num(a['average_rating'])));
         break;
       case SortType.popularity:
-        filtered.sort((a, b) =>
-            _num(b['total_sales']).compareTo(_num(a['total_sales'])));
+        filtered.sort(
+            (a, b) => _num(b['total_sales']).compareTo(_num(a['total_sales'])));
         break;
       case SortType.newest:
       default:
         filtered.sort((a, b) {
-          try {
-            final da = DateTime.parse(a['date_created']);
-            final db = DateTime.parse(b['date_created']);
-            return db.compareTo(da);
-          } catch (_) {
-            return 0;
-          }
+          final da = DateTime.tryParse(a['date_created']?.toString() ?? '');
+          final db = DateTime.tryParse(b['date_created']?.toString() ?? '');
+          if (da == null || db == null) return 0;
+          return db.compareTo(da);
         });
     }
+
     return filtered;
   }
 
   num _num(dynamic v) => num.tryParse(v?.toString() ?? '0') ?? 0;
-
-  // ---------- Infinite reveal & load-more ----------
 
   void _maybeLoadMoreFromParent() {
     final c = widget.parentScrollController;
     if (c == null) return;
 
     if (c.position.pixels >= c.position.maxScrollExtent - 120) {
-      // 1) Reveal more locally
       if (_limit < _all.length) {
         setState(() {
           _limit = (_limit + widget.pageSize).clamp(0, _all.length);
         });
         return;
       }
-      // 2) Ask parent for next page
+
       if (widget.canLoadMore && !widget.isLoadingMore && !_askedForMore) {
         _askedForMore = true;
         widget.onLoadMore?.call();
@@ -205,13 +181,10 @@ class _AdvancedProductGridViewState extends State<AdvancedProductGridView>
     }
   }
 
-  // ---------- UI ----------
-
   @override
   Widget build(BuildContext context) {
     super.build(context);
 
-    // Add theme provider
     final themeProvider = context.watch<CelebrationThemeProvider?>();
     final currentTheme = themeProvider?.currentTheme;
     final primaryColor = currentTheme?.primaryColor ?? const Color(0xFF1565C0);
@@ -243,8 +216,11 @@ class _AdvancedProductGridViewState extends State<AdvancedProductGridView>
                 if (widget.onSeeAllPressed != null)
                   TextButton.icon(
                     onPressed: widget.onSeeAllPressed,
-                    icon: const Icon(Icons.arrow_forward_ios,
-                        size: 14, color: Colors.white),
+                    icon: const Icon(
+                      Icons.arrow_forward_ios,
+                      size: 14,
+                      color: Colors.white,
+                    ),
                     label: const Text(
                       'See All',
                       style: TextStyle(color: Colors.white),
@@ -266,7 +242,6 @@ class _AdvancedProductGridViewState extends State<AdvancedProductGridView>
           ),
         if (widget.showFilters)
           _buildFilterRow(theme, primaryColor, accentColor),
-
         if (visible.isEmpty)
           _buildEmpty(context)
         else
@@ -290,7 +265,6 @@ class _AdvancedProductGridViewState extends State<AdvancedProductGridView>
               themeProvider: themeProvider,
             ),
           ),
-
         if (_limit < _all.length)
           _ShowMoreButton(
             onTap: () {
@@ -318,31 +292,39 @@ class _AdvancedProductGridViewState extends State<AdvancedProductGridView>
   }
 
   Widget _buildFilterRow(
-          ThemeData theme, Color primaryColor, Color accentColor) =>
-      Padding(
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _filterChip(
-                  'Newest', SortType.newest, Icons.new_releases, primaryColor),
-              _filterChip('Low Price', SortType.priceLow,
-                  Icons.trending_down, primaryColor),
-              _filterChip('High Price', SortType.priceHigh,
-                  Icons.trending_up, primaryColor),
-              _filterChip(
-                  'Top Rated', SortType.rating, Icons.star, primaryColor),
-              _filterChip('Popular', SortType.popularity,
-                  Icons.local_fire_department, primaryColor),
-            ],
-          ),
+    ThemeData theme,
+    Color primaryColor,
+    Color accentColor,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _filterChip(
+                'Newest', SortType.newest, Icons.new_releases, primaryColor),
+            _filterChip('Low Price', SortType.priceLow, Icons.trending_down,
+                primaryColor),
+            _filterChip('High Price', SortType.priceHigh, Icons.trending_up,
+                primaryColor),
+            _filterChip('Top Rated', SortType.rating, Icons.star, primaryColor),
+            _filterChip('Popular', SortType.popularity,
+                Icons.local_fire_department, primaryColor),
+          ],
         ),
-      );
+      ),
+    );
+  }
 
   Widget _filterChip(
-      String label, SortType type, IconData icon, Color primaryColor) {
+    String label,
+    SortType type,
+    IconData icon,
+    Color primaryColor,
+  ) {
     final selected = _sort == type;
+
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: ChoiceChip(
@@ -368,43 +350,47 @@ class _AdvancedProductGridViewState extends State<AdvancedProductGridView>
     );
   }
 
-  Widget _buildLoading(BuildContext context, Color primaryColor) => Center(
+  Widget _buildLoading(BuildContext context, Color primaryColor) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(color: primaryColor),
+          const SizedBox(height: 12),
+          const Text(
+            "Loading products...",
+            style: TextStyle(color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmpty(BuildContext context) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(color: primaryColor),
-            const SizedBox(height: 12),
-            const Text(
-              "Loading products...",
+            Icon(Icons.shopping_bag_outlined, size: 64, color: Colors.blueGrey),
+            SizedBox(height: 12),
+            Text(
+              "No Products Found",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 6),
+            Text(
+              "Try adjusting your filters.",
               style: TextStyle(color: Colors.grey),
             ),
           ],
         ),
-      );
-
-  Widget _buildEmpty(BuildContext context) => const Center(
-        child: Padding(
-          padding: EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.shopping_bag_outlined,
-                  size: 64, color: Colors.blueGrey),
-              SizedBox(height: 12),
-              Text("No Products Found",
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-              SizedBox(height: 6),
-              Text("Try adjusting your filters.",
-                  style: TextStyle(color: Colors.grey)),
-            ],
-          ),
-        ),
-      );
+      ),
+    );
+  }
 }
 
-// ------------------------------------------------------------
-// PRODUCT CARD
-// ------------------------------------------------------------
 class ProductCard extends StatefulWidget {
   final dynamic product;
   final int index;
@@ -440,13 +426,136 @@ class _ProductCardState extends State<ProductCard>
     super.dispose();
   }
 
+  String? _readImageUrl(dynamic value) {
+    final text = value?.toString().trim() ?? "";
+    return text.isEmpty ? null : text;
+  }
+
+  String? _productImageUrl(dynamic product) {
+    if (product is! Map) return null;
+
+    final images = product["images"];
+    if (images is List) {
+      for (final item in images) {
+        if (item is String) {
+          final url = _readImageUrl(item);
+          if (url != null) return url;
+        }
+
+        if (item is Map) {
+          final url = _readImageUrl(
+            item["src"] ??
+                item["url"] ??
+                item["image"] ??
+                item["imageUrl"] ??
+                item["thumbnail"] ??
+                item["thumbnailUrl"],
+          );
+
+          if (url != null) return url;
+        }
+      }
+    }
+
+    return _readImageUrl(
+      product["imageUrl"] ??
+          product["image_url"] ??
+          product["image"] ??
+          product["thumbnailUrl"] ??
+          product["thumbnail_url"] ??
+          product["thumbnail"] ??
+          product["featuredImage"] ??
+          product["featured_image"],
+    );
+  }
+
+  double _ratingValue(dynamic product) {
+    if (product is! Map) return 0;
+
+    for (final key in const [
+      'average_rating',
+      'averageRating',
+      'rating_average',
+      'ratingAverage',
+      'review_average',
+      'reviewAverage',
+      'rating',
+    ]) {
+      final parsed = double.tryParse(product[key]?.toString() ?? '');
+      if (parsed != null && parsed > 0) return parsed.clamp(0, 5).toDouble();
+    }
+
+    final reviews = product['reviews'];
+    if (reviews is Map) {
+      for (final key in const ['average', 'rating', 'averageRating']) {
+        final parsed = double.tryParse(reviews[key]?.toString() ?? '');
+        if (parsed != null && parsed > 0) return parsed.clamp(0, 5).toDouble();
+      }
+    }
+
+    return 0;
+  }
+
+  int _ratingCount(dynamic product) {
+    if (product is! Map) return 0;
+
+    for (final key in const [
+      'rating_count',
+      'ratingCount',
+      'review_count',
+      'reviewCount',
+      'reviews_count',
+      'reviewsCount',
+    ]) {
+      final parsed = int.tryParse(product[key]?.toString() ?? '');
+      if (parsed != null && parsed > 0) return parsed;
+    }
+
+    final reviews = product['reviews'];
+    if (reviews is Map) {
+      for (final key in const ['count', 'total', 'reviewCount']) {
+        final parsed = int.tryParse(reviews[key]?.toString() ?? '');
+        if (parsed != null && parsed > 0) return parsed;
+      }
+    }
+
+    return 0;
+  }
+
+  Widget _ratingRow(double rating, int ratingCount) {
+    final hasRating = rating > 0;
+
+    return Row(
+      children: [
+        ...List.generate(5, (index) {
+          final icon = index + 1 <= rating.floor()
+              ? Icons.star_rounded
+              : (hasRating && index + 1 - rating <= 0.5
+                  ? Icons.star_half_rounded
+                  : Icons.star_border_rounded);
+          return Icon(
+            icon,
+            color: hasRating ? Colors.amber[600] : Colors.grey.shade400,
+            size: 14,
+          );
+        }),
+        if (ratingCount > 0) ...[
+          const SizedBox(width: 4),
+          Text(
+            '$ratingCount',
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+          ),
+        ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cart = Provider.of<CartProvider>(context);
     final wish = Provider.of<WishlistProvider>(context);
     final p = widget.product;
 
-    // Theme handling
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final textColor = theme.colorScheme.onSurface;
@@ -454,10 +563,8 @@ class _ProductCardState extends State<ProductCard>
     final softShadowColor =
         isDark ? Colors.black.withOpacity(0.5) : Colors.black12;
 
-    // Get theme colors from celebration theme
     final currentTheme = widget.themeProvider?.currentTheme;
     final primaryColor = currentTheme?.primaryColor ?? const Color(0xFF1565C0);
-    final accentColor = currentTheme?.accentColor ?? const Color(0xFF1565C0);
     final badgeColor = currentTheme?.badgeColor ?? Colors.redAccent;
 
     final isVariable = p['type'] == 'variable';
@@ -465,10 +572,10 @@ class _ProductCardState extends State<ProductCard>
     final reg = double.tryParse(p['regular_price']?.toString() ?? '0') ?? 0;
     final sale = reg > price && reg > 0;
     final int? offPct = sale ? (((reg - price) / reg) * 100).round() : null;
+    final rating = _ratingValue(p);
+    final ratingCount = _ratingCount(p);
 
-    final img = (p['images'] is List && p['images'].isNotEmpty)
-        ? p['images'][0]['src']
-        : null;
+    final img = _productImageUrl(p);
     final f = NumberFormat("#,##0", "en_US");
 
     return FadeTransition(
@@ -502,14 +609,14 @@ class _ProductCardState extends State<ProductCard>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Image + discount
                   Expanded(
                     flex: 3,
                     child: Stack(
                       children: [
                         ClipRRect(
                           borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(18)),
+                            top: Radius.circular(18),
+                          ),
                           child: img != null
                               ? Image.network(
                                   img,
@@ -528,14 +635,6 @@ class _ProductCardState extends State<ProductCard>
                                         child: CircularProgressIndicator(
                                           strokeWidth: 2,
                                           color: primaryColor,
-                                          value: loadingProgress
-                                                      .expectedTotalBytes !=
-                                                  null
-                                              ? loadingProgress
-                                                      .cumulativeBytesLoaded /
-                                                  loadingProgress
-                                                      .expectedTotalBytes!
-                                              : null,
                                         ),
                                       ),
                                     );
@@ -552,7 +651,9 @@ class _ProductCardState extends State<ProductCard>
                                 )
                               : Container(
                                   color: Colors.grey.shade200,
-                                  child: const Icon(Icons.image, size: 40),
+                                  child: const Center(
+                                    child: Icon(Icons.image, size: 40),
+                                  ),
                                 ),
                         ),
                         if (offPct != null)
@@ -567,8 +668,6 @@ class _ProductCardState extends State<ProductCard>
                       ],
                     ),
                   ),
-
-                  // Info
                   Expanded(
                     flex: 3,
                     child: Padding(
@@ -576,9 +675,8 @@ class _ProductCardState extends State<ProductCard>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Product name – theme-aware
                           Text(
-                            p['name'],
+                            p['name']?.toString() ?? '',
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -588,27 +686,8 @@ class _ProductCardState extends State<ProductCard>
                             ),
                           ),
                           const Spacer(),
-                          if (p['average_rating'] != null &&
-                              p['average_rating'] != '0')
-                            Row(
-                              children: List.generate(5, (index) {
-                                final rating = double.tryParse(
-                                        p['average_rating'].toString()) ??
-                                    0;
-                                return Icon(
-                                  index < rating.floor()
-                                      ? Icons.star
-                                      : index < rating
-                                          ? Icons.star_half
-                                          : Icons.star_border,
-                                  color: Colors.amber[600],
-                                  size: 14,
-                                );
-                              }),
-                            ),
+                          _ratingRow(rating, ratingCount),
                           const SizedBox(height: 6),
-
-                          // Price
                           Row(
                             children: [
                               _NairaTight(
@@ -628,10 +707,7 @@ class _ProductCardState extends State<ProductCard>
                               ],
                             ],
                           ),
-
                           const SizedBox(height: 8),
-
-                          // Heart + Cart
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
@@ -668,12 +744,12 @@ class _ProductCardState extends State<ProductCard>
                                             .showSnackBar(
                                           SnackBar(
                                             content: Text(
-                                                '${p['name']} added to cart! 🛒'),
+                                              '${p['name']} added to cart.',
+                                            ),
                                             duration:
                                                 const Duration(seconds: 1),
                                             backgroundColor: Colors.green,
-                                            behavior:
-                                                SnackBarBehavior.floating,
+                                            behavior: SnackBarBehavior.floating,
                                             margin: const EdgeInsets.all(16),
                                             shape: RoundedRectangleBorder(
                                               borderRadius:
@@ -741,11 +817,11 @@ class _ShowMoreButton extends StatelessWidget {
   final Color primaryColor;
 
   const _ShowMoreButton({
-    Key? key,
+    super.key,
     required this.onTap,
     this.label = "Show more",
     required this.primaryColor,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -778,15 +854,16 @@ class _FooterLoader extends StatelessWidget {
         child: SizedBox(
           width: 22,
           height: 22,
-          child:
-              CircularProgressIndicator(strokeWidth: 2, color: primaryColor),
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: primaryColor,
+          ),
         ),
       ),
     );
   }
 }
 
-/// ₦ symbol tightly glued to digits
 class _NairaTight extends StatelessWidget {
   final String amount;
   final bool bold;
@@ -810,7 +887,6 @@ class _NairaTight extends StatelessWidget {
       fontFamily: 'Roboto',
       fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
       fontSize: fontSize,
-      // 👇 use theme onSurface if no explicit color is passed
       color: color ?? theme.colorScheme.onSurface,
       letterSpacing: -0.25,
       decoration: strike ? TextDecoration.lineThrough : TextDecoration.none,
@@ -853,15 +929,12 @@ class _DiscountBadge extends StatelessWidget {
           )
         ],
       ),
-      child: const DefaultTextStyle(
-        style: TextStyle(
+      child: Text(
+        text,
+        style: const TextStyle(
           color: Colors.white,
           fontSize: 11,
           fontWeight: FontWeight.w700,
-        ),
-        child: Text(
-          '',
-          // We’ll override this using Text widget below
         ),
       ),
     );

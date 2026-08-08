@@ -80,14 +80,17 @@ class _AdvancedProductListViewState extends State<AdvancedProductListView>
 
     // Re-wire scroll listener if controller instance changed
     if (oldWidget.parentScrollController != widget.parentScrollController) {
-      oldWidget.parentScrollController?.removeListener(_maybeLoadMoreFromParent);
+      oldWidget.parentScrollController
+          ?.removeListener(_maybeLoadMoreFromParent);
       widget.parentScrollController?.addListener(_maybeLoadMoreFromParent);
     }
 
     final instanceChanged = !identical(widget.products, oldWidget.products);
     final lengthChanged = widget.products.length != _lastInputLen;
 
-    if (instanceChanged || lengthChanged || widget.maxItems != oldWidget.maxItems) {
+    if (instanceChanged ||
+        lengthChanged ||
+        widget.maxItems != oldWidget.maxItems) {
       _lastInputLen = widget.products.length;
       _recomputeAndPreserveProgress(oldTotal: _all.length);
     }
@@ -163,8 +166,8 @@ class _AdvancedProductListViewState extends State<AdvancedProductListView>
             _num(b['average_rating']).compareTo(_num(a['average_rating'])));
         break;
       case SortType.popularity:
-        filtered.sort((a, b) =>
-            _num(b['total_sales']).compareTo(_num(a['total_sales'])));
+        filtered.sort(
+            (a, b) => _num(b['total_sales']).compareTo(_num(a['total_sales'])));
         break;
       case SortType.newest:
       default:
@@ -209,124 +212,120 @@ class _AdvancedProductListViewState extends State<AdvancedProductListView>
 
 // ---------- UI ----------
 
-@override
-Widget build(BuildContext context) {
-  super.build(context);
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
 
-  // Add theme provider
-  final themeProvider = context.watch<CelebrationThemeProvider?>();
-  final currentTheme = themeProvider?.currentTheme;
-  final primaryColor = currentTheme?.primaryColor ?? const Color(0xFF1565C0);
+    // Add theme provider
+    final themeProvider = context.watch<CelebrationThemeProvider?>();
+    final currentTheme = themeProvider?.currentTheme;
+    final primaryColor = currentTheme?.primaryColor ?? const Color(0xFF1565C0);
 
-  if (widget.isLoading && _all.isEmpty) {
-    return _buildLoadingList(primaryColor);
-  }
+    if (widget.isLoading && _all.isEmpty) {
+      return _buildLoadingList(primaryColor);
+    }
 
-  final visible =
-      (_limit <= _all.length) ? _all.take(_limit).toList() : _all;
+    final visible = (_limit <= _all.length) ? _all.take(_limit).toList() : _all;
 
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      if (widget.showTitle)
-        _buildSectionHeader(context, primaryColor),
-      if (widget.showFilters)
-        _buildFilterRow(context, primaryColor),
-
-      if (visible.isEmpty)
-        _buildEmptyState(context)
-      else
-        ListView.separated(
-          key: ValueKey('list_${_sort}_${visible.length}'),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          itemCount: visible.length,
-          shrinkWrap: true,
-          primary: false,
-          physics: const NeverScrollableScrollPhysics(),
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (context, i) => AdvancedProductListCard(
-            product: visible[i],
-            index: i,
-            themeProvider: themeProvider,
-          ),
-        ),
-
-      // Footer controls
-      if (_limit < _all.length)
-        _ShowMoreButton(
-          onTap: () {
-            setState(() {
-              _limit = (_limit + widget.pageSize).clamp(0, _all.length);
-            });
-          },
-          primaryColor: primaryColor,
-        )
-      else if (widget.isLoadingMore)
-        _FooterLoader(primaryColor: primaryColor)
-      else if (widget.canLoadMore && widget.onLoadMore != null)
-        _ShowMoreButton(
-          label: "Load more products",
-          onTap: () {
-            if (!_askedForMore) {
-              _askedForMore = true;
-              widget.onLoadMore?.call();
-            }
-          },
-          primaryColor: primaryColor,
-        ),
-    ],
-  );
-}
-
-Widget _buildSectionHeader(BuildContext context, Color primaryColor) {
-  final theme = Theme.of(context);
-  final showSeeAll =
-      widget.onSeeAllPressed != null && widget.products.length > _limit;
-
-  return Padding(
-    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-    child: Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                widget.title,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurface,
-                ),
-              ),
-              // 👇 removed the "$count products" line
-            ],
+        if (widget.showTitle) _buildSectionHeader(context, primaryColor),
+        if (widget.showFilters) _buildFilterRow(context, primaryColor),
+
+        if (visible.isEmpty)
+          _buildEmptyState(context)
+        else
+          ListView.separated(
+            key: ValueKey('list_${_sort}_${visible.length}'),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            itemCount: visible.length,
+            shrinkWrap: true,
+            primary: false,
+            physics: const NeverScrollableScrollPhysics(),
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (context, i) => AdvancedProductListCard(
+              product: visible[i],
+              index: i,
+              themeProvider: themeProvider,
+            ),
           ),
-        ),
-        if (showSeeAll)
-          TextButton.icon(
-            onPressed: widget.onSeeAllPressed,
-            icon: const Icon(Icons.arrow_forward_ios,
-                size: 14, color: Colors.white),
-            label: const Text(
-              "See All",
-              style: TextStyle(color: Colors.white),
-            ),
-            style: TextButton.styleFrom(
-              backgroundColor: primaryColor,
-              foregroundColor: Colors.white,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
+
+        // Footer controls
+        if (_limit < _all.length)
+          _ShowMoreButton(
+            onTap: () {
+              setState(() {
+                _limit = (_limit + widget.pageSize).clamp(0, _all.length);
+              });
+            },
+            primaryColor: primaryColor,
+          )
+        else if (widget.isLoadingMore)
+          _FooterLoader(primaryColor: primaryColor)
+        else if (widget.canLoadMore && widget.onLoadMore != null)
+          _ShowMoreButton(
+            label: "Load more products",
+            onTap: () {
+              if (!_askedForMore) {
+                _askedForMore = true;
+                widget.onLoadMore?.call();
+              }
+            },
+            primaryColor: primaryColor,
           ),
       ],
-    ),
-  );
-}
+    );
+  }
 
+  Widget _buildSectionHeader(BuildContext context, Color primaryColor) {
+    final theme = Theme.of(context);
+    final showSeeAll =
+        widget.onSeeAllPressed != null && widget.products.length > _limit;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.title,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+                // 👇 removed the "$count products" line
+              ],
+            ),
+          ),
+          if (showSeeAll)
+            TextButton.icon(
+              onPressed: widget.onSeeAllPressed,
+              icon: const Icon(Icons.arrow_forward_ios,
+                  size: 14, color: Colors.white),
+              label: const Text(
+                "See All",
+                style: TextStyle(color: Colors.white),
+              ),
+              style: TextButton.styleFrom(
+                backgroundColor: primaryColor,
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildFilterRow(BuildContext context, Color primaryColor) {
     return Padding(
@@ -335,18 +334,23 @@ Widget _buildSectionHeader(BuildContext context, Color primaryColor) {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            _filterChip('Newest', SortType.newest, Icons.new_releases, primaryColor),
-            _filterChip('Low Price', SortType.priceLow, Icons.trending_down, primaryColor),
-            _filterChip('High Price', SortType.priceHigh, Icons.trending_up, primaryColor),
+            _filterChip(
+                'Newest', SortType.newest, Icons.new_releases, primaryColor),
+            _filterChip('Low Price', SortType.priceLow, Icons.trending_down,
+                primaryColor),
+            _filterChip('High Price', SortType.priceHigh, Icons.trending_up,
+                primaryColor),
             _filterChip('Top Rated', SortType.rating, Icons.star, primaryColor),
-            _filterChip('Popular', SortType.popularity, Icons.local_fire_department, primaryColor),
+            _filterChip('Popular', SortType.popularity,
+                Icons.local_fire_department, primaryColor),
           ],
         ),
       ),
     );
   }
 
-  Widget _filterChip(String label, SortType type, IconData icon, Color primaryColor) {
+  Widget _filterChip(
+      String label, SortType type, IconData icon, Color primaryColor) {
     final selected = _sort == type;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
@@ -457,7 +461,8 @@ class _AdvancedProductListCardState extends State<AdvancedProductListCard>
     for (var i = 0; i < full; i++) {
       stars.add(Icon(Icons.star, size: size, color: Colors.amber[600]));
     }
-    if (half) stars.add(Icon(Icons.star_half, size: size, color: Colors.amber[600]));
+    if (half)
+      stars.add(Icon(Icons.star_half, size: size, color: Colors.amber[600]));
     for (var i = 0; i < empty; i++) {
       stars.add(Icon(Icons.star_border, size: size, color: Colors.amber[600]));
     }
@@ -475,8 +480,9 @@ class _AdvancedProductListCardState extends State<AdvancedProductListCard>
     final accentColor = currentTheme?.accentColor ?? const Color(0xFF1565C0);
 
     final images = p['images'] as List?;
-    final String? imageUrl =
-        (images != null && images.isNotEmpty) ? images[0]['src']?.toString() : null;
+    final String? imageUrl = (images != null && images.isNotEmpty)
+        ? images[0]['src']?.toString()
+        : null;
 
     final double rating = _parseRating(p['average_rating']);
     final bool isInStock = (p['stock_status'] ?? 'instock') == 'instock';
@@ -486,7 +492,8 @@ class _AdvancedProductListCardState extends State<AdvancedProductListCard>
     final wish = Provider.of<WishlistProvider>(context);
 
     final double priceVal = double.tryParse(p['price']?.toString() ?? '0') ?? 0;
-    final double regVal   = double.tryParse(p['regular_price']?.toString() ?? '0') ?? 0;
+    final double regVal =
+        double.tryParse(p['regular_price']?.toString() ?? '0') ?? 0;
     final bool onSale = regVal > priceVal && regVal > 0;
     final nf = NumberFormat('#,##0', 'en_NG');
 
@@ -501,7 +508,7 @@ class _AdvancedProductListCardState extends State<AdvancedProductListCard>
             child: InkWell(
               borderRadius: BorderRadius.circular(16),
               onTapDown: (_) => _controller.forward(),
-              onTapUp:   (_) => _controller.reverse(),
+              onTapUp: (_) => _controller.reverse(),
               onTapCancel: () => _controller.reverse(),
               onTap: () => _navigateToDetail(context),
               child: Container(
@@ -547,9 +554,11 @@ class _AdvancedProductListCardState extends State<AdvancedProductListCard>
                               builder: (context, constraints) {
                                 final double maxWidth = constraints.maxWidth;
                                 // Improved button sizing - larger but responsive
-                                final double targetButtonWidth =
-                                    maxWidth < 360 ? 120 : 140; // Increased from 110/130
-                                final double buttonHeight = 40; // Increased height
+                                final double targetButtonWidth = maxWidth < 360
+                                    ? 120
+                                    : 140; // Increased from 110/130
+                                final double buttonHeight =
+                                    40; // Increased height
 
                                 return Row(
                                   crossAxisAlignment: CrossAxisAlignment.center,
@@ -563,7 +572,8 @@ class _AdvancedProductListCardState extends State<AdvancedProductListCard>
                                         child: Row(
                                           children: [
                                             Padding(
-                                              padding: const EdgeInsets.only(right: 2),
+                                              padding: const EdgeInsets.only(
+                                                  right: 2),
                                               child: Text.rich(
                                                 TextSpan(
                                                   children: [
@@ -571,7 +581,8 @@ class _AdvancedProductListCardState extends State<AdvancedProductListCard>
                                                       text: '\u20A6',
                                                       style: TextStyle(
                                                         fontSize: 14,
-                                                        fontWeight: FontWeight.w700,
+                                                        fontWeight:
+                                                            FontWeight.w700,
                                                         fontFamily: 'Roboto',
                                                       ),
                                                     ),
@@ -579,7 +590,8 @@ class _AdvancedProductListCardState extends State<AdvancedProductListCard>
                                                       text: nf.format(priceVal),
                                                       style: const TextStyle(
                                                         fontSize: 15,
-                                                        fontWeight: FontWeight.w700,
+                                                        fontWeight:
+                                                            FontWeight.w700,
                                                         fontFamily: 'Roboto',
                                                       ),
                                                     ),
@@ -588,30 +600,40 @@ class _AdvancedProductListCardState extends State<AdvancedProductListCard>
                                                 maxLines: 1,
                                                 softWrap: false,
                                                 overflow: TextOverflow.ellipsis,
-                                                textWidthBasis: TextWidthBasis.longestLine,
+                                                textWidthBasis:
+                                                    TextWidthBasis.longestLine,
                                               ),
                                             ),
                                             if (onSale) ...[
-                                              const SizedBox(width: 6), // Reduced spacing
+                                              const SizedBox(
+                                                  width: 6), // Reduced spacing
                                               Text.rich(
                                                 TextSpan(
                                                   children: [
                                                     const TextSpan(
                                                       text: '\u20A6',
                                                       style: TextStyle(
-                                                        fontSize: 11, // Slightly smaller
-                                                        fontWeight: FontWeight.w400,
+                                                        fontSize:
+                                                            11, // Slightly smaller
+                                                        fontWeight:
+                                                            FontWeight.w400,
                                                         color: Colors.grey,
-                                                        decoration: TextDecoration.lineThrough,
+                                                        decoration:
+                                                            TextDecoration
+                                                                .lineThrough,
                                                       ),
                                                     ),
                                                     TextSpan(
                                                       text: nf.format(regVal),
                                                       style: const TextStyle(
-                                                        fontSize: 11, // Slightly smaller
-                                                        fontWeight: FontWeight.w400,
+                                                        fontSize:
+                                                            11, // Slightly smaller
+                                                        fontWeight:
+                                                            FontWeight.w400,
                                                         color: Colors.grey,
-                                                        decoration: TextDecoration.lineThrough,
+                                                        decoration:
+                                                            TextDecoration
+                                                                .lineThrough,
                                                       ),
                                                     ),
                                                   ],
@@ -631,7 +653,8 @@ class _AdvancedProductListCardState extends State<AdvancedProductListCard>
                                     // Wishlist button - made more compact
                                     IconButton(
                                       visualDensity: VisualDensity.compact,
-                                      padding: const EdgeInsets.all(4), // Reduced padding
+                                      padding: const EdgeInsets.all(
+                                          4), // Reduced padding
                                       constraints: const BoxConstraints(
                                         minWidth: 32,
                                         minHeight: 32,
@@ -652,7 +675,8 @@ class _AdvancedProductListCardState extends State<AdvancedProductListCard>
 
                                     // ADD TO CART BUTTON - Improved sizing
                                     Flexible(
-                                      flex: 3, // Give button more space priority
+                                      flex:
+                                          3, // Give button more space priority
                                       child: ConstrainedBox(
                                         constraints: BoxConstraints(
                                           minHeight: buttonHeight,
@@ -666,7 +690,10 @@ class _AdvancedProductListCardState extends State<AdvancedProductListCard>
                                                   if (isVariable) {
                                                     _navigateToDetail(context);
                                                   } else {
-                                                    final cart = Provider.of<CartProvider>(context, listen: false);
+                                                    final cart = Provider.of<
+                                                            CartProvider>(
+                                                        context,
+                                                        listen: false);
                                                     cart.toggle(p);
                                                   }
                                                 }
@@ -679,15 +706,18 @@ class _AdvancedProductListCardState extends State<AdvancedProductListCard>
                                                     : primaryColor), // Use theme color
                                             foregroundColor: Colors.white,
                                             padding: const EdgeInsets.symmetric(
-                                                horizontal: 8, vertical: 10), // Better padding
+                                                horizontal: 8,
+                                                vertical: 10), // Better padding
                                             shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(10),
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
                                             ),
                                           ),
                                           child: FittedBox(
                                             fit: BoxFit.scaleDown,
                                             child: Row(
-                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
                                                 Icon(
@@ -695,8 +725,10 @@ class _AdvancedProductListCardState extends State<AdvancedProductListCard>
                                                       ? Icons.tune
                                                       : (cart.contains(p)
                                                           ? Icons.check
-                                                          : Icons.shopping_cart),
-                                                  size: 16, // Slightly larger icon
+                                                          : Icons
+                                                              .shopping_cart),
+                                                  size:
+                                                      16, // Slightly larger icon
                                                 ),
                                                 const SizedBox(width: 6),
                                                 Text(
@@ -706,7 +738,8 @@ class _AdvancedProductListCardState extends State<AdvancedProductListCard>
                                                           ? "In Cart"
                                                           : "Add to Cart"),
                                                   style: const TextStyle(
-                                                    fontSize: 13, // Slightly larger text
+                                                    fontSize:
+                                                        13, // Slightly larger text
                                                     fontWeight: FontWeight.w600,
                                                   ),
                                                 ),

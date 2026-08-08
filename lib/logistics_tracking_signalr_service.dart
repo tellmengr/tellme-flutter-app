@@ -159,7 +159,8 @@ class LogisticsTrackingSignalRService {
 
     final connection = _connection;
 
-    if (connection == null || connection.state != HubConnectionState.Connected) {
+    if (connection == null ||
+        connection.state != HubConnectionState.Connected) {
       debugPrint(
         '[SignalR] Cannot join group. Not connected. delivery=$cleanDeliveryId',
       );
@@ -201,7 +202,8 @@ class LogisticsTrackingSignalRService {
 
     final connection = _connection;
 
-    if (connection == null || connection.state != HubConnectionState.Connected) {
+    if (connection == null ||
+        connection.state != HubConnectionState.Connected) {
       debugPrint(
         '[SignalR] Cannot leave group. Not connected. delivery=$cleanDeliveryId',
       );
@@ -257,7 +259,8 @@ class LogisticsTrackingSignalRService {
 
     final connection = _connection;
 
-    if (connection == null || connection.state != HubConnectionState.Connected) {
+    if (connection == null ||
+        connection.state != HubConnectionState.Connected) {
       debugPrint(
         '[SignalR] Cannot send rider location. Not connected. delivery=$cleanDeliveryId rider=$cleanRiderId',
       );

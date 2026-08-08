@@ -12,9 +12,9 @@ Future<void> openWhatsAppChat({
   bool preferWeb = false, // set true on emulator so it opens browser
 }) async {
   final phone = (phoneE164 ?? kSupportWhatsApp).trim();
-  final text  = Uri.encodeComponent(prefill ?? "Hi, I need help with my order.");
-  final deep  = Uri.parse("whatsapp://send?phone=$phone&text=$text");
-  final web   = Uri.parse("https://wa.me/$phone?text=$text");
+  final text = Uri.encodeComponent(prefill ?? "Hi, I need help with my order.");
+  final deep = Uri.parse("whatsapp://send?phone=$phone&text=$text");
+  final web = Uri.parse("https://wa.me/$phone?text=$text");
 
   try {
     if (preferWeb && await canLaunchUrl(web)) {

@@ -20,7 +20,6 @@ import 'my_orders_page.dart';
 import 'profile_page.dart';
 import 'blog_list_page.dart';
 import 'blog_notification_provider.dart';
-import 'whatsapp_helper.dart';
 import 'logistics_page.dart';
 
 const kPrimaryBlue = Color(0xFF004AAD);
@@ -213,19 +212,10 @@ class _HomePageState extends State<HomePage> {
       if (!_mountedFlag) return;
 
       setState(() {
-        if (reset) {
-          _isInitialLoading = false;
-          if (_products.isEmpty) {
-            _products.addAll(_reviewFallbackProducts());
-          }
-          _hasMore = false;
-          _hasError = false;
-          _errorMessage = "";
-        } else {
-          _hasError = true;
-          _errorMessage = "We couldn't load more products right now.";
-        }
+        if (reset) _isInitialLoading = false;
         _isLoadingMore = false;
+        _hasError = true;
+        _errorMessage = "⚠️ Failed to load products: $e";
       });
     }
   }
@@ -273,25 +263,6 @@ class _HomePageState extends State<HomePage> {
         foregroundColor: Colors.white,
       ),
       drawer: _buildDrawer(context, themeProvider),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      floatingActionButton: FloatingActionButton(
-        tooltip: 'Chat on WhatsApp',
-        onPressed: () {
-          final user = context.read<UserProvider?>();
-          final email = user?.userEmail;
-
-          final prefill = 'Hello TellMe support 👋'
-              '${email != null && email.isNotEmpty ? " — I am $email" : ""}. '
-              'I need help with my order.';
-
-          openWhatsAppChat(
-            phoneE164: '2347054139575',
-            prefill: prefill,
-            context: context,
-          );
-        },
-        child: const Icon(Icons.chat),
-      ),
       body: Column(
         children: [
           Container(

@@ -57,15 +57,13 @@ class GoogleMapsService {
         final mapItem = item is Map ? item : <String, dynamic>{};
         final formatting = mapItem['structured_formatting'];
 
-        final formattingMap = formatting is Map
-            ? formatting
-            : <String, dynamic>{};
+        final formattingMap =
+            formatting is Map ? formatting : <String, dynamic>{};
 
         return {
           'place_id': mapItem['place_id']?.toString() ?? '',
           'description': mapItem['description']?.toString() ?? '',
-          'main_text':
-              formattingMap['main_text']?.toString() ??
+          'main_text': formattingMap['main_text']?.toString() ??
               mapItem['description']?.toString() ??
               '',
           'secondary_text': formattingMap['secondary_text']?.toString() ?? '',

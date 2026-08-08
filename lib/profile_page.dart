@@ -58,9 +58,9 @@ class _ProfilePageState extends State<ProfilePage>
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   // Enhanced animations inspired by sign-in page
-  late final AnimationController _ac =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 800))
-        ..forward();
+  late final AnimationController _ac = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 800))
+    ..forward();
   late final Animation<double> _fadeAnimation =
       CurvedAnimation(parent: _ac, curve: Curves.easeInOut);
 
@@ -262,7 +262,8 @@ class _ProfilePageState extends State<ProfilePage>
                 ],
               ),
               child: IconButton(
-                icon: Icon(Icons.arrow_back_ios_new, color: t.primaryColor, size: 18),
+                icon: Icon(Icons.arrow_back_ios_new,
+                    color: t.primaryColor, size: 18),
                 onPressed: () => BottomNavHelper.goBack(context),
               ),
             ),
@@ -271,8 +272,8 @@ class _ProfilePageState extends State<ProfilePage>
                 decoration: BoxDecoration(gradient: t.gradient),
                 child: SafeArea(
                   child: Padding(
-                    padding:
-                        const EdgeInsets.only(top: 20, bottom: 32, left: 20, right: 20),
+                    padding: const EdgeInsets.only(
+                        top: 20, bottom: 32, left: 20, right: 20),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -450,7 +451,8 @@ class _ProfilePageState extends State<ProfilePage>
                 color: kWalletGreen.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Icon(Icons.account_balance_wallet, color: kWalletGreen, size: 30),
+              child: const Icon(Icons.account_balance_wallet,
+                  color: kWalletGreen, size: 30),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -459,7 +461,10 @@ class _ProfilePageState extends State<ProfilePage>
                 children: [
                   const Text(
                     'Wallet Balance',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kTextDark),
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: kTextDark),
                   ),
                   const SizedBox(height: 8),
                   if (_isLoadingWallet)
@@ -470,27 +475,37 @@ class _ProfilePageState extends State<ProfilePage>
                           height: 18,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(kWalletGreen),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(kWalletGreen),
                           ),
                         ),
                         const SizedBox(width: 12),
                         Text(
                           'Loading...',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kTextMedium),
+                          style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: kTextMedium),
                         ),
                       ],
                     )
                   else if (_walletError != null)
                     Text(
                       _walletError!,
-                      style: const TextStyle(fontSize: 14, color: kRed, fontWeight: FontWeight.w500),
+                      style: const TextStyle(
+                          fontSize: 14,
+                          color: kRed,
+                          fontWeight: FontWeight.w500),
                     )
                   else if (_walletBalance != null)
                     Row(
                       children: [
                         Text(
                           '₦${_formatWalletBalance()}',
-                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: kWalletGreen),
+                          style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: kWalletGreen),
                         ),
                         const SizedBox(width: 12),
                         GestureDetector(
@@ -504,7 +519,8 @@ class _ProfilePageState extends State<ProfilePage>
                               color: kWalletGreen.withOpacity(0.12),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Icon(Icons.refresh, size: 16, color: kWalletGreen),
+                            child: const Icon(Icons.refresh,
+                                size: 16, color: kWalletGreen),
                           ),
                         ),
                       ],
@@ -533,7 +549,8 @@ class _ProfilePageState extends State<ProfilePage>
                 label: 'History',
                 onPressed: _isProcessingPayment
                     ? null
-                    : () => BottomNavHelper.navigateToRoute(context, '/wallet-history'),
+                    : () => BottomNavHelper.navigateToRoute(
+                        context, '/wallet-history'),
                 isPrimary: false,
               ),
             ),
@@ -597,7 +614,8 @@ class _ProfilePageState extends State<ProfilePage>
           icon: Icons.notifications_rounded,
           title: 'Notifications',
           subtitle: 'Manage notifications',
-          onTap: () => BottomNavHelper.navigateToRoute(context, '/notifications'),
+          onTap: () =>
+              BottomNavHelper.navigateToRoute(context, '/notifications'),
           color: t.primaryColor,
         ),
         _buildDivider(),
@@ -611,7 +629,8 @@ class _ProfilePageState extends State<ProfilePage>
         _buildDivider(),
         // 🔥 Delete Account (uses shared helper)
         ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           leading: Container(
             width: 48,
             height: 48,
@@ -619,24 +638,30 @@ class _ProfilePageState extends State<ProfilePage>
               color: kRed.withOpacity(0.10),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.delete_forever_rounded, color: kRed, size: 24),
+            child:
+                const Icon(Icons.delete_forever_rounded, color: kRed, size: 24),
           ),
           title: const Text(
             'Delete Account',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: kRed),
+            style: TextStyle(
+                fontSize: 16, fontWeight: FontWeight.w800, color: kRed),
           ),
           subtitle: const Text(
             'Permanently remove your account',
-            style: TextStyle(fontSize: 13, color: kTextMedium, fontWeight: FontWeight.w400),
+            style: TextStyle(
+                fontSize: 13, color: kTextMedium, fontWeight: FontWeight.w400),
           ),
           trailing: _isDeleting
               ? const SizedBox(
-                  width: 20, height: 20,
+                  width: 20,
+                  height: 20,
                   child: CircularProgressIndicator(
-                    strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(kRed),
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(kRed),
                   ),
                 )
-              : const Icon(Icons.chevron_right_rounded, color: kGrey300, size: 20),
+              : const Icon(Icons.chevron_right_rounded,
+                  color: kGrey300, size: 20),
           onTap: _isDeleting
               ? null
               : () async {
@@ -676,7 +701,8 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
-  Widget _buildDivider() => const Divider(height: 1, color: kGrey200, thickness: 1);
+  Widget _buildDivider() =>
+      const Divider(height: 1, color: kGrey200, thickness: 1);
 
   // ------------------------------------------------------------------
   // 🧩 SHARED COMPONENTS
@@ -732,8 +758,8 @@ class _ProfilePageState extends State<ProfilePage>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
         backgroundColor: kWhite,
         title: const Text('Sign Out',
-            style:
-                TextStyle(fontWeight: FontWeight.w800, color: kTextDark, fontSize: 20)),
+            style: TextStyle(
+                fontWeight: FontWeight.w800, color: kTextDark, fontSize: 20)),
         content: const Text('Are you sure you want to sign out?',
             style: TextStyle(color: kTextMedium, fontSize: 16)),
         actions: [
@@ -744,8 +770,8 @@ class _ProfilePageState extends State<ProfilePage>
                     TextStyle(color: kTextMedium, fontWeight: FontWeight.w600)),
           ),
           Container(
-            decoration:
-                BoxDecoration(color: kRed, borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(
+                color: kRed, borderRadius: BorderRadius.circular(12)),
             child: TextButton(
               onPressed: () async {
                 Navigator.pop(ctx);
@@ -824,15 +850,6 @@ class _ProfilePageState extends State<ProfilePage>
       final authService = WooCommerceAuthService();
       final userId = int.tryParse(user['id'].toString());
 
-      if (userId == null || userId <= 0) {
-        _setStateIfMounted(() {
-          _walletError = 'Invalid user ID';
-          _walletBalance = null;
-          _isLoadingWallet = false;
-        });
-        return;
-      }
-
       final walletResult = await authService.getWalletBalance(userId);
 
       _setStateIfMounted(() {
@@ -840,16 +857,15 @@ class _ProfilePageState extends State<ProfilePage>
           _walletBalance = walletResult;
           _walletError = null;
         } else {
-          _walletError =
-              'TeraWallet plugin may not be installed or activated. Please contact support.';
+          _walletError = walletResult?['error']?.toString() ??
+              'Please sign out and sign in again to refresh your wallet session.';
           _walletBalance = null;
         }
         _isLoadingWallet = false;
       });
     } catch (e) {
       _setStateIfMounted(() {
-        _walletError =
-            'TeraWallet plugin may not be installed or activated. Please contact support.';
+        _walletError = 'Wallet balance could not be loaded. Please try again.';
         _walletBalance = null;
         _isLoadingWallet = false;
       });
@@ -879,7 +895,8 @@ class _ProfilePageState extends State<ProfilePage>
               decoration: BoxDecoration(
                   color: kWalletGreen.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8)),
-              child: const Icon(Icons.account_balance_wallet, color: kWalletGreen),
+              child:
+                  const Icon(Icons.account_balance_wallet, color: kWalletGreen),
             ),
             const SizedBox(width: 12),
             const Text('Add Funds',
@@ -896,8 +913,7 @@ class _ProfilePageState extends State<ProfilePage>
             TextField(
               controller: amountController,
               keyboardType: TextInputType.number,
-              style:
-                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               decoration: InputDecoration(
                 labelText: 'Amount (₦)',
                 prefixIcon: const Icon(Icons.money, color: kWalletGreen),
@@ -907,8 +923,12 @@ class _ProfilePageState extends State<ProfilePage>
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide:
-                      BorderSide(color: context.read<CelebrationThemeProvider>().currentTheme.primaryColor, width: 2),
+                  borderSide: BorderSide(
+                      color: context
+                          .read<CelebrationThemeProvider>()
+                          .currentTheme
+                          .primaryColor,
+                      width: 2),
                 ),
               ),
             ),
@@ -927,8 +947,7 @@ class _ProfilePageState extends State<ProfilePage>
             child: TextButton(
               onPressed: () {
                 Navigator.pop(ctx);
-                _processAddFunds(
-                    double.tryParse(amountController.text) ?? 0);
+                _processAddFunds(double.tryParse(amountController.text) ?? 0);
               },
               child: const Text('Add Funds',
                   style: TextStyle(
@@ -974,10 +993,12 @@ class _ProfilePageState extends State<ProfilePage>
                 'quantity': 1,
                 'images': [
                   {
-                    'src': 'https://via.placeholder.com/100x100/10B981/FFFFFF?text=Wallet'
+                    'src':
+                        'https://via.placeholder.com/100x100/10B981/FFFFFF?text=Wallet'
                   }
                 ],
-                'cart_item_id': 'wallet_topup_${DateTime.now().millisecondsSinceEpoch}',
+                'cart_item_id':
+                    'wallet_topup_${DateTime.now().millisecondsSinceEpoch}',
               }
             ],
             subtotal: amount,
@@ -995,7 +1016,7 @@ class _ProfilePageState extends State<ProfilePage>
       _setStateIfMounted(() => _isProcessingPayment = false);
     }
   } // <-- ✅ END OF _processAddFunds method
-  } // <-- ✅ END OF _ProfilePageState class
+} // <-- ✅ END OF _ProfilePageState class
 
 // ==================================================================
 // TOP-LEVEL HELPER WIDGETS (now consume CelebrationThemeProvider)
@@ -1082,8 +1103,7 @@ class _AvatarPlaceholder extends StatelessWidget {
 class _GlowCircle extends StatelessWidget {
   final double diameter;
   final double opacity;
-  const _GlowCircle(
-      {Key? key, required this.diameter, this.opacity = 0.1})
+  const _GlowCircle({Key? key, required this.diameter, this.opacity = 0.1})
       : super(key: key);
 
   @override
@@ -1114,14 +1134,16 @@ class _PrimaryCTA extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.watch<CelebrationThemeProvider>().currentTheme;
-    final go = onPressed ?? () => BottomNavHelper.navigateToRoute(context, '/signin');
+    final go =
+        onPressed ?? () => BottomNavHelper.navigateToRoute(context, '/signin');
     return SizedBox(
       height: 54,
       child: ElevatedButton(
         onPressed: go,
         style: ElevatedButton.styleFrom(
           padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
         child: Ink(
           decoration: BoxDecoration(
@@ -1154,14 +1176,16 @@ class _SecondaryCTA extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.watch<CelebrationThemeProvider>().currentTheme;
-    final go = onPressed ?? () => BottomNavHelper.navigateToRoute(context, '/signup');
+    final go =
+        onPressed ?? () => BottomNavHelper.navigateToRoute(context, '/signup');
     return SizedBox(
       height: 54,
       child: OutlinedButton(
         onPressed: go,
         style: OutlinedButton.styleFrom(
           side: BorderSide(color: t.primaryColor, width: 1.8),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
         child: Text(
           label,
@@ -1196,7 +1220,8 @@ class _WalletButton extends StatelessWidget {
         child: ElevatedButton(
           onPressed: onPressed,
           style: ElevatedButton.styleFrom(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             backgroundColor: kWalletGreen,
           ),
           child: Text(
@@ -1213,7 +1238,8 @@ class _WalletButton extends StatelessWidget {
           onPressed: onPressed,
           style: OutlinedButton.styleFrom(
             side: const BorderSide(color: kWalletGreen, width: 2),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
           child: const Text(
             'History',
@@ -1239,7 +1265,8 @@ class _SignOutCTA extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: kRed,
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           elevation: 0,
         ),
         child: const Row(
@@ -1249,8 +1276,10 @@ class _SignOutCTA extends StatelessWidget {
             SizedBox(width: 10),
             Text(
               'SIGN OUT',
-              style:
-                  TextStyle(fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: 1.2),
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2),
             ),
           ],
         ),

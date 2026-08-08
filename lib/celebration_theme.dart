@@ -40,9 +40,9 @@ class CelebrationTheme {
 
   // Convert to JSON for storage
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-  };
+        'id': id,
+        'name': name,
+      };
 
   // Create from JSON
   static CelebrationTheme? fromJson(Map<String, dynamic> json) {
@@ -63,7 +63,7 @@ final CelebrationTheme defaultTheme = CelebrationTheme(
   name: 'Default (TellMe Blue)',
   description: 'Your original TellMe branding colors',
   primaryColor: const Color(0xFF004AAD), // ✅ Matches your kPrimaryBlue
-  accentColor: const Color(0xFF0096FF),  // ✅ Matches your kAccentBlue
+  accentColor: const Color(0xFF0096FF), // ✅ Matches your kAccentBlue
   secondaryColor: const Color(0xFF1565C0), // ✅ Fallback color
   gradient: const LinearGradient(
     colors: [Color(0xFF004AAD), Color(0xFF0096FF)],

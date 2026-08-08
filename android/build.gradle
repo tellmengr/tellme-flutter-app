@@ -1,12 +1,12 @@
 // android/build.gradle
 buildscript {
-    ext.kotlin_version = '2.0.21'
+    ext.kotlin_version = '2.1.0'
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.5.2'
+        classpath 'com.android.tools.build:gradle:8.6.1'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
         classpath 'com.google.gms:google-services:4.4.2'
     }
@@ -20,13 +20,21 @@ allprojects {
 }
 
 // ✅ Ensure Flutter version values are read properly
-def flutterVersionCode = project.hasProperty('flutterVersionCode') ? project.flutterVersionCode : null
-def flutterVersionName = project.hasProperty('flutterVersionName') ? project.flutterVersionName : null
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader("UTF-8") { reader ->
+        localProperties.load(reader)
+    }
+}
+
+def flutterVersionCode = project.hasProperty('flutterVersionCode') ? project.flutterVersionCode : localProperties.getProperty('flutter.versionCode')
+def flutterVersionName = project.hasProperty('flutterVersionName') ? project.flutterVersionName : localProperties.getProperty('flutter.versionName')
 
 ext {
-    // These fallbacks prevent versionCode from defaulting to 1
-    if (flutterVersionCode == null) flutterVersionCode = 15
-    if (flutterVersionName == null) flutterVersionName = "1.0.4"
+    // These fallbacks prevent versionCode from defaulting to an already-used Play Store code.
+    if (flutterVersionCode == null) flutterVersionCode = 35
+    if (flutterVersionName == null) flutterVersionName = "1.0.6"
 
     set('flutterVersionCode', flutterVersionCode)
     set('flutterVersionName', flutterVersionName)

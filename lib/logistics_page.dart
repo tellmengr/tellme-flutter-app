@@ -555,8 +555,8 @@ class _LogisticsPageState extends State<LogisticsPage>
     final rawDeliveryNote = _deliveryNoteController.text.trim();
     final paymentPreferenceText =
         selectedPaymentPreference == _PaymentPreference.payOnDelivery
-        ? 'Payment option: Pay on Delivery'
-        : 'Payment option: Pay Online';
+            ? 'Payment option: Pay on Delivery'
+            : 'Payment option: Pay Online';
 
     final deliveryNote = rawDeliveryNote.isEmpty
         ? paymentPreferenceText
@@ -619,8 +619,7 @@ class _LogisticsPageState extends State<LogisticsPage>
           _tabController.animateTo(2);
         }
       } else {
-        final message =
-            result['message'] ??
+        final message = result['message'] ??
             result['error'] ??
             'Failed to submit request. Please check your details and try again.';
 
@@ -695,8 +694,7 @@ class _LogisticsPageState extends State<LogisticsPage>
         throw Exception('Invalid payment response.');
       }
 
-      final authorizationUrl =
-          data['authorizationUrl']?.toString() ??
+      final authorizationUrl = data['authorizationUrl']?.toString() ??
           data['authorization_url']?.toString() ??
           '';
       final reference = data['reference']?.toString() ?? '';
@@ -823,7 +821,6 @@ class _LogisticsPageState extends State<LogisticsPage>
     return null;
   }
 
-
   Map<String, dynamic> _mergeDeliveryMaps(Map? base, Map? incoming) {
     final merged = <String, dynamic>{};
 
@@ -844,8 +841,7 @@ class _LogisticsPageState extends State<LogisticsPage>
     final data = result['data'] ?? result['Data'];
 
     if (data is Map) {
-      final delivery =
-          data['delivery'] ??
+      final delivery = data['delivery'] ??
           data['Delivery'] ??
           data['deliveryRequest'] ??
           data['DeliveryRequest'] ??
@@ -856,8 +852,7 @@ class _LogisticsPageState extends State<LogisticsPage>
         return Map<String, dynamic>.from(delivery);
       }
 
-      final hasDeliveryShape =
-          data.containsKey('id') ||
+      final hasDeliveryShape = data.containsKey('id') ||
           data.containsKey('Id') ||
           data.containsKey('deliveryStatus') ||
           data.containsKey('DeliveryStatus') ||
@@ -953,8 +948,7 @@ class _LogisticsPageState extends State<LogisticsPage>
   bool _deliveryOtpAvailableFlag(Map? item) {
     if (item == null) return false;
 
-    final value =
-        item['deliveryOtpAvailable'] ??
+    final value = item['deliveryOtpAvailable'] ??
         item['DeliveryOtpAvailable'] ??
         item['otpAvailable'] ??
         item['OtpAvailable'] ??
@@ -971,8 +965,8 @@ class _LogisticsPageState extends State<LogisticsPage>
       _trackedDelivery?['id'],
       _trackedDelivery?['Id'],
     ]);
-    final isActiveTrackedDelivery = id.isNotEmpty &&
-        (id == activeId || id == trackedId);
+    final isActiveTrackedDelivery =
+        id.isNotEmpty && (id == activeId || id == trackedId);
 
     return _statusNumber(
       (isActiveTrackedDelivery ? _liveDeliveryStatusCode : null) ??
@@ -1014,13 +1008,12 @@ class _LogisticsPageState extends State<LogisticsPage>
     String? deliveryId,
     bool silent = true,
   }) async {
-    final id =
-        deliveryId?.trim().isNotEmpty == true
-            ? deliveryId!.trim()
-            : _activeLiveTrackingDeliveryId ??
-                _trackedDelivery?['id']?.toString() ??
-                _trackedDelivery?['Id']?.toString() ??
-                '';
+    final id = deliveryId?.trim().isNotEmpty == true
+        ? deliveryId!.trim()
+        : _activeLiveTrackingDeliveryId ??
+            _trackedDelivery?['id']?.toString() ??
+            _trackedDelivery?['Id']?.toString() ??
+            '';
 
     if (id.isEmpty || _isRefreshingDeliveryOtp) return;
 
@@ -1147,8 +1140,7 @@ class _LogisticsPageState extends State<LogisticsPage>
     }
 
     if (data is Map) {
-      final trackingUpdates =
-          data['trackingUpdates'] ??
+      final trackingUpdates = data['trackingUpdates'] ??
           data['TrackingUpdates'] ??
           data['tracking'] ??
           data['Tracking'];
@@ -1239,8 +1231,7 @@ class _LogisticsPageState extends State<LogisticsPage>
           markerId: const MarkerId('rider_live_location'),
           position: riderLatLng,
           infoWindow: const InfoWindow(title: 'Rider current location'),
-          icon:
-              _bikeMarkerIcon ??
+          icon: _bikeMarkerIcon ??
               BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
           anchor: const Offset(0.5, 0.5),
           flat: true,
@@ -1364,8 +1355,7 @@ class _LogisticsPageState extends State<LogisticsPage>
       final success = result['success'] == true;
 
       if (!success) {
-        final message =
-            result['message'] ??
+        final message = result['message'] ??
             result['error'] ??
             'Tracking failed. Please check the delivery ID and try again.';
 
@@ -1466,27 +1456,25 @@ class _LogisticsPageState extends State<LogisticsPage>
       await _riderLocationSubscription?.cancel();
 
       _riderLocationSubscription = LogisticsTrackingSignalRService
-          .instance
-          .onRiderLocationUpdated
+          .instance.onRiderLocationUpdated
           .listen((data) {
-            final incomingDeliveryId =
-                data['deliveryId']?.toString() ??
-                data['DeliveryId']?.toString() ??
-                data['deliveryRequestId']?.toString() ??
-                data['DeliveryRequestId']?.toString() ??
-                data['DeliveryRequestID']?.toString() ??
-                '';
+        final incomingDeliveryId = data['deliveryId']?.toString() ??
+            data['DeliveryId']?.toString() ??
+            data['deliveryRequestId']?.toString() ??
+            data['DeliveryRequestId']?.toString() ??
+            data['DeliveryRequestID']?.toString() ??
+            '';
 
-            if (incomingDeliveryId != deliveryRequestId) {
-              debugPrint(
-                '[CustomerSignalR] Ignored update for another delivery. '
-                'incoming=$incomingDeliveryId active=$deliveryRequestId data=$data',
-              );
-              return;
-            }
+        if (incomingDeliveryId != deliveryRequestId) {
+          debugPrint(
+            '[CustomerSignalR] Ignored update for another delivery. '
+            'incoming=$incomingDeliveryId active=$deliveryRequestId data=$data',
+          );
+          return;
+        }
 
-            _handleRiderLocationUpdate(data);
-          });
+        _handleRiderLocationUpdate(data);
+      });
 
       debugPrint('[CustomerSignalR] Joined delivery group $deliveryRequestId');
     } catch (e) {
@@ -1516,8 +1504,7 @@ class _LogisticsPageState extends State<LogisticsPage>
     final dLng = endLng - startLng;
 
     final y = math.sin(dLng) * math.cos(endLat);
-    final x =
-        math.cos(startLat) * math.sin(endLat) -
+    final x = math.cos(startLat) * math.sin(endLat) -
         math.sin(startLat) * math.cos(endLat) * math.cos(dLng);
 
     final bearing = math.atan2(y, x) * 180 / math.pi;
@@ -1600,8 +1587,7 @@ class _LogisticsPageState extends State<LogisticsPage>
         .expand((polyline) => polyline.points)
         .toList();
 
-    final routeMatchesDestination =
-        roadRoutePoints.isNotEmpty &&
+    final routeMatchesDestination = roadRoutePoints.isNotEmpty &&
         Geolocator.distanceBetween(
               roadRoutePoints.last.latitude,
               roadRoutePoints.last.longitude,
@@ -1866,8 +1852,7 @@ class _LogisticsPageState extends State<LogisticsPage>
         markerId: const MarkerId('rider_live_location'),
         position: displayRiderLatLng,
         infoWindow: const InfoWindow(title: 'Rider current location'),
-        icon:
-            _bikeMarkerIcon ??
+        icon: _bikeMarkerIcon ??
             BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
         anchor: const Offset(0.5, 0.5),
         flat: true,
@@ -2006,16 +1991,14 @@ class _LogisticsPageState extends State<LogisticsPage>
 
     final delivery = _trackedDelivery ?? {};
 
-    final pickupLatLng =
-        _livePickupLatLng ??
+    final pickupLatLng = _livePickupLatLng ??
         _latLngFromDynamicMap(
           delivery,
           ['pickupLatitude'],
           ['pickupLongitude'],
         );
 
-    final dropoffLatLng =
-        _liveDropoffLatLng ??
+    final dropoffLatLng = _liveDropoffLatLng ??
         _latLngFromDynamicMap(
           delivery,
           ['dropoffLatitude'],
@@ -2028,8 +2011,7 @@ class _LogisticsPageState extends State<LogisticsPage>
           data['deliveryStatus'] ??
           data['status'],
     );
-    final liveStatusText =
-        data['deliveryStatus']?.toString() ??
+    final liveStatusText = data['deliveryStatus']?.toString() ??
         data['status']?.toString() ??
         (liveStatusCode == 0 ? null : _formatDeliveryStatus(liveStatusCode));
 
@@ -2483,8 +2465,7 @@ class _LogisticsPageState extends State<LogisticsPage>
           'price',
           'amount',
         ]);
-        final manualQuote =
-            data['requiresManualQuote'] == true ||
+        final manualQuote = data['requiresManualQuote'] == true ||
             data['requiresManualQuote']?.toString().toLowerCase() == 'true';
 
         setState(() {
@@ -2494,8 +2475,7 @@ class _LogisticsPageState extends State<LogisticsPage>
           _estimateErrorMessage = null;
         });
       } else {
-        final message =
-            result['message'] ??
+        final message = result['message'] ??
             result['error'] ??
             'Could not calculate delivery fee.';
 
@@ -2802,8 +2782,7 @@ class _LogisticsPageState extends State<LogisticsPage>
   }
 
   Map? _latestAssignment(Map item) {
-    final activeAssignment =
-        item['activeAssignment'] ??
+    final activeAssignment = item['activeAssignment'] ??
         item['ActiveAssignment'] ??
         item['currentAssignment'] ??
         item['CurrentAssignment'] ??
@@ -2814,8 +2793,7 @@ class _LogisticsPageState extends State<LogisticsPage>
       return activeAssignment;
     }
 
-    final assignedRider =
-        item['assignedRider'] ??
+    final assignedRider = item['assignedRider'] ??
         item['AssignedRider'] ??
         item['rider'] ??
         item['Rider'];
@@ -2855,8 +2833,7 @@ class _LogisticsPageState extends State<LogisticsPage>
     final latest = _latestAssignment(item);
 
     if (latest != null) {
-      final rider =
-          latest['rider'] ??
+      final rider = latest['rider'] ??
           latest['Rider'] ??
           latest['assignedRider'] ??
           latest['AssignedRider'];
@@ -2904,8 +2881,7 @@ class _LogisticsPageState extends State<LogisticsPage>
     final latest = _latestAssignment(item);
 
     if (latest != null) {
-      final rider =
-          latest['rider'] ??
+      final rider = latest['rider'] ??
           latest['Rider'] ??
           latest['assignedRider'] ??
           latest['AssignedRider'];
@@ -3058,8 +3034,7 @@ class _LogisticsPageState extends State<LogisticsPage>
           item['status'] ?? item['deliveryStatus'],
         );
 
-        final note =
-            item['note']?.toString() ??
+        final note = item['note']?.toString() ??
             item['message']?.toString() ??
             'Status updated';
 
@@ -3075,8 +3050,7 @@ class _LogisticsPageState extends State<LogisticsPage>
       for (final item in trackingUpdates) {
         if (item is! Map) continue;
 
-        final message =
-            item['message']?.toString() ??
+        final message = item['message']?.toString() ??
             item['status']?.toString() ??
             'Tracking update';
 
@@ -3096,8 +3070,7 @@ class _LogisticsPageState extends State<LogisticsPage>
       for (final item in trackingData) {
         if (item is! Map) continue;
 
-        final message =
-            item['message']?.toString() ??
+        final message = item['message']?.toString() ??
             item['status']?.toString() ??
             'Tracking update';
 
@@ -3329,8 +3302,7 @@ class _LogisticsPageState extends State<LogisticsPage>
                               icon: Icons.route_rounded,
                               tooltip: 'Show complete route',
                               onPressed: _showFullScreenRouteOverview,
-                              selected:
-                                  _customerMapCameraMode ==
+                              selected: _customerMapCameraMode ==
                                   _CustomerMapCameraMode.routeOverview,
                             ),
                             const SizedBox(height: 10),
@@ -3338,8 +3310,7 @@ class _LogisticsPageState extends State<LogisticsPage>
                               icon: Icons.electric_bike_rounded,
                               tooltip: 'Focus rider and current street',
                               onPressed: _focusFullScreenRider,
-                              selected:
-                                  _customerMapCameraMode ==
+                              selected: _customerMapCameraMode ==
                                   _CustomerMapCameraMode.rider,
                             ),
                             const SizedBox(height: 10),
@@ -3347,8 +3318,7 @@ class _LogisticsPageState extends State<LogisticsPage>
                               icon: Icons.person_pin_circle_rounded,
                               tooltip: 'Focus your active location',
                               onPressed: _focusFullScreenCustomerDestination,
-                              selected:
-                                  _customerMapCameraMode ==
+                              selected: _customerMapCameraMode ==
                                   _CustomerMapCameraMode.destination,
                             ),
                           ],
@@ -4324,14 +4294,14 @@ class _LogisticsPageState extends State<LogisticsPage>
           final item = _addressSearchResults[index];
           final title = item['structured_formatting'] is Map
               ? item['structured_formatting']['main_text']?.toString() ??
-                    item['description']?.toString() ??
-                    'Address'
+                  item['description']?.toString() ??
+                  'Address'
               : item['main_text']?.toString() ??
-                    item['description']?.toString() ??
-                    'Address';
+                  item['description']?.toString() ??
+                  'Address';
           final subtitle = item['structured_formatting'] is Map
               ? item['structured_formatting']['secondary_text']?.toString() ??
-                    ''
+                  ''
               : item['secondary_text']?.toString() ?? '';
           return ListTile(
             dense: true,
@@ -4378,16 +4348,14 @@ class _LogisticsPageState extends State<LogisticsPage>
     final isLoading = target == _LocationTarget.pickup
         ? _isGettingPickupLocation
         : _isGettingDropoffLocation;
-    final selected = target == _LocationTarget.pickup
-        ? _pickupLatLng
-        : _dropoffLatLng;
+    final selected =
+        target == _LocationTarget.pickup ? _pickupLatLng : _dropoffLatLng;
     return Row(
       children: [
         Expanded(
           child: OutlinedButton.icon(
-            onPressed: isLoading
-                ? null
-                : () => _useCurrentLocation(target: target),
+            onPressed:
+                isLoading ? null : () => _useCurrentLocation(target: target),
             icon: isLoading
                 ? const SizedBox(
                     width: 16,
@@ -4607,8 +4575,8 @@ class _LogisticsPageState extends State<LogisticsPage>
                   value: _requiresManualQuote
                       ? 'Custom quote'
                       : hasPrice
-                      ? _moneyText(_estimatedDeliveryFee)
-                      : '-',
+                          ? _moneyText(_estimatedDeliveryFee)
+                          : '-',
                   icon: Icons.payments_rounded,
                   color: kHighlightColor,
                 ),
@@ -5098,10 +5066,10 @@ class _LogisticsPageState extends State<LogisticsPage>
                       onTap: rider == null
                           ? null
                           : () => _focusTrackingRouteCamera(
-                              riderLatLng: rider,
-                              pickupLatLng: _livePickupLatLng,
-                              dropoffLatLng: _liveDropoffLatLng,
-                            ),
+                                riderLatLng: rider,
+                                pickupLatLng: _livePickupLatLng,
+                                dropoffLatLng: _liveDropoffLatLng,
+                              ),
                       child: const Padding(
                         padding: EdgeInsets.all(10),
                         child: Icon(
@@ -5164,8 +5132,8 @@ class _LogisticsPageState extends State<LogisticsPage>
     final displayText = !hasRiderLocation
         ? 'Waiting for rider current address...'
         : address.isEmpty
-        ? 'Resolving rider address...'
-        : address;
+            ? 'Resolving rider address...'
+            : address;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
@@ -5826,8 +5794,8 @@ class _LogisticsPageState extends State<LogisticsPage>
             )
           else
             ..._myDeliveries.whereType<Map>().map(
-              (item) => _premiumDeliveryCard(item),
-            ),
+                  (item) => _premiumDeliveryCard(item),
+                ),
         ],
       ),
     );
@@ -5958,18 +5926,17 @@ class _LogisticsPageState extends State<LogisticsPage>
                   label: paying
                       ? '...'
                       : (_isPayOnDelivery(item)
-                            ? 'Pay later'
-                            : _payButtonText(item)),
+                          ? 'Pay later'
+                          : _payButtonText(item)),
                   icon: Icons.payment_rounded,
                   isLoading: paying,
-                  backgroundColor: _canPay(item)
-                      ? kSuccessGreen
-                      : kTextSecondary,
+                  backgroundColor:
+                      _canPay(item) ? kSuccessGreen : kTextSecondary,
                   onPressed: (!_canPay(item) || paying)
                       ? null
                       : () => _startPaymentForDelivery(
-                          Map<String, dynamic>.from(item),
-                        ),
+                            Map<String, dynamic>.from(item),
+                          ),
                 ),
               ),
             ],

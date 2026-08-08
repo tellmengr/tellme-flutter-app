@@ -16,6 +16,12 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localProperties.load(new FileInputStream(localPropertiesFile))
+}
+
 /* 🔧 Block deprecated Play Core (old artifacts that crash on newer targetSdks) */
 configurations.all {
     exclude group: 'com.google.android.play', module: 'core'
@@ -29,10 +35,10 @@ android {
     // 🧠 Automatically read version info from pubspec.yaml
     def flutterVersionCode = project.hasProperty('flutterVersionCode')
             ? project.flutterVersionCode.toInteger()
-            : 15
+            : (localProperties.getProperty('flutter.versionCode') ?: '35').toInteger()
     def flutterVersionName = project.hasProperty('flutterVersionName')
             ? project.flutterVersionName
-            : "1.0.4"
+            : (localProperties.getProperty('flutter.versionName') ?: "1.0.6")
 
     defaultConfig {
         applicationId "com.mstoreapp.tellme"
@@ -83,7 +89,7 @@ android {
         release {
             signingConfig keystorePropertiesFile.exists()
                     ? signingConfigs.release
-                    : signingConfigs.debug
+                    : null
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'),

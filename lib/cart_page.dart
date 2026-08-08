@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'woocommerce_auth_service.dart';
 import 'cart_provider.dart';
 import 'checkout_page.dart';
 import 'sign_in_page.dart';
@@ -13,7 +14,7 @@ import 'loyalty_service.dart'; // ✅ NEW: loyalty API/model
 const kPrimaryBlue = Color(0xFF004AAD);
 const kAccentBlue = Color(0xFF0096FF);
 
-class CartPage extends StatelessWidget {
+class CartPage extends StatefulWidget {
   final int? selectedIndex;
   final Function(int)? onBackToHome;
 
@@ -23,16 +24,32 @@ class CartPage extends StatelessWidget {
     this.onBackToHome,
   });
 
+  @override
+  State<CartPage> createState() => _CartPageState();
+}
+
+class _CartPageState extends State<CartPage> {
+  double? _estimatedShipping;
+  String? _estimatedShippingLabel;
+
   // ✅ Smart back handler (works for both bottom nav & drawer)
   void _handleBack(BuildContext context) {
-    if (onBackToHome != null) {
-      onBackToHome!(selectedIndex ?? 0);
+    if (widget.onBackToHome != null) {
+      widget.onBackToHome!(widget.selectedIndex ?? 0);
       Navigator.pop(context);
     } else if (Navigator.canPop(context)) {
       Navigator.pop(context);
     } else {
       Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
     }
+  }
+
+  String _formatCartCurrency(double amount) {
+    return NumberFormat.currency(
+      locale: 'en_NG',
+      symbol: '₦',
+      decimalDigits: 0,
+    ).format(amount);
   }
 
   @override
@@ -44,40 +61,70 @@ class CartPage extends StatelessWidget {
 
     return Consumer<CartProvider>(
       builder: (context, cart, child) {
+        final cartItems = List<Map<String, dynamic>>.from(cart.cartItems);
+
         return Scaffold(
           backgroundColor: Colors.grey[50],
-          body: cart.cartItems.isEmpty
+          body: cartItems.isEmpty
               ? _buildEmptyCart(context, primaryColor, accentColor)
               : CustomScrollView(
                   slivers: [
                     _buildSliverAppBar(cart, context, primaryColor),
                     SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          if (index < cart.cartItems.length) {
-                            return _buildCartItem(
-                              cart.cartItems[index],
-                              cart,
-                              index,
-                              context,
-                              themeProvider,
-                            );
-                          } else if (index == cart.cartItems.length) {
-                            return _buildOrderSummary(
+                      delegate: SliverChildListDelegate(
+                        [
+                          for (int index = 0; index < cartItems.length; index++)
+                            KeyedSubtree(
+                              key: ValueKey(
+                                'cart-item-${cartItems[index]['cart_item_key'] ?? cartItems[index]['cart_item_id'] ?? cartItems[index]['id'] ?? cartItems[index]['product_id'] ?? index}',
+                              ),
+                              child: _buildCartItem(
+                                cartItems[index],
+                                cart,
+                                index,
+                                context,
+                                themeProvider,
+                              ),
+                            ),
+                          KeyedSubtree(
+                            key: const ValueKey('delivery-estimate-card'),
+                            child: _DeliveryEstimateCard(
+                              cart: cart,
+                              primaryColor: primaryColor,
+                              accentColor: accentColor,
+                              onReset: () {
+                                setState(() {
+                                  _estimatedShipping = null;
+                                  _estimatedShippingLabel = null;
+                                });
+                              },
+                              onEstimated: (amount, label) {
+                                setState(() {
+                                  _estimatedShipping = amount;
+                                  _estimatedShippingLabel =
+                                      _formatCartCurrency(amount);
+                                });
+                              },
+                            ),
+                          ),
+                          KeyedSubtree(
+                            key: const ValueKey('order-summary-card'),
+                            child: _buildOrderSummary(
                               cart,
                               context,
                               primaryColor,
                               accentColor,
-                            );
-                          } else {
-                            return _buildCheckoutButton(
+                            ),
+                          ),
+                          KeyedSubtree(
+                            key: const ValueKey('checkout-button-card'),
+                            child: _buildCheckoutButton(
                               cart,
                               context,
                               primaryColor,
-                            );
-                          }
-                        },
-                        childCount: cart.cartItems.length + 2,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -318,8 +365,7 @@ class CartPage extends StatelessWidget {
                         IconButton(
                           icon: const Icon(Icons.add_circle_outline),
                           onPressed: () => cart.updateQuantity(
-                            product['cart_item_id'] ??
-                                product['id'].toString(),
+                            product['cart_item_id'] ?? product['id'].toString(),
                             quantity + 1,
                           ),
                         ),
@@ -392,7 +438,8 @@ class CartPage extends StatelessWidget {
       if (attributeValue.isNotEmpty) {
         final color = accentColors[colorIndex % accentColors.length];
         variationChips.add(
-          _buildVariationChip(attributeName, attributeValue, color, primaryColor),
+          _buildVariationChip(
+              attributeName, attributeValue, color, primaryColor),
         );
         colorIndex++;
       }
@@ -426,13 +473,13 @@ class CartPage extends StatelessWidget {
   }
 
   /// ✅ UPDATED: Order summary now fetches and shows loyalty discount
-  Widget _buildOrderSummary(
-      CartProvider cart, BuildContext context, Color primaryColor, Color accentColor) {
+  Widget _buildOrderSummary(CartProvider cart, BuildContext context,
+      Color primaryColor, Color accentColor) {
     final formatCurrency =
         NumberFormat.currency(locale: 'en_NG', symbol: '₦', decimalDigits: 0);
 
     final double subtotal = cart.getTotalPrice();
-    const double shipping = 2500.0;
+    final double shipping = _estimatedShipping ?? 0.0;
 
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final bool isLoggedIn = userProvider.isLoggedIn;
@@ -465,44 +512,21 @@ class CartPage extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                     color: Colors.black)),
             const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Subtotal',
-                    style: GoogleFonts.inter(
-                        fontSize: 16, color: Colors.grey[600])),
-                Text(formatCurrency.format(subtotal),
-                    style:
-                        GoogleFonts.inter(fontSize: 16, color: Colors.black)),
-              ],
+            _summaryAmountRow(
+              label: 'Subtotal',
+              value: formatCurrency.format(subtotal),
             ),
             const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Shipping',
-                    style: GoogleFonts.inter(
-                        fontSize: 16, color: Colors.grey[600])),
-                Text(formatCurrency.format(shipping),
-                    style:
-                        GoogleFonts.inter(fontSize: 16, color: Colors.black)),
-              ],
-            ),
+            if (_estimatedShipping != null) ...[
+              _shippingEstimateRow(formatCurrency, primaryColor),
+              const SizedBox(height: 8),
+            ],
             const Divider(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Total',
-                    style: GoogleFonts.inter(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black)),
-                Text(formatCurrency.format(subtotal + shipping),
-                    style: GoogleFonts.inter(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: primaryColor)),
-              ],
+            _summaryAmountRow(
+              label: 'Cart total',
+              value: formatCurrency.format(subtotal + shipping),
+              valueColor: primaryColor,
+              isTotal: true,
             ),
           ],
         ),
@@ -519,6 +543,7 @@ class CartPage extends StatelessWidget {
         final loyalty = snapshot.data ?? LoyaltyDiscount.empty();
         final double discount =
             (loyalty.eligible && loyalty.discount > 0) ? loyalty.discount : 0.0;
+        final double shipping = _estimatedShipping ?? 0.0;
         final double total = subtotal + shipping - discount;
 
         return Container(
@@ -544,29 +569,15 @@ class CartPage extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                       color: Colors.black)),
               const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Subtotal',
-                      style: GoogleFonts.inter(
-                          fontSize: 16, color: Colors.grey[600])),
-                  Text(formatCurrency.format(subtotal),
-                      style: GoogleFonts.inter(
-                          fontSize: 16, color: Colors.black)),
-                ],
+              _summaryAmountRow(
+                label: 'Subtotal',
+                value: formatCurrency.format(subtotal),
               ),
               const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Shipping',
-                      style: GoogleFonts.inter(
-                          fontSize: 16, color: Colors.grey[600])),
-                  Text(formatCurrency.format(shipping),
-                      style: GoogleFonts.inter(
-                          fontSize: 16, color: Colors.black)),
-                ],
-              ),
+              if (_estimatedShipping != null) ...[
+                _shippingEstimateRow(formatCurrency, primaryColor),
+                const SizedBox(height: 8),
+              ],
 
               // 🔻 Loyalty discount row (only if applicable)
               if (snapshot.connectionState == ConnectionState.waiting)
@@ -612,12 +623,16 @@ class CartPage extends StatelessWidget {
                         ),
                       ),
                     ),
-                    Text(
-                      '-${formatCurrency.format(discount)}',
-                      style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green[700],
+                    SizedBox(
+                      width: 142,
+                      child: Text(
+                        '-${formatCurrency.format(discount)}',
+                        textAlign: TextAlign.right,
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green[700],
+                        ),
                       ),
                     ),
                   ],
@@ -625,20 +640,11 @@ class CartPage extends StatelessWidget {
               ],
 
               const Divider(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Total',
-                      style: GoogleFonts.inter(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black)),
-                  Text(formatCurrency.format(total),
-                      style: GoogleFonts.inter(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: primaryColor)),
-                ],
+              _summaryAmountRow(
+                label: 'Cart total',
+                value: formatCurrency.format(total),
+                valueColor: primaryColor,
+                isTotal: true,
               ),
             ],
           ),
@@ -647,15 +653,67 @@ class CartPage extends StatelessWidget {
     );
   }
 
+  Widget _shippingEstimateRow(
+    NumberFormat formatCurrency,
+    Color primaryColor,
+  ) {
+    return _summaryAmountRow(
+      label: 'Shipping',
+      value: _estimatedShippingLabel ??
+          formatCurrency.format(_estimatedShipping ?? 0),
+      valueColor: primaryColor,
+    );
+  }
+
+  Widget _summaryAmountRow({
+    required String label,
+    required String value,
+    Color? valueColor,
+    bool isTotal = false,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: isTotal ? 18 : 16,
+              fontWeight: isTotal ? FontWeight.bold : FontWeight.w400,
+              color: isTotal ? Colors.black : Colors.grey[600],
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          width: 142,
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.inter(
+              fontSize: isTotal ? 18 : 16,
+              fontWeight: isTotal ? FontWeight.bold : FontWeight.w600,
+              color: valueColor ?? Colors.black,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildCheckoutButton(
       CartProvider cart, BuildContext context, Color primaryColor) {
+    final canCheckout = _estimatedShipping != null;
+
     return Container(
       padding: const EdgeInsets.all(16),
       child: SizedBox(
         width: double.infinity,
         height: 56,
         child: ElevatedButton(
-          onPressed: () => _proceedToCheckout(context, cart),
+          onPressed:
+              canCheckout ? () => _proceedToCheckout(context, cart) : null,
           style: ElevatedButton.styleFrom(
             backgroundColor: primaryColor,
             foregroundColor: Colors.white,
@@ -668,7 +726,7 @@ class CartPage extends StatelessWidget {
             children: [
               const Icon(Icons.lock_outline, size: 20),
               const SizedBox(width: 8),
-              Text('Secure Checkout',
+              Text(canCheckout ? 'Secure Checkout' : 'Select delivery city',
                   style: GoogleFonts.inter(
                       fontSize: 16, fontWeight: FontWeight.w600)),
             ],
@@ -697,8 +755,7 @@ class CartPage extends StatelessWidget {
               onPressed: () => Navigator.pop(context),
               child: Text('Cancel',
                   style: GoogleFonts.inter(
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w500)),
+                      color: Colors.grey[600], fontWeight: FontWeight.w500)),
             ),
             TextButton(
               onPressed: () {
@@ -729,7 +786,7 @@ class CartPage extends StatelessWidget {
     final bool isLoggedIn = userProvider.isLoggedIn;
 
     final double subtotal = cart.getTotalPrice();
-    const double shipping = 2500.0;
+    final double shipping = _estimatedShipping ?? 0.0;
     final double total = subtotal + shipping;
 
     LoyaltyDiscount? loyalty;
@@ -769,7 +826,8 @@ class CartPage extends StatelessWidget {
 
   void _showSignInDialog(
       BuildContext context, CartProvider cart, double subtotal) {
-    final themeProvider = context.watch<CelebrationThemeProvider?>();
+    final themeProvider =
+        Provider.of<CelebrationThemeProvider?>(context, listen: false);
     final currentTheme = themeProvider?.currentTheme;
     final primaryColor = currentTheme?.primaryColor ?? kPrimaryBlue;
 
@@ -795,8 +853,7 @@ class CartPage extends StatelessWidget {
               onPressed: () => Navigator.pop(context),
               child: Text('Cancel',
                   style: GoogleFonts.inter(
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w500)),
+                      color: Colors.grey[600], fontWeight: FontWeight.w500)),
             ),
             ElevatedButton(
               onPressed: () {
@@ -828,8 +885,8 @@ class CartPage extends StatelessWidget {
           pendingCheckoutData: {
             'cartItems': cart.cartItems,
             'subtotal': subtotal,
-            'shipping': 2500.0,
-            'total': subtotal + 2500.0,
+            'shipping': _estimatedShipping ?? 0.0,
+            'total': subtotal + (_estimatedShipping ?? 0.0),
           },
           onSignedIn: () {
             final userProvider =
@@ -847,8 +904,8 @@ class CartPage extends StatelessWidget {
                   builder: (_) => CheckoutPage(
                     cartItems: cart.cartItems,
                     subtotal: subtotal,
-                    shipping: 2500.0,
-                    total: subtotal + 2500.0,
+                    shipping: _estimatedShipping ?? 0.0,
+                    total: subtotal + (_estimatedShipping ?? 0.0),
                     loyalty: loyalty,
                   ),
                 ),
@@ -861,8 +918,8 @@ class CartPage extends StatelessWidget {
                   builder: (_) => CheckoutPage(
                     cartItems: cart.cartItems,
                     subtotal: subtotal,
-                    shipping: 2500.0,
-                    total: subtotal + 2500.0,
+                    shipping: _estimatedShipping ?? 0.0,
+                    total: subtotal + (_estimatedShipping ?? 0.0),
                     loyalty: LoyaltyDiscount.empty(),
                   ),
                 ),
@@ -870,6 +927,395 @@ class CartPage extends StatelessWidget {
             });
           },
         ),
+      ),
+    );
+  }
+}
+
+class _DeliveryEstimateCard extends StatefulWidget {
+  final CartProvider cart;
+  final Color primaryColor;
+  final Color accentColor;
+  final VoidCallback onReset;
+  final void Function(double amount, String label) onEstimated;
+
+  const _DeliveryEstimateCard({
+    required this.cart,
+    required this.primaryColor,
+    required this.accentColor,
+    required this.onReset,
+    required this.onEstimated,
+  });
+
+  @override
+  State<_DeliveryEstimateCard> createState() => _DeliveryEstimateCardState();
+}
+
+class _DeliveryEstimateCardState extends State<_DeliveryEstimateCard> {
+  final WooCommerceAuthService _authService = WooCommerceAuthService();
+  final NumberFormat _formatCurrency = NumberFormat.currency(
+    locale: 'en_NG',
+    symbol: '₦',
+    decimalDigits: 0,
+  );
+
+  List<Map<String, dynamic>> _states = [];
+  List<Map<String, dynamic>> _cities = [];
+  String? _selectedState;
+  String? _selectedCity;
+  bool _loadingStates = true;
+  bool _loadingCities = false;
+  bool _estimating = false;
+  bool _reestimateScheduled = false;
+  String? _errorText;
+  String? _lastEstimateSignature;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStates();
+  }
+
+  @override
+  void didUpdateWidget(covariant _DeliveryEstimateCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (_selectedCity == null ||
+        _lastEstimateSignature == null ||
+        _estimating) {
+      return;
+    }
+
+    final currentSignature = _cartSignature();
+    if (currentSignature == _lastEstimateSignature || _reestimateScheduled) {
+      return;
+    }
+
+    _reestimateScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _reestimateScheduled = false;
+      if (!mounted) return;
+      widget.onReset();
+      _estimateDelivery();
+    });
+  }
+
+  Future<void> _loadStates() async {
+    setState(() {
+      _loadingStates = true;
+      _errorText = null;
+    });
+
+    try {
+      final states = await _authService.getTellmeStates();
+      if (!mounted) return;
+      setState(() {
+        _states = _uniqueByCode(states);
+        _loadingStates = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadingStates = false;
+        _errorText = 'Could not load states. Please try again.';
+      });
+    }
+  }
+
+  Future<void> _loadCities(String stateCode) async {
+    setState(() {
+      _loadingCities = true;
+      _cities = [];
+      _selectedCity = null;
+      _errorText = null;
+      _lastEstimateSignature = null;
+    });
+    widget.onReset();
+
+    try {
+      final cities = await _authService.getTellmeCities(stateCode);
+      if (!mounted) return;
+      setState(() {
+        _cities = _uniqueByCode(cities);
+        _loadingCities = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadingCities = false;
+        _errorText = 'Could not load cities for this state.';
+      });
+    }
+  }
+
+  Future<void> _estimateDelivery() async {
+    Map<String, dynamic>? city;
+    for (final item in _cities) {
+      if (item['code']?.toString() == _selectedCity) {
+        city = item;
+        break;
+      }
+    }
+
+    if (_selectedState == null || city == null) {
+      setState(() {
+        _errorText = 'Select a state and city to estimate delivery.';
+      });
+      return;
+    }
+
+    setState(() {
+      _estimating = true;
+      _errorText = null;
+    });
+
+    try {
+      final cityData = {
+        ...city,
+        'state': city['state'] ?? _selectedState,
+      };
+      final result = await widget.cart.calculateShippingForCity(cityData);
+      if (!mounted) return;
+
+      if (result['success'] == true) {
+        final amount = (result['shipping_cost'] as num?)?.toDouble();
+        final label = result['formatted_cost']?.toString().isNotEmpty == true
+            ? result['formatted_cost'].toString()
+            : _formatCurrency.format(amount ?? 0);
+        _lastEstimateSignature = _cartSignature();
+        widget.onEstimated(amount ?? 0, label);
+        setState(() {
+          _estimating = false;
+        });
+      } else {
+        setState(() {
+          _errorText =
+              result['error']?.toString() ?? 'Could not estimate delivery.';
+          _estimating = false;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorText = 'Could not estimate delivery. Please try again.';
+        _estimating = false;
+      });
+    }
+  }
+
+  String _cartSignature() {
+    return '${widget.cart.totalQuantity}:${widget.cart.getTotalPrice().toStringAsFixed(2)}';
+  }
+
+  List<Map<String, dynamic>> _uniqueByCode(List<Map<String, dynamic>> items) {
+    final seen = <String>{};
+    final unique = <Map<String, dynamic>>[];
+
+    for (final item in items) {
+      final code = item['code']?.toString() ?? '';
+      final name = item['name']?.toString() ?? '';
+      final key = code.isNotEmpty ? code : name;
+      if (key.isEmpty || seen.contains(key)) continue;
+      seen.add(key);
+      unique.add({
+        ...item,
+        'code': key,
+      });
+    }
+
+    return unique;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: widget.accentColor.withOpacity(0.18)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: widget.primaryColor.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.local_shipping_outlined,
+                  color: widget.primaryColor,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Estimate your delivery fee',
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Choose state and city before checkout.',
+                      style: GoogleFonts.inter(
+                        fontSize: 12.5,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (_loadingStates)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 10),
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          else ...[
+            DropdownButtonFormField<String>(
+              value: _selectedState,
+              isExpanded: true,
+              decoration: _inputDecoration('State'),
+              items: _states.map((state) {
+                return DropdownMenuItem<String>(
+                  value: state['code']?.toString(),
+                  child: Text(state['name']?.toString() ?? ''),
+                );
+              }).toList(),
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() => _selectedState = value);
+                _loadCities(value);
+              },
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: _selectedCity,
+              isExpanded: true,
+              decoration: _inputDecoration(
+                _loadingCities ? 'Loading cities...' : 'City',
+              ),
+              items: _cities.map((city) {
+                return DropdownMenuItem<String>(
+                  value: city['code']?.toString(),
+                  child: Text(city['name']?.toString() ?? ''),
+                );
+              }).toList(),
+              onChanged: _loadingCities
+                  ? null
+                  : (value) {
+                      setState(() {
+                        _selectedCity = value;
+                        _errorText = null;
+                      });
+                      widget.onReset();
+                      if (value != null) {
+                        _estimateDelivery();
+                      }
+                    },
+            ),
+          ],
+          if (_estimating) ...[
+            const SizedBox(height: 12),
+            _ResultPill(
+              icon: Icons.hourglass_top_rounded,
+              text: 'Calculating delivery fee...',
+              color: widget.primaryColor,
+            ),
+          ] else if (_errorText != null) ...[
+            const SizedBox(height: 12),
+            _ResultPill(
+              icon: Icons.info_outline,
+              text: _errorText!,
+              color: Colors.redAccent,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      filled: true,
+      fillColor: Colors.grey.shade50,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: widget.primaryColor, width: 1.4),
+      ),
+    );
+  }
+}
+
+class _ResultPill extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final Color color;
+
+  const _ResultPill({
+    required this.icon,
+    required this.text,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.25)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

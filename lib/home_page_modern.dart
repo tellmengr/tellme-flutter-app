@@ -129,8 +129,10 @@ class _HomePageModernState extends State<HomePageModern>
               widget.products.length > widget.maxItems)
             TextButton.icon(
               onPressed: widget.onSeeAllPressed,
-              icon: Icon(Icons.arrow_forward_ios, size: 14, color: Colors.white),
-              label: const Text('See All', style: TextStyle(color: Colors.white)),
+              icon:
+                  Icon(Icons.arrow_forward_ios, size: 14, color: Colors.white),
+              label:
+                  const Text('See All', style: TextStyle(color: Colors.white)),
               style: TextButton.styleFrom(
                 backgroundColor: primaryColor, // Use theme color
                 foregroundColor: Colors.white,
@@ -234,8 +236,9 @@ class _ModernShowcaseCard extends StatelessWidget {
     final badgeColor = currentTheme?.badgeColor ?? Colors.redAccent;
 
     final images = product['images'] as List?;
-    final String? imageUrl =
-        (images != null && images.isNotEmpty) ? images[0]['src']?.toString() : null;
+    final String? imageUrl = (images != null && images.isNotEmpty)
+        ? images[0]['src']?.toString()
+        : null;
 
     final String name = product['name']?.toString() ?? '';
     final bool isVariable = product['type'] == 'variable';
@@ -303,8 +306,8 @@ class _ModernShowcaseCard extends StatelessWidget {
               Container(
                 color: Colors.grey.shade200,
                 alignment: Alignment.center,
-                child: const Icon(Icons.image,
-                    size: 40, color: Colors.blueGrey),
+                child:
+                    const Icon(Icons.image, size: 40, color: Colors.blueGrey),
               ),
 
             // Gradient overlay to improve contrast (bottom)

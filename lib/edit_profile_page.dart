@@ -31,10 +31,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final user = userProvider.user;
 
-    _firstNameController = TextEditingController(text: user?['first_name'] ?? '');
+    _firstNameController =
+        TextEditingController(text: user?['first_name'] ?? '');
     _lastNameController = TextEditingController(text: user?['last_name'] ?? '');
     _emailController = TextEditingController(text: user?['email'] ?? '');
-    _phoneController = TextEditingController(text: user?['billing']?['phone'] ?? '');
+    _phoneController =
+        TextEditingController(text: user?['billing']?['phone'] ?? '');
   }
 
   @override
@@ -83,7 +85,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
             ),
             backgroundColor: kGreen,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
         Navigator.pop(context);
@@ -101,7 +104,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
             ),
             backgroundColor: kRed,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
@@ -273,7 +277,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
           ),
           filled: true,
           fillColor: Colors.white,
-          contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+          contentPadding:
+              const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide.none,

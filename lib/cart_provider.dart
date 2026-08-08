@@ -11,7 +11,7 @@ class CartProvider with ChangeNotifier {
   String? _error;
 
   // ✅ NEW: Product cache to eliminate API calls
-  final Map<int, Map<String, dynamic>> _productCache = {};
+  final Map<dynamic, Map<String, dynamic>> _productCache = {};
   final Map<int, Map<String, dynamic>> _shippingClassCache = {};
 
   // ———————————————————————————————————————————————————————————————
@@ -56,13 +56,13 @@ class CartProvider with ChangeNotifier {
   }
 
   /// 🔄 Background caching of detailed product info (non-blocking)
-  void _cacheProductDetailsInBackground(int productId) async {
+  void _cacheProductDetailsInBackground(dynamic productId) async {
     try {
       // Only fetch if not already cached
       if (_productCache[productId] != null &&
           _productCache[productId]!['shipping_class'] == null) {
-
-        final productDetails = await _wooCommerceService.getProductDetails(productId);
+        final productDetails =
+            await _wooCommerceService.getProductDetails(productId);
 
         if (productDetails != null) {
           // Update cache with detailed info
@@ -72,18 +72,20 @@ class CartProvider with ChangeNotifier {
             'weight': productDetails['weight'] ?? '',
             'dimensions': productDetails['dimensions'] ?? {},
             'stock_status': productDetails['stock_status'] ?? 'instock',
-            'sku': productDetails['sku'] ?? '',   // ✅ NEW: Cache SKU
+            'sku': productDetails['sku'] ?? '', // ✅ NEW: Cache SKU
           });
 
           // Cache shipping class details if available
           final shippingClassId = productDetails['shipping_class_id'];
-          if (shippingClassId != null && shippingClassId > 0 &&
+          if (shippingClassId != null &&
+              shippingClassId > 0 &&
               !_shippingClassCache.containsKey(shippingClassId)) {
-
-            final classDetails = await _wooCommerceService.getShippingClassDetails(shippingClassId);
+            final classDetails = await _wooCommerceService
+                .getShippingClassDetails(shippingClassId);
             if (classDetails != null) {
               _shippingClassCache[shippingClassId] = classDetails;
-              _productCache[productId]!['shipping_class_name'] = classDetails['name'];
+              _productCache[productId]!['shipping_class_name'] =
+                  classDetails['name'];
             }
           }
 
@@ -116,13 +118,21 @@ class CartProvider with ChangeNotifier {
 
         // Add cached shipping class information
         enhancedProduct.addAll({
+          'backendId':
+              cachedProduct['backendId'] ?? cachedProduct['backend_id'] ?? '',
+          'variant_id':
+              cachedProduct['variant_id'] ?? cachedProduct['variantId'] ?? '',
+          'variantId':
+              cachedProduct['variantId'] ?? cachedProduct['variant_id'] ?? '',
           'shipping_class': cachedProduct['shipping_class'] ?? '',
           'shipping_class_id': cachedProduct['shipping_class_id'] ?? 0,
           'shipping_class_name': cachedProduct['shipping_class_name'] ?? '',
           'weight': cachedProduct['weight'] ?? '',
           'dimensions': cachedProduct['dimensions'] ?? {},
           'stock_status': cachedProduct['stock_status'] ?? 'instock',
-          'sku': cachedProduct['sku'] ?? '',  // ✅ NEW: Ensure SKU is preserved
+          'sku': cachedProduct['sku'] ??
+              enhancedProduct['sku'] ??
+              '', // ✅ NEW: Ensure SKU is preserved
         });
 
         print('✅ Used cached data - NO API calls needed!');
@@ -136,7 +146,8 @@ class CartProvider with ChangeNotifier {
 
       // Add metadata
       enhancedProduct['added_at'] = DateTime.now().toIso8601String();
-      enhancedProduct['cart_item_id'] = _generateCartItemId(productId, product['color'], product['size']);
+      enhancedProduct['cart_item_id'] =
+          _generateCartItemId(productId, product['color'], product['size']);
 
       // Add to cart
       _cartItems.add(enhancedProduct);
@@ -144,8 +155,8 @@ class CartProvider with ChangeNotifier {
       await _saveCartToStorage();
       notifyListeners();
 
-      print('✅ Added to cart INSTANTLY with shipping class: ${enhancedProduct['shipping_class'] ?? 'none'}');
-
+      print(
+          '✅ Added to cart INSTANTLY with shipping class: ${enhancedProduct['shipping_class'] ?? 'none'}');
     } catch (e) {
       _setError('Failed to add item to cart: $e');
       print('❌ Error adding to cart: $e');
@@ -206,30 +217,51 @@ class CartProvider with ChangeNotifier {
 
       // 📦 Fetch detailed product information including shipping class if we have an ID
       if (productId != null) {
-        final productDetails = await _wooCommerceService.getProductDetails(productId);
+        final productDetails =
+            await _wooCommerceService.getProductDetails(productId);
 
         if (productDetails != null) {
           // Add shipping class information
-          enhancedProduct['shipping_class'] = productDetails['shipping_class'] ?? '';
-          enhancedProduct['shipping_class_id'] = productDetails['shipping_class_id'] ?? 0;
+          enhancedProduct['shipping_class'] =
+              productDetails['shipping_class'] ?? '';
+          enhancedProduct['shipping_class_id'] =
+              productDetails['shipping_class_id'] ?? 0;
+          enhancedProduct['backendId'] = productDetails['backendId'] ??
+              productDetails['backend_id'] ??
+              enhancedProduct['backendId'] ??
+              '';
+          enhancedProduct['variant_id'] = productDetails['variant_id'] ??
+              productDetails['variantId'] ??
+              enhancedProduct['variant_id'] ??
+              '';
+          enhancedProduct['variantId'] = productDetails['variantId'] ??
+              productDetails['variant_id'] ??
+              enhancedProduct['variantId'] ??
+              '';
           enhancedProduct['weight'] = productDetails['weight'] ?? '';
           enhancedProduct['dimensions'] = productDetails['dimensions'] ?? {};
-          enhancedProduct['stock_status'] = productDetails['stock_status'] ?? 'instock';
-          enhancedProduct['sku'] = productDetails['sku'] ?? '';  // ✅ NEW: Add SKU
+          enhancedProduct['stock_status'] =
+              productDetails['stock_status'] ?? 'instock';
+          enhancedProduct['sku'] = productDetails['sku'] ??
+              enhancedProduct['sku'] ??
+              ''; // ✅ NEW: Add SKU
 
           // Get shipping class name if available
           final shippingClass = productDetails['shipping_class'] ?? '';
           if (shippingClass.isNotEmpty) {
             final shippingClassId = productDetails['shipping_class_id'];
             if (shippingClassId != null && shippingClassId > 0) {
-              final classDetails = await _wooCommerceService.getShippingClassDetails(shippingClassId);
+              final classDetails = await _wooCommerceService
+                  .getShippingClassDetails(shippingClassId);
               if (classDetails != null) {
-                enhancedProduct['shipping_class_name'] = classDetails['name'] ?? shippingClass;
+                enhancedProduct['shipping_class_name'] =
+                    classDetails['name'] ?? shippingClass;
               }
             }
           }
 
-          print('✅ Product shipping class: ${enhancedProduct['shipping_class']}');
+          print(
+              '✅ Product shipping class: ${enhancedProduct['shipping_class']}');
         } else {
           print('⚠️ Could not fetch product details for ID: $productId');
           // Continue with basic product info
@@ -238,7 +270,8 @@ class CartProvider with ChangeNotifier {
 
       // Add metadata
       enhancedProduct['added_at'] = DateTime.now().toIso8601String();
-      enhancedProduct['cart_item_id'] = _generateCartItemId(productId, product['color'], product['size']);
+      enhancedProduct['cart_item_id'] =
+          _generateCartItemId(productId, product['color'], product['size']);
 
       // Add to cart (preserving your original logic)
       _cartItems.add(enhancedProduct);
@@ -246,8 +279,8 @@ class CartProvider with ChangeNotifier {
       await _saveCartToStorage();
       notifyListeners(); // ✅ CRITICAL: This triggers UI updates including the badge!
 
-      print('✅ Added to cart with shipping class: ${enhancedProduct['shipping_class'] ?? 'none'}');
-
+      print(
+          '✅ Added to cart with shipping class: ${enhancedProduct['shipping_class'] ?? 'none'}');
     } catch (e) {
       _setError('Failed to add item to cart: $e');
       print('❌ Error adding to cart: $e');
@@ -262,14 +295,14 @@ class CartProvider with ChangeNotifier {
 
   /// ➕ ENHANCED: Add item with explicit parameters (✅ NOW WITH ATTRIBUTES SUPPORT)
   Future<void> addToCartWithDetails({
-    required int productId,
+    required dynamic productId,
     required String name,
     required double price,
     required String image,
     int quantity = 1,
     String? color,
     String? size,
-    String? sku,                          // ✅ NEW: Added SKU parameter
+    String? sku, // ✅ NEW: Added SKU parameter
     Map<String, String>? attributes,
   }) async {
     try {
@@ -281,12 +314,15 @@ class CartProvider with ChangeNotifier {
       if (attributes != null && attributes.isNotEmpty) {
         // Sort attributes for consistent key generation
         final sortedKeys = attributes.keys.toList()..sort();
-        attributeKey = sortedKeys.map((key) => '$key:${attributes[key]}').join('|');
+        attributeKey =
+            sortedKeys.map((key) => '$key:${attributes[key]}').join('|');
       }
 
       final product = {
         'id': productId,
-        'sku': sku ?? '',                  // ✅ NEW: Save SKU
+        'sku': sku ?? '', // ✅ NEW: Save SKU
+        'variant_id': '',
+        'variantId': '',
         'name': name,
         'price': price,
         'image': image,
@@ -302,7 +338,6 @@ class CartProvider with ChangeNotifier {
       }
 
       print('✅ Added $quantity × $name with attributes: $attributes');
-
     } catch (e) {
       _setError('Failed to add item with attributes: $e');
       print('❌ Error adding item with attributes: $e');
@@ -323,7 +358,8 @@ class CartProvider with ChangeNotifier {
     String productKey = product['id']?.toString() ?? product['name'] ?? '';
 
     for (int i = 0; i < _cartItems.length; i++) {
-      String itemKey = _cartItems[i]['id']?.toString() ?? _cartItems[i]['name'] ?? '';
+      String itemKey =
+          _cartItems[i]['id']?.toString() ?? _cartItems[i]['name'] ?? '';
       if (itemKey == productKey) {
         _cartItems.removeAt(i);
         break;
@@ -367,9 +403,8 @@ class CartProvider with ChangeNotifier {
       // Find the product in unique products
       final uniqueProducts = getUniqueProductsWithQuantity();
       final productIndex = uniqueProducts.indexWhere((item) =>
-        item['cart_item_id'] == cartItemId ||
-        item['id']?.toString() == cartItemId
-      );
+          item['cart_item_id'] == cartItemId ||
+          item['id']?.toString() == cartItemId);
 
       if (productIndex >= 0) {
         final product = uniqueProducts[productIndex];
@@ -383,7 +418,8 @@ class CartProvider with ChangeNotifier {
           }
         } else if (difference < 0) {
           // Remove items
-          final String productKey = product['id']?.toString() ?? product['name'] ?? '';
+          final String productKey =
+              product['id']?.toString() ?? product['name'] ?? '';
           int toRemove = difference.abs().toInt();
 
           _cartItems.removeWhere((item) {
@@ -454,10 +490,12 @@ class CartProvider with ChangeNotifier {
       // Create unique key including attributes
       String baseKey = item['id']?.toString() ?? item['name'] ?? '';
       String attributeKey = item['attribute_key'] ?? '';
-      String uniqueKey = attributeKey.isNotEmpty ? '${baseKey}_$attributeKey' : baseKey;
+      String uniqueKey =
+          attributeKey.isNotEmpty ? '${baseKey}_$attributeKey' : baseKey;
 
       if (uniqueProducts.containsKey(uniqueKey)) {
-        uniqueProducts[uniqueKey]!['quantity'] = (uniqueProducts[uniqueKey]!['quantity'] ?? 0) + 1;
+        uniqueProducts[uniqueKey]!['quantity'] =
+            (uniqueProducts[uniqueKey]!['quantity'] ?? 0) + 1;
       } else {
         uniqueProducts[uniqueKey] = Map<String, dynamic>.from(item);
         uniqueProducts[uniqueKey]!['quantity'] = 1;
@@ -487,7 +525,8 @@ class CartProvider with ChangeNotifier {
   }
 
   /// 🔍 Check if two items have the same attributes
-  bool hasSameAttributes(Map<String, dynamic> item1, Map<String, dynamic> item2) {
+  bool hasSameAttributes(
+      Map<String, dynamic> item1, Map<String, dynamic> item2) {
     final attrs1 = item1['attributes'] as Map<String, String>? ?? {};
     final attrs2 = item2['attributes'] as Map<String, String>? ?? {};
 
@@ -543,29 +582,39 @@ class CartProvider with ChangeNotifier {
         final productId = product['id'];
 
         if (productId != null) {
-          final productDetails = await _wooCommerceService.getProductDetails(productId);
+          final productDetails =
+              await _wooCommerceService.getProductDetails(productId);
 
           if (productDetails != null) {
             // Update all instances of this product in _cartItems
-            final String productKey = product['id']?.toString() ?? product['name'] ?? '';
+            final String productKey =
+                product['id']?.toString() ?? product['name'] ?? '';
 
             for (int i = 0; i < _cartItems.length; i++) {
-              String itemKey = _cartItems[i]['id']?.toString() ?? _cartItems[i]['name'] ?? '';
+              String itemKey = _cartItems[i]['id']?.toString() ??
+                  _cartItems[i]['name'] ??
+                  '';
               if (itemKey == productKey) {
-                _cartItems[i]['shipping_class'] = productDetails['shipping_class'] ?? '';
-                _cartItems[i]['shipping_class_id'] = productDetails['shipping_class_id'] ?? 0;
+                _cartItems[i]['shipping_class'] =
+                    productDetails['shipping_class'] ?? '';
+                _cartItems[i]['shipping_class_id'] =
+                    productDetails['shipping_class_id'] ?? 0;
                 _cartItems[i]['weight'] = productDetails['weight'] ?? '';
-                _cartItems[i]['dimensions'] = productDetails['dimensions'] ?? {};
-                _cartItems[i]['sku'] = productDetails['sku'] ?? '';  // ✅ NEW: Update SKU
+                _cartItems[i]['dimensions'] =
+                    productDetails['dimensions'] ?? {};
+                _cartItems[i]['sku'] =
+                    productDetails['sku'] ?? ''; // ✅ NEW: Update SKU
 
                 // Update shipping class name if available
                 final shippingClass = productDetails['shipping_class'] ?? '';
                 if (shippingClass.isNotEmpty) {
                   final shippingClassId = productDetails['shipping_class_id'];
                   if (shippingClassId != null && shippingClassId > 0) {
-                    final classDetails = await _wooCommerceService.getShippingClassDetails(shippingClassId);
+                    final classDetails = await _wooCommerceService
+                        .getShippingClassDetails(shippingClassId);
                     if (classDetails != null) {
-                      _cartItems[i]['shipping_class_name'] = classDetails['name'] ?? shippingClass;
+                      _cartItems[i]['shipping_class_name'] =
+                          classDetails['name'] ?? shippingClass;
                     }
                   }
                 }
@@ -579,7 +628,6 @@ class CartProvider with ChangeNotifier {
       notifyListeners();
 
       print('✅ Shipping class data refreshed for all items');
-
     } catch (e) {
       _setError('Failed to refresh shipping class data: $e');
       print('❌ Error refreshing shipping class data: $e');
@@ -602,7 +650,8 @@ class CartProvider with ChangeNotifier {
   // ———————————————————————————————————————————————————————————————
 
   /// 💰 Calculate enhanced shipping cost for selected city
-  Future<Map<String, dynamic>> calculateShippingForCity(Map<String, dynamic> cityData) async {
+  Future<Map<String, dynamic>> calculateShippingForCity(
+      Map<String, dynamic> cityData) async {
     try {
       _setLoading(true);
       _clearError();
@@ -630,7 +679,6 @@ class CartProvider with ChangeNotifier {
       }
 
       return result;
-
     } catch (e) {
       _setError('Failed to calculate shipping: $e');
       print('❌ Error calculating shipping: $e');
@@ -646,13 +694,16 @@ class CartProvider with ChangeNotifier {
   }
 
   /// 🔄 Calculate shipping using legacy method (fallback)
-  Future<Map<String, dynamic>> calculateSimpleShippingForCity(Map<String, dynamic> cityData) async {
+  Future<Map<String, dynamic>> calculateSimpleShippingForCity(
+      Map<String, dynamic> cityData) async {
     try {
       print('🔄 Calculating simple shipping for: ${cityData['name']}');
 
-      final shippingResult = await _wooCommerceService.getShippingMethodsForCity(cityData);
+      final shippingResult =
+          await _wooCommerceService.getShippingMethodsForCity(cityData);
 
-      if (shippingResult['success'] == true && shippingResult['shipping_options'].isNotEmpty) {
+      if (shippingResult['success'] == true &&
+          shippingResult['shipping_options'].isNotEmpty) {
         final shippingOption = shippingResult['shipping_options'][0];
 
         return {
@@ -717,7 +768,8 @@ class CartProvider with ChangeNotifier {
         // Check if any items are missing shipping class data
         final missingShippingClass = getItemsMissingShippingClass();
         if (missingShippingClass.isNotEmpty) {
-          print('⚠️ ${missingShippingClass.length} items missing shipping class, will refresh when needed');
+          print(
+              '⚠️ ${missingShippingClass.length} items missing shipping class, will refresh when needed');
         }
 
         notifyListeners();

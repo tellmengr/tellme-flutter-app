@@ -1,8 +1,8 @@
 import 'dart:ui'; // for ImageFilter (glassy blur)
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter/foundation.dart';                 // ✅ for kDebugMode
-import 'package:firebase_core/firebase_core.dart';        // ✅ show projectId (no extra init here)
+import 'package:flutter/foundation.dart'; // ✅ for kDebugMode
+import 'package:firebase_core/firebase_core.dart'; // ✅ show projectId (no extra init here)
 
 import 'user_settings_provider.dart';
 import 'celebration_theme.dart';
@@ -21,10 +21,10 @@ class SettingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final settings      = Provider.of<UserSettingsProvider>(context);
+    final settings = Provider.of<UserSettingsProvider>(context);
     final themeProvider = Provider.of<CelebrationThemeProvider>(context);
-    final userProvider  = Provider.of<UserProvider>(context);
-    final isAdmin       = userProvider.isAdmin;
+    final userProvider = Provider.of<UserProvider>(context);
+    final isAdmin = userProvider.isAdmin;
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -35,10 +35,13 @@ class SettingsPage extends StatelessWidget {
     final gradientColors = currentTheme.gradient.colors;
     final lightBlue = const Color(0xFFE3F2FD);
     final veryLightBlue = const Color(0xFFF5F8FF);
-    final kVeryFaintBlue = Color(0x08F0F8FF); // Very faint blue with high transparency
+    final kVeryFaintBlue =
+        Color(0x08F0F8FF); // Very faint blue with high transparency
     final kSoftBlueBG = Color(0x05E6F3FF); // Super light blue background tint
-    final kGlassBlue = Color(0x30E6F3FF); // Semi-transparent blue for glass effect
-    final kGlassBorder = Color(0x20B8D4FF); // Very faint blue border for glass sections
+    final kGlassBlue =
+        Color(0x30E6F3FF); // Semi-transparent blue for glass effect
+    final kGlassBorder =
+        Color(0x20B8D4FF); // Very faint blue border for glass sections
 
     // Debug info
     if (kDebugMode) {
@@ -83,7 +86,8 @@ class SettingsPage extends StatelessWidget {
                 ScaffoldMessenger.of(context).removeCurrentSnackBar();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Tap ${5 - _tapCount} more times for admin mode'),
+                    content:
+                        Text('Tap ${5 - _tapCount} more times for admin mode'),
                     behavior: SnackBarBehavior.floating,
                     duration: const Duration(milliseconds: 800),
                   ),
@@ -146,7 +150,8 @@ class SettingsPage extends StatelessWidget {
                     primaryColor: primaryColor,
                     onTap: () {
                       Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => ProfilePage()), // ⬅️ no const
+                        MaterialPageRoute(
+                            builder: (_) => ProfilePage()), // ⬅️ no const
                       );
                     },
                   ),
@@ -157,7 +162,9 @@ class SettingsPage extends StatelessWidget {
                     primaryColor: primaryColor,
                     onTap: () {
                       Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => ChangePasswordPage()), // ⬅️ no const
+                        MaterialPageRoute(
+                            builder: (_) =>
+                                ChangePasswordPage()), // ⬅️ no const
                       );
                     },
                   ),
@@ -237,15 +244,15 @@ class SettingsPage extends StatelessWidget {
                       ),
                       ...ProductDetailStyle.values.map((style) {
                         return RadioListTile<ProductDetailStyle>(
-                          title: Text(style.toString().split('.').last.toUpperCase()),
+                          title: Text(
+                              style.toString().split('.').last.toUpperCase()),
                           value: style,
                           groupValue: settings.productDetailStyle,
-                          onChanged: (val) => settings.setProductDetailStyle(val!),
+                          onChanged: (val) =>
+                              settings.setProductDetailStyle(val!),
                         );
                       }).toList(),
-
                       const Divider(),
-
                       const Padding(
                         padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
                         child: Text(
@@ -255,7 +262,8 @@ class SettingsPage extends StatelessWidget {
                       ),
                       ...HomePageStyle.values.map((style) {
                         return RadioListTile<HomePageStyle>(
-                          title: Text(style.toString().split('.').last.toUpperCase()),
+                          title: Text(
+                              style.toString().split('.').last.toUpperCase()),
                           value: style,
                           groupValue: settings.homePageStyle,
                           onChanged: (val) => settings.setHomePageStyle(val!),
@@ -268,57 +276,61 @@ class SettingsPage extends StatelessWidget {
 
               const SizedBox(height: 16),
 
-             // 🎯 Celebration Themes section - ADMIN ONLY (in all modes)
-             if (isAdmin)
-               _glassSection(
-                 context,
-                 label: "Celebration Themes",
-                 badge: "ADMIN",
-                 primaryColor: primaryColor,
-                 accentColor: accentColor,
-                 children: _buildCelebrationThemesSection(context, themeProvider, primaryColor, accentColor),
-               ),
+              // 🎯 Celebration Themes section - ADMIN ONLY (in all modes)
+              if (isAdmin)
+                _glassSection(
+                  context,
+                  label: "Celebration Themes",
+                  badge: "ADMIN",
+                  primaryColor: primaryColor,
+                  accentColor: accentColor,
+                  children: _buildCelebrationThemesSection(
+                      context, themeProvider, primaryColor, accentColor),
+                ),
 
-               const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-               _glassSection(
-                 context,
-                 label: "App Controls",
-                 primaryColor: primaryColor,
-                 accentColor: accentColor,
-                 children: [
-                   SwitchListTile.adaptive(
-                     secondary: const Icon(Icons.notifications),
-                     title: const Text("Push Notifications"),
-                     value: true,
-                     onChanged: (val) {},
-                   ),
-                   const Divider(height: 1),
-                   _GlassTile(
-                     leading: const Icon(Icons.storage),
-                     title: "Clear Cache",
-                     subtitle: "Free up storage space",
-                     primaryColor: primaryColor,
-                     onTap: () {},
-                   ),
-                   const Divider(height: 1),
-                   ListTile(
-                     leading: Icon(Icons.info_outline, color: accentColor),
-                     title: const Text("App Version"),
-                     subtitle: const Text("1.0.0"),
-                   ),
-                 ],
-               ),
-             ],
-           ),
-         ],
-       ),
-     );
-   }
+              _glassSection(
+                context,
+                label: "App Controls",
+                primaryColor: primaryColor,
+                accentColor: accentColor,
+                children: [
+                  SwitchListTile.adaptive(
+                    secondary: const Icon(Icons.notifications),
+                    title: const Text("Push Notifications"),
+                    value: true,
+                    onChanged: (val) {},
+                  ),
+                  const Divider(height: 1),
+                  _GlassTile(
+                    leading: const Icon(Icons.storage),
+                    title: "Clear Cache",
+                    subtitle: "Free up storage space",
+                    primaryColor: primaryColor,
+                    onTap: () {},
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: Icon(Icons.info_outline, color: accentColor),
+                    title: const Text("App Version"),
+                    subtitle: const Text("1.0.0"),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
   // ===== Celebration Themes (updated with theme colors) =====
   List<Widget> _buildCelebrationThemesSection(
-      BuildContext context, CelebrationThemeProvider themeProvider, Color primaryColor, Color accentColor) {
+      BuildContext context,
+      CelebrationThemeProvider themeProvider,
+      Color primaryColor,
+      Color accentColor) {
     final String projectId = _safeProjectId();
 
     return [
@@ -380,9 +392,11 @@ class SettingsPage extends StatelessWidget {
                             ),
                             title: Row(
                               children: [
-                                Text(theme.iconEmoji, style: const TextStyle(fontSize: 28)),
+                                Text(theme.iconEmoji,
+                                    style: const TextStyle(fontSize: 28)),
                                 const SizedBox(width: 8),
-                                const Expanded(child: Text('Set Global Theme?')),
+                                const Expanded(
+                                    child: Text('Set Global Theme?')),
                               ],
                             ),
                             content: Text(
@@ -397,10 +411,12 @@ class SettingsPage extends StatelessWidget {
                               ElevatedButton(
                                 onPressed: () => Navigator.pop(ctx, true),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0x30E6F3FF).withOpacity(0.8),
+                                  backgroundColor:
+                                      const Color(0x30E6F3FF).withOpacity(0.8),
                                   foregroundColor: primaryColor,
                                   side: BorderSide(
-                                    color: const Color(0x20B8D4FF).withOpacity(0.8),
+                                    color: const Color(0x20B8D4FF)
+                                        .withOpacity(0.8),
                                     width: 1,
                                   ),
                                 ),
@@ -418,7 +434,8 @@ class SettingsPage extends StatelessWidget {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('🌍 ${theme.iconEmoji} "${theme.name}" set globally!'),
+                              content: Text(
+                                  '🌍 ${theme.iconEmoji} "${theme.name}" set globally!'),
                               backgroundColor: const Color(0x30E6F3FF),
                               behavior: SnackBarBehavior.floating,
                               duration: const Duration(seconds: 3),
@@ -429,7 +446,8 @@ class SettingsPage extends StatelessWidget {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('⚠️ Failed to set global theme: $e'),
+                              content:
+                                  Text('⚠️ Failed to set global theme: $e'),
                               behavior: SnackBarBehavior.floating,
                             ),
                           );
@@ -473,7 +491,8 @@ class SettingsPage extends StatelessWidget {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(theme.iconEmoji, style: const TextStyle(fontSize: 32)),
+                                  Text(theme.iconEmoji,
+                                      style: const TextStyle(fontSize: 32)),
                                   const Spacer(),
                                   const SizedBox(height: 4),
                                   Text(
@@ -504,14 +523,16 @@ class SettingsPage extends StatelessWidget {
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(16),
                                   child: BackdropFilter(
-                                    filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                                    filter:
+                                        ImageFilter.blur(sigmaX: 5, sigmaY: 5),
                                     child: Container(
                                       padding: const EdgeInsets.all(6),
                                       decoration: BoxDecoration(
                                         color: Colors.white.withOpacity(0.9),
                                         shape: BoxShape.circle,
                                       ),
-                                      child: Icon(Icons.check, color: primaryColor, size: 16),
+                                      child: Icon(Icons.check,
+                                          color: primaryColor, size: 16),
                                     ),
                                   ),
                                 ),
@@ -567,13 +588,19 @@ class SettingsPage extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                isDark ? Colors.white.withOpacity(0.08) : const Color(0x30E6F3FF).withOpacity(0.4),
-                isDark ? Colors.white.withOpacity(0.03) : const Color(0x08F0F8FF).withOpacity(0.6),
+                isDark
+                    ? Colors.white.withOpacity(0.08)
+                    : const Color(0x30E6F3FF).withOpacity(0.4),
+                isDark
+                    ? Colors.white.withOpacity(0.03)
+                    : const Color(0x08F0F8FF).withOpacity(0.6),
               ],
             ),
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: isDark ? Colors.white.withOpacity(0.15) : const Color(0x20B8D4FF),
+              color: isDark
+                  ? Colors.white.withOpacity(0.15)
+                  : const Color(0x20B8D4FF),
               width: 1,
             ),
             boxShadow: [
@@ -606,7 +633,8 @@ class SettingsPage extends StatelessWidget {
                         child: BackdropFilter(
                           filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
                               color: badge == "DEBUG"
                                   ? Colors.blue.withOpacity(0.2)
@@ -623,7 +651,9 @@ class SettingsPage extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
-                                color: badge == "DEBUG" ? Colors.blue : Colors.orange,
+                                color: badge == "DEBUG"
+                                    ? Colors.blue
+                                    : Colors.orange,
                               ),
                             ),
                           ),
@@ -652,7 +682,11 @@ class SettingsPage extends StatelessWidget {
     }
   }
 
-  Widget _cloudPill({required IconData icon, required String text, required Color primaryColor, required Color accentColor}) {
+  Widget _cloudPill(
+      {required IconData icon,
+      required String text,
+      required Color primaryColor,
+      required Color accentColor}) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(999),
       child: BackdropFilter(
@@ -689,7 +723,8 @@ class _SoftBackground extends StatelessWidget {
   final Color primaryColor;
   final Color accentColor;
 
-  const _SoftBackground({required this.primaryColor, required this.accentColor});
+  const _SoftBackground(
+      {required this.primaryColor, required this.accentColor});
 
   @override
   Widget build(BuildContext context) {
@@ -780,7 +815,8 @@ class _GlassTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
           ),
           child: ListTile(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             leading: IconTheme(
               data: IconThemeData(color: isDark ? Colors.white : primaryColor),
               child: leading,
@@ -788,7 +824,9 @@ class _GlassTile extends StatelessWidget {
             title: Text(
               title,
               style: TextStyle(
-                color: isDark ? Colors.white : const Color(0xFF0F172A), // slate-900-ish
+                color: isDark
+                    ? Colors.white
+                    : const Color(0xFF0F172A), // slate-900-ish
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -796,14 +834,18 @@ class _GlassTile extends StatelessWidget {
                 ? Text(
                     subtitle!,
                     style: TextStyle(
-                      color: isDark ? Colors.white70 : const Color(0xFF475569), // slate-600
+                      color: isDark
+                          ? Colors.white70
+                          : const Color(0xFF475569), // slate-600
                     ),
                   )
                 : null,
             trailing: Icon(
               Icons.arrow_forward_ios,
               size: 16,
-              color: isDark ? Colors.white70 : const Color(0xFF64748B), // slate-500
+              color: isDark
+                  ? Colors.white70
+                  : const Color(0xFF64748B), // slate-500
             ),
             onTap: onTap,
           ),
@@ -862,11 +904,14 @@ class _GlassExpansion extends StatelessWidget {
               shape: const Border(),
               collapsedShape: const Border(),
               leading: IconTheme(
-                data: IconThemeData(color: isDark ? Colors.white : primaryColor),
+                data:
+                    IconThemeData(color: isDark ? Colors.white : primaryColor),
                 child: leading,
               ),
               title: Text(title, style: titleStyle),
-              subtitle: subtitle != null ? Text(subtitle!, style: subtitleStyle) : null,
+              subtitle: subtitle != null
+                  ? Text(subtitle!, style: subtitleStyle)
+                  : null,
               collapsedIconColor: isDark ? Colors.white : primaryColor,
               iconColor: isDark ? Colors.white : primaryColor,
               childrenPadding: const EdgeInsets.only(bottom: 12),

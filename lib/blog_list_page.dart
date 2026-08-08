@@ -1,4 +1,4 @@
-﻿// lib/blog_list_page.dart
+// lib/blog_list_page.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -51,7 +51,8 @@ class _BlogListPageState extends State<BlogListPage> {
     }
 
     try {
-      final newPosts = await _service.fetchPosts(page: _page, perPage: _perPage);
+      final newPosts =
+          await _service.fetchPosts(page: _page, perPage: _perPage);
 
       setState(() {
         _posts.addAll(newPosts);
@@ -235,4 +236,3 @@ class _BlogListPageState extends State<BlogListPage> {
     );
   }
 }
-

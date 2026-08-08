@@ -59,10 +59,16 @@ class _ProductDetailGalleryState extends State<ProductDetailGallery> {
 
   // ----------------- Safe getters -----------------
   String get productDescription =>
-      widget.product['description']?.toString().replaceAll(RegExp(r'<[^>]*>'), '').trim() ??
+      widget.product['description']
+          ?.toString()
+          .replaceAll(RegExp(r'<[^>]*>'), '')
+          .trim() ??
       'No description available';
   String get productSpecifications =>
-      widget.product['short_description']?.toString().replaceAll(RegExp(r'<[^>]*>'), '').trim() ??
+      widget.product['short_description']
+          ?.toString()
+          .replaceAll(RegExp(r'<[^>]*>'), '')
+          .trim() ??
       'No specification provided';
   String get productPolicies =>
       "Store policies coming soon. Please contact us for any questions about returns, warranties, or shipping.";
@@ -190,12 +196,14 @@ class _ProductDetailGalleryState extends State<ProductDetailGallery> {
                             color: Colors.white.withOpacity(0.85),
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: accentColor.withOpacity(0.2), // Use theme color
+                              color: accentColor
+                                  .withOpacity(0.2), // Use theme color
                               width: 1.5,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: primaryColor.withOpacity(0.1), // Use theme color
+                                color: primaryColor
+                                    .withOpacity(0.1), // Use theme color
                                 blurRadius: 8,
                                 offset: const Offset(0, 3),
                               ),
@@ -203,7 +211,8 @@ class _ProductDetailGalleryState extends State<ProductDetailGallery> {
                           ),
                           child: IconButton(
                             icon: Icon(Icons.arrow_back_ios_new_rounded,
-                                color: primaryColor, size: 20), // Use theme color
+                                color: primaryColor,
+                                size: 20), // Use theme color
                             onPressed: () => Navigator.pop(context),
                           ),
                         ),
@@ -226,7 +235,8 @@ class _ProductDetailGalleryState extends State<ProductDetailGallery> {
                                     setState(() => _currentImage = index),
                                 itemCount: _images.length,
                                 itemBuilder: (context, index) {
-                                  final src = _images[index]['src']?.toString() ??
+                                  final src = _images[index]['src']
+                                          ?.toString() ??
                                       _images[index]['url']?.toString() ??
                                       _images[index]['image_url']?.toString() ??
                                       'https://via.placeholder.com/300x300?text=No+Image';
@@ -235,10 +245,12 @@ class _ProductDetailGalleryState extends State<ProductDetailGallery> {
                                   final delta = (index - _page).abs();
 
                                   // Scale from 0.92 (far) → 1.0 (center)
-                                  final scale = 1.0 - (0.08 * delta).clamp(0.0, 0.08);
+                                  final scale =
+                                      1.0 - (0.08 * delta).clamp(0.0, 0.08);
 
                                   // Lift the center slightly
-                                  final lift = lerpDouble(16, 0, (1 - delta).clamp(0.0, 1.0))!;
+                                  final lift = lerpDouble(
+                                      16, 0, (1 - delta).clamp(0.0, 1.0))!;
 
                                   return Transform.translate(
                                     offset: Offset(0, lift),
@@ -250,29 +262,36 @@ class _ProductDetailGalleryState extends State<ProductDetailGallery> {
                                           margin: const EdgeInsets.symmetric(
                                               horizontal: 8, vertical: 10),
                                           decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(24),
+                                            borderRadius:
+                                                BorderRadius.circular(24),
                                             boxShadow: [
                                               BoxShadow(
-                                                color: Colors.black.withOpacity(0.08),
+                                                color: Colors.black
+                                                    .withOpacity(0.08),
                                                 blurRadius: 18,
                                                 offset: const Offset(0, 10),
                                               ),
                                             ],
                                           ),
                                           child: ClipRRect(
-                                            borderRadius: BorderRadius.circular(24),
+                                            borderRadius:
+                                                BorderRadius.circular(24),
                                             child: Stack(
                                               fit: StackFit.expand,
                                               children: [
                                                 Image.network(
                                                   src,
                                                   fit: BoxFit.cover,
-                                                  errorBuilder: (context, _, __) {
+                                                  errorBuilder:
+                                                      (context, _, __) {
                                                     return Container(
                                                       decoration: BoxDecoration(
-                                                        gradient: LinearGradient(
+                                                        gradient:
+                                                            LinearGradient(
                                                           colors: [
-                                                            kLightBlue.withOpacity(0.3),
+                                                            kLightBlue
+                                                                .withOpacity(
+                                                                    0.3),
                                                             kVeryLightBlue,
                                                           ],
                                                         ),
@@ -280,7 +299,9 @@ class _ProductDetailGalleryState extends State<ProductDetailGallery> {
                                                       child: Icon(
                                                         Icons.image_outlined,
                                                         size: 80,
-                                                        color: primaryColor.withOpacity(0.4), // Use theme color
+                                                        color: primaryColor
+                                                            .withOpacity(
+                                                                0.4), // Use theme color
                                                       ),
                                                     );
                                                   },
@@ -294,10 +315,14 @@ class _ProductDetailGalleryState extends State<ProductDetailGallery> {
                                                     height: 56,
                                                     decoration: BoxDecoration(
                                                       gradient: LinearGradient(
-                                                        begin: Alignment.bottomCenter,
-                                                        end: Alignment.topCenter,
+                                                        begin: Alignment
+                                                            .bottomCenter,
+                                                        end:
+                                                            Alignment.topCenter,
                                                         colors: [
-                                                          Colors.black.withOpacity(0.20),
+                                                          Colors.black
+                                                              .withOpacity(
+                                                                  0.20),
                                                           Colors.transparent,
                                                         ],
                                                       ),
@@ -445,7 +470,8 @@ class _ProductDetailGalleryState extends State<ProductDetailGallery> {
                                     gradient: LinearGradient(
                                       colors: [
                                         badgeColor, // Use theme badge color
-                                        badgeColor.withOpacity(0.8), // Use theme badge color
+                                        badgeColor.withOpacity(
+                                            0.8), // Use theme badge color
                                       ],
                                     ),
                                     borderRadius: BorderRadius.circular(12),
@@ -529,13 +555,16 @@ class _ProductDetailGalleryState extends State<ProductDetailGallery> {
                                               border: Border.all(
                                                 color: isSelected
                                                     ? Colors.transparent
-                                                    : primaryColor.withOpacity(0.5), // Use theme color
+                                                    : primaryColor.withOpacity(
+                                                        0.5), // Use theme color
                                                 width: 1.5,
                                               ),
                                               boxShadow: isSelected
                                                   ? [
                                                       BoxShadow(
-                                                        color: primaryColor.withOpacity(0.3), // Use theme color
+                                                        color: primaryColor
+                                                            .withOpacity(
+                                                                0.3), // Use theme color
                                                         blurRadius: 8,
                                                         offset:
                                                             const Offset(0, 2),
@@ -579,7 +608,8 @@ class _ProductDetailGalleryState extends State<ProductDetailGallery> {
                             child: BackdropFilter(
                               filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                               child: Container(
-                                margin: const EdgeInsets.symmetric(vertical: 10),
+                                margin:
+                                    const EdgeInsets.symmetric(vertical: 10),
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 6),
                                 decoration: BoxDecoration(
@@ -591,7 +621,8 @@ class _ProductDetailGalleryState extends State<ProductDetailGallery> {
                                   ),
                                   borderRadius: BorderRadius.circular(30),
                                   border: Border.all(
-                                      color: primaryColor.withOpacity(0.3), // Use theme color
+                                      color: primaryColor
+                                          .withOpacity(0.3), // Use theme color
                                       width: 1),
                                 ),
                                 child: Row(
@@ -619,7 +650,8 @@ class _ProductDetailGalleryState extends State<ProductDetailGallery> {
                                         ),
                                         padding: const EdgeInsets.all(6),
                                         child: Icon(Icons.remove_rounded,
-                                            color: primaryColor), // Use theme color
+                                            color:
+                                                primaryColor), // Use theme color
                                       ),
                                     ),
                                     const SizedBox(width: 16),
@@ -633,7 +665,8 @@ class _ProductDetailGalleryState extends State<ProductDetailGallery> {
                                         style: GoogleFonts.montserrat(
                                           fontSize: 18,
                                           fontWeight: FontWeight.w700,
-                                          color: primaryColor, // Use theme color
+                                          color:
+                                              primaryColor, // Use theme color
                                         ),
                                       ),
                                     ),
@@ -707,7 +740,8 @@ class _ProductDetailGalleryState extends State<ProductDetailGallery> {
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: primaryColor.withOpacity(0.12), // Use theme color
+                          color:
+                              primaryColor.withOpacity(0.12), // Use theme color
                           blurRadius: 16,
                           offset: const Offset(0, 4),
                         ),
@@ -721,7 +755,10 @@ class _ProductDetailGalleryState extends State<ProductDetailGallery> {
                             decoration: BoxDecoration(
                               gradient: _canAddToCart
                                   ? LinearGradient(
-                                      colors: [primaryColor, accentColor], // Use theme colors
+                                      colors: [
+                                        primaryColor,
+                                        accentColor
+                                      ], // Use theme colors
                                     )
                                   : const LinearGradient(
                                       colors: [Colors.grey, Colors.grey],
@@ -731,7 +768,8 @@ class _ProductDetailGalleryState extends State<ProductDetailGallery> {
                               boxShadow: _canAddToCart
                                   ? [
                                       BoxShadow(
-                                        color: primaryColor.withOpacity(0.4), // Use theme color
+                                        color: primaryColor.withOpacity(
+                                            0.4), // Use theme color
                                         blurRadius: 12,
                                         offset: const Offset(0, 4),
                                       ),
@@ -752,11 +790,12 @@ class _ProductDetailGalleryState extends State<ProductDetailGallery> {
                                         image: _firstImage,
                                         quantity: _quantity,
                                         sku: product['sku']?.toString(),
-                                        attributes:
-                                            Map<String, String>.from(_selectedAttributes),
+                                        attributes: Map<String, String>.from(
+                                            _selectedAttributes),
                                       );
 
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
                                         SnackBar(
                                           content: Row(
                                             children: [
@@ -771,6 +810,8 @@ class _ProductDetailGalleryState extends State<ProductDetailGallery> {
                                           ),
                                           backgroundColor: Colors.green,
                                           behavior: SnackBarBehavior.floating,
+                                          duration: const Duration(
+                                              milliseconds: 1400),
                                           shape: RoundedRectangleBorder(
                                               borderRadius:
                                                   BorderRadius.circular(12)),
@@ -779,9 +820,11 @@ class _ProductDetailGalleryState extends State<ProductDetailGallery> {
                                       );
                                     }
                                   : () {
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
                                         const SnackBar(
-                                          content: Text("Please select all required options."),
+                                          content: Text(
+                                              "Please select all required options."),
                                           backgroundColor: Colors.redAccent,
                                         ),
                                       );
@@ -800,74 +843,80 @@ class _ProductDetailGalleryState extends State<ProductDetailGallery> {
                         ),
                         const SizedBox(width: 12),
 
-              // Buy Now - SIMPLE VERSION
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: _canAddToCart
-                        ? LinearGradient(
-                            colors: [accentColor, accentColor.withOpacity(0.8)],
-                          )
-                        : const LinearGradient(
-                            colors: [Colors.grey, Colors.grey],
-                          ),
-                    borderRadius: const BorderRadius.all(Radius.circular(12)),
-                    boxShadow: _canAddToCart
-                        ? [
-                            BoxShadow(
-                              color: accentColor.withOpacity(0.4),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
+                        // Buy Now - SIMPLE VERSION
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: _canAddToCart
+                                  ? LinearGradient(
+                                      colors: [
+                                        accentColor,
+                                        accentColor.withOpacity(0.8)
+                                      ],
+                                    )
+                                  : const LinearGradient(
+                                      colors: [Colors.grey, Colors.grey],
+                                    ),
+                              borderRadius:
+                                  const BorderRadius.all(Radius.circular(12)),
+                              boxShadow: _canAddToCart
+                                  ? [
+                                      BoxShadow(
+                                        color: accentColor.withOpacity(0.4),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ]
+                                  : null,
                             ),
-                          ]
-                        : null,
-                  ),
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.flash_on),
-                    label: const Text("Buy Now"),
-                    onPressed: _canAddToCart
-                        ? () async {
-                            // 1. Add to cart first
-                            await cart.addToCartWithDetails(
-                              productId: product['id'],
-                              name: productName,
-                              price: _priceValue,
-                              image: _firstImage,
-                              quantity: _quantity,
-                              sku: product['sku']?.toString(),
-                              attributes: Map<String, String>.from(_selectedAttributes),
-                            );
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.flash_on),
+                              label: const Text("Buy Now"),
+                              onPressed: _canAddToCart
+                                  ? () async {
+                                      // 1. Add to cart first
+                                      await cart.addToCartWithDetails(
+                                        productId: product['id'],
+                                        name: productName,
+                                        price: _priceValue,
+                                        image: _firstImage,
+                                        quantity: _quantity,
+                                        sku: product['sku']?.toString(),
+                                        attributes: Map<String, String>.from(
+                                            _selectedAttributes),
+                                      );
 
-                            // 2. Get cart totals
-                            double totalPrice = cart.getTotalPrice();
-                            double shipping = 2500.0;
-                            double total = totalPrice + shipping;
+                                      // 2. Get cart totals
+                                      double totalPrice = cart.getTotalPrice();
+                                      double shipping = 2500.0;
+                                      double total = totalPrice + shipping;
 
-                            // 3. Navigate directly to checkout
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => CheckoutPage(
-                                  cartItems: cart.cartItems,
-                                  subtotal: totalPrice,
-                                  shipping: shipping,
-                                  total: total,
-                                ),
+                                      // 3. Navigate directly to checkout
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => CheckoutPage(
+                                            cartItems: cart.cartItems,
+                                            subtotal: totalPrice,
+                                            shipping: shipping,
+                                            total: total,
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  : null,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                shadowColor: Colors.transparent,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
                               ),
-                            );
-                          }
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                  ),
-                ),
-              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -987,11 +1036,16 @@ class _ProductDetailGalleryState extends State<ProductDetailGallery> {
               elevation: 0,
               expandedHeaderPadding: EdgeInsets.zero,
               children: [
-                _buildPanel(0, "Description", productDescription, Icons.description_outlined, primaryColor, accentColor),
-                _buildPanel(1, "Specification", productSpecifications, Icons.inventory_2_outlined, primaryColor, accentColor),
-                _buildPanel(2, "Customer Reviews", productReviews, Icons.star_outline_rounded, primaryColor, accentColor),
-                _buildPanel(3, "Store Policies", productPolicies, Icons.policy_outlined, primaryColor, accentColor),
-                _buildPanel(4, "Inquiries", productInquiries, Icons.question_answer_outlined, primaryColor, accentColor),
+                _buildPanel(0, "Description", productDescription,
+                    Icons.description_outlined, primaryColor, accentColor),
+                _buildPanel(1, "Specification", productSpecifications,
+                    Icons.inventory_2_outlined, primaryColor, accentColor),
+                _buildPanel(2, "Customer Reviews", productReviews,
+                    Icons.star_outline_rounded, primaryColor, accentColor),
+                _buildPanel(3, "Store Policies", productPolicies,
+                    Icons.policy_outlined, primaryColor, accentColor),
+                _buildPanel(4, "Inquiries", productInquiries,
+                    Icons.question_answer_outlined, primaryColor, accentColor),
               ],
             ),
           ),
@@ -1000,7 +1054,8 @@ class _ProductDetailGalleryState extends State<ProductDetailGallery> {
     );
   }
 
-  ExpansionPanelRadio _buildPanel(int value, String title, String content, IconData iconData, Color primaryColor, Color accentColor) {
+  ExpansionPanelRadio _buildPanel(int value, String title, String content,
+      IconData iconData, Color primaryColor, Color accentColor) {
     return ExpansionPanelRadio(
       value: value,
       backgroundColor: Colors.transparent,

@@ -24,16 +24,16 @@ class _ProductDetailClassicState extends State<ProductDetailClassic> {
 
   // 🎨 Glass / Brand palette - Now with theme fallbacks
   static const Color kPrimaryBlue = Color(0xFF1565C0);
-  static const Color kAccentBlue  = Color(0xFF2196F3);
-  static const Color kInk         = Color(0xFF0D47A1);
-  static const double kGlassBlur  = 12.0;
+  static const Color kAccentBlue = Color(0xFF2196F3);
+  static const Color kInk = Color(0xFF0D47A1);
+  static const double kGlassBlur = 12.0;
 
   final NumberFormat _fmt = NumberFormat("#,##0", "en_US");
 
   // ====== 360° turntable state ======
-  bool _showSpin = false;        // toggle between pager and 360 view
+  bool _showSpin = false; // toggle between pager and 360 view
   List<String> _spinFrames = []; // image sequence for 360
-  int _spinIndex = 0;            // current frame index
+  int _spinIndex = 0; // current frame index
 
   // ✅ OPTION A: lower threshold so a few gallery images become a 360 set
   static const int _minFramesForSpin = 4; // was 12
@@ -70,9 +70,9 @@ class _ProductDetailClassicState extends State<ProductDetailClassic> {
         if (item is Map &&
             item.containsKey('name') &&
             item.containsKey('options')) {
-          final List<String> options = (item['options'] as List?)
-                  ?.map((e) => e.toString())
-                  .toList() ?? <String>[];
+          final List<String> options =
+              (item['options'] as List?)?.map((e) => e.toString()).toList() ??
+                  <String>[];
           if (options.isNotEmpty) {
             _selectedAttributes[item['name'].toString()] = options.first;
           }
@@ -86,10 +86,17 @@ class _ProductDetailClassicState extends State<ProductDetailClassic> {
     // direct field
     final direct = p['spin_frames'];
     if (direct is List && direct.isNotEmpty) {
-      return direct.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
+      return direct
+          .map((e) => e.toString())
+          .where((e) => e.isNotEmpty)
+          .toList();
     }
     if (direct is String && direct.trim().isNotEmpty) {
-      return direct.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+      return direct
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
     }
 
     // meta_data search (case-insensitive key)
@@ -101,9 +108,16 @@ class _ProductDetailClassicState extends State<ProductDetailClassic> {
           if (key == 'spin_frames') {
             final v = m['value'];
             if (v is List && v.isNotEmpty) {
-              return v.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
+              return v
+                  .map((e) => e.toString())
+                  .where((e) => e.isNotEmpty)
+                  .toList();
             } else if (v is String && v.trim().isNotEmpty) {
-              return v.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+              return v
+                  .split(',')
+                  .map((e) => e.trim())
+                  .where((e) => e.isNotEmpty)
+                  .toList();
             }
           }
         }
@@ -118,16 +132,21 @@ class _ProductDetailClassicState extends State<ProductDetailClassic> {
     if (imgsRaw is! List || imgsRaw.isEmpty) return <String>[];
 
     // Normalize: [{src, name, position}] list
-    final List<Map<String, dynamic>> images = imgsRaw.map((e) {
-      if (e is Map<String, dynamic>) return e;
-      return {'src': e.toString(), 'name': null, 'position': null};
-    }).where((e) => (e['src']?.toString().isNotEmpty ?? false)).toList();
+    final List<Map<String, dynamic>> images = imgsRaw
+        .map((e) {
+          if (e is Map<String, dynamic>) return e;
+          return {'src': e.toString(), 'name': null, 'position': null};
+        })
+        .where((e) => (e['src']?.toString().isNotEmpty ?? false))
+        .toList();
 
     if (images.isEmpty) return <String>[];
 
     // A) Prefer Woo "position" if present & unique
-    final positions = images.map((m) => m['position']).whereType<int>().toList();
-    final hasUniquePositions = positions.isNotEmpty && positions.toSet().length == images.length;
+    final positions =
+        images.map((m) => m['position']).whereType<int>().toList();
+    final hasUniquePositions =
+        positions.isNotEmpty && positions.toSet().length == images.length;
     if (hasUniquePositions) {
       images.sort((a, b) {
         final pa = (a['position'] is int) ? a['position'] as int : 1 << 30;
@@ -149,8 +168,10 @@ class _ProductDetailClassicState extends State<ProductDetailClassic> {
   }
 
   int _sortByNumericSuffix(Map<String, dynamic> a, Map<String, dynamic> b) {
-    String nameA = (a['name']?.toString() ?? a['src']?.toString() ?? '').toLowerCase();
-    String nameB = (b['name']?.toString() ?? b['src']?.toString() ?? '').toLowerCase();
+    String nameA =
+        (a['name']?.toString() ?? a['src']?.toString() ?? '').toLowerCase();
+    String nameB =
+        (b['name']?.toString() ?? b['src']?.toString() ?? '').toLowerCase();
 
     final reg = RegExp(r'(\d+)(?=\.[a-z]{3,4}$)');
     int numA = int.tryParse(reg.firstMatch(nameA)?.group(1) ?? '') ?? 1 << 30;
@@ -215,7 +236,7 @@ class _ProductDetailClassicState extends State<ProductDetailClassic> {
     final badgeColor = currentTheme?.badgeColor ?? Colors.redAccent;
 
     final priceVal = _priceValue;
-    final regVal   = _regularValue;
+    final regVal = _regularValue;
     final bool onSale = regVal > priceVal && regVal > 0;
 
     final List<Map<String, dynamic>> images = (product['images'] is List)
@@ -239,8 +260,11 @@ class _ProductDetailClassicState extends State<ProductDetailClassic> {
               child: Column(
                 children: [
                   // 🖼 Image Carousel / 360 Turntable
-                  if (images.isNotEmpty) _glassImageCarousel(images, onSale, primaryColor, accentColor, badgeColor)
-                  else _imagePlaceholder(),
+                  if (images.isNotEmpty)
+                    _glassImageCarousel(
+                        images, onSale, primaryColor, accentColor, badgeColor)
+                  else
+                    _imagePlaceholder(),
 
                   // 🏷 Product Info Card
                   Padding(
@@ -361,7 +385,8 @@ class _ProductDetailClassicState extends State<ProductDetailClassic> {
                               ),
                             ),
                           ),
-                          _quantityButton(Icons.add, () => setState(() => _quantity++), primaryColor),
+                          _quantityButton(Icons.add,
+                              () => setState(() => _quantity++), primaryColor),
                         ],
                       ),
                     ),
@@ -369,7 +394,8 @@ class _ProductDetailClassicState extends State<ProductDetailClassic> {
 
                   // 🎨 Variations / Attributes
                   if ((_selectedAttributes.isNotEmpty) ||
-                      ((widget.product['attributes'] as List?)?.isNotEmpty ?? false))
+                      ((widget.product['attributes'] as List?)?.isNotEmpty ??
+                          false))
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                       child: _GlassCard(
@@ -393,7 +419,8 @@ class _ProductDetailClassicState extends State<ProductDetailClassic> {
           ],
         ),
       ),
-      bottomNavigationBar: _frostedBottomBar(cart, widget.product, primaryColor, accentColor),
+      bottomNavigationBar:
+          _frostedBottomBar(cart, widget.product, primaryColor, accentColor),
     );
   }
 
@@ -402,8 +429,7 @@ class _ProductDetailClassicState extends State<ProductDetailClassic> {
     return AppBar(
       title: Text(
         title,
-        style: GoogleFonts.montserrat(
-            fontWeight: FontWeight.w700, color: kInk),
+        style: GoogleFonts.montserrat(fontWeight: FontWeight.w700, color: kInk),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
@@ -424,7 +450,8 @@ class _ProductDetailClassicState extends State<ProductDetailClassic> {
   }
 
   // ======= pager + optional 360° turntable (Option A active) =======
-  Widget _glassImageCarousel(List<Map<String, dynamic>> images, bool onSale, Color primaryColor, Color accentColor, Color badgeColor) {
+  Widget _glassImageCarousel(List<Map<String, dynamic>> images, bool onSale,
+      Color primaryColor, Color accentColor, Color badgeColor) {
     final hasSpin = _spinFrames.length >= _minFramesForSpin;
 
     return Container(
@@ -460,8 +487,8 @@ class _ProductDetailClassicState extends State<ProductDetailClassic> {
             ),
             Positioned.fill(
               child: BackdropFilter(
-                filter: ImageFilter.blur(
-                    sigmaX: kGlassBlur, sigmaY: kGlassBlur),
+                filter:
+                    ImageFilter.blur(sigmaX: kGlassBlur, sigmaY: kGlassBlur),
                 child: const SizedBox.expand(),
               ),
             ),
@@ -512,8 +539,8 @@ class _ProductDetailClassicState extends State<ProductDetailClassic> {
                 right: 0,
                 child: Center(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.28),
                       borderRadius: BorderRadius.circular(20),
@@ -528,8 +555,8 @@ class _ProductDetailClassicState extends State<ProductDetailClassic> {
                           height: 7,
                           margin: const EdgeInsets.symmetric(horizontal: 3),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(
-                                _currentImage == i ? 1 : 0.6),
+                            color: Colors.white
+                                .withOpacity(_currentImage == i ? 1 : 0.6),
                             borderRadius: BorderRadius.circular(4),
                           ),
                         ),
@@ -595,8 +622,8 @@ class _ProductDetailClassicState extends State<ProductDetailClassic> {
       decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20), color: Colors.grey[100]),
       alignment: Alignment.center,
-      child: Icon(Icons.image_not_supported,
-          size: 120, color: Colors.grey[400]),
+      child:
+          Icon(Icons.image_not_supported, size: 120, color: Colors.grey[400]),
     );
   }
 
@@ -611,10 +638,7 @@ class _ProductDetailClassicState extends State<ProductDetailClassic> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-              rating > 0
-                  ? Icons.star_rounded
-                  : Icons.star_border_rounded,
+          Icon(rating > 0 ? Icons.star_rounded : Icons.star_border_rounded,
               size: 18,
               color: rating > 0 ? Colors.amber[600] : Colors.grey[500]),
           const SizedBox(width: 6),
@@ -628,8 +652,7 @@ class _ProductDetailClassicState extends State<ProductDetailClassic> {
           if (ratingCount > 0)
             Text(
               " ($ratingCount)",
-              style: GoogleFonts.roboto(
-                  fontSize: 12, color: Colors.grey[700]),
+              style: GoogleFonts.roboto(fontSize: 12, color: Colors.grey[700]),
             ),
         ],
       ),
@@ -640,8 +663,7 @@ class _ProductDetailClassicState extends State<ProductDetailClassic> {
     final inStock = stockStatus.toLowerCase() == 'instock';
     final label =
         inStock ? "In stock" : (stockStatus.isEmpty ? "—" : stockStatus);
-    final color =
-        inStock ? const Color(0xFF2E7D32) : const Color(0xFFD32F2F);
+    final color = inStock ? const Color(0xFF2E7D32) : const Color(0xFFD32F2F);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -660,7 +682,8 @@ class _ProductDetailClassicState extends State<ProductDetailClassic> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [primaryColor, accentColor]), // Use theme colors
+        gradient: LinearGradient(
+            colors: [primaryColor, accentColor]), // Use theme colors
         borderRadius: BorderRadius.circular(999),
         boxShadow: [
           BoxShadow(
@@ -710,14 +733,18 @@ class _ProductDetailClassicState extends State<ProductDetailClassic> {
         Text(
           "Product Options",
           style: GoogleFonts.montserrat(
-              fontSize: 18, fontWeight: FontWeight.w800, color: primaryColor), // Use theme color
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: primaryColor), // Use theme color
         ),
         const SizedBox(height: 14),
         for (int i = 0; i < attrNames.length; i++) ...[
           Text(
             attrNames[i],
             style: GoogleFonts.montserrat(
-                fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[800]),
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[800]),
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -761,10 +788,12 @@ class _ProductDetailClassicState extends State<ProductDetailClassic> {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color:
-              isSelected ? color.withOpacity(0.18) : Colors.grey.withOpacity(0.1),
-          border:
-              Border.all(color: isSelected ? color : Colors.grey.withOpacity(0.3), width: 1.5),
+          color: isSelected
+              ? color.withOpacity(0.18)
+              : Colors.grey.withOpacity(0.1),
+          border: Border.all(
+              color: isSelected ? color : Colors.grey.withOpacity(0.3),
+              width: 1.5),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -801,17 +830,23 @@ class _ProductDetailClassicState extends State<ProductDetailClassic> {
               color: Colors.white.withOpacity(0.86),
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
-                  color: accentColor.withOpacity(0.2), width: 1.5), // Use theme color
+                  color: accentColor.withOpacity(0.2),
+                  width: 1.5), // Use theme color
             ),
             child: ExpansionPanelList.radio(
               elevation: 0,
               animationDuration: const Duration(milliseconds: 220),
               children: [
-                _panel(0, "Description", productDescription, primaryColor, accentColor),
-                _panel(1, "Specification", productSpecifications, primaryColor, accentColor),
-                _panel(2, "Customer Reviews", productReviews, primaryColor, accentColor),
-                _panel(3, "Store Policies", productPolicies, primaryColor, accentColor),
-                _panel(4, "Inquiries", productInquiries, primaryColor, accentColor),
+                _panel(0, "Description", productDescription, primaryColor,
+                    accentColor),
+                _panel(1, "Specification", productSpecifications, primaryColor,
+                    accentColor),
+                _panel(2, "Customer Reviews", productReviews, primaryColor,
+                    accentColor),
+                _panel(3, "Store Policies", productPolicies, primaryColor,
+                    accentColor),
+                _panel(4, "Inquiries", productInquiries, primaryColor,
+                    accentColor),
               ],
             ),
           ),
@@ -820,7 +855,8 @@ class _ProductDetailClassicState extends State<ProductDetailClassic> {
     );
   }
 
-  ExpansionPanelRadio _panel(int value, String title, String content, Color primaryColor, Color accentColor) {
+  ExpansionPanelRadio _panel(int value, String title, String content,
+      Color primaryColor, Color accentColor) {
     return ExpansionPanelRadio(
       value: value,
       backgroundColor: Colors.transparent,
@@ -860,8 +896,7 @@ class _ProductDetailClassicState extends State<ProductDetailClassic> {
       body: Container(
         padding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
         child: Text(
-          _unescape.convert(
-              content.replaceAll(RegExp(r'<[^>]*>'), '').trim()),
+          _unescape.convert(content.replaceAll(RegExp(r'<[^>]*>'), '').trim()),
           style: GoogleFonts.roboto(
               fontSize: 14, color: Colors.black87, height: 1.6),
         ),
@@ -886,163 +921,176 @@ class _ProductDetailClassicState extends State<ProductDetailClassic> {
     }
   }
 
- // ---------- Bottom bar (frosted) ----------
-   Widget _frostedBottomBar(CartProvider cart, Map<String, dynamic> product, Color primaryColor, Color accentColor) {
-     return ClipRect(
-       child: BackdropFilter(
-         filter: ImageFilter.blur(sigmaX: kGlassBlur, sigmaY: kGlassBlur),
-         child: Container(
-           padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-           decoration: BoxDecoration(
-             color: Colors.white.withOpacity(0.9),
-             boxShadow: [
-               BoxShadow(
-                   color: Colors.black.withOpacity(0.08),
-                   blurRadius: 20,
-                   offset: const Offset(0, -6)),
-             ],
-           ),
-           child: SafeArea(
-             top: false,
-             child: Row(
-               children: [
-                 // ADD TO CART
-                 Expanded(
-                   child: OutlinedButton.icon(
-                     icon: const Icon(Icons.shopping_cart_outlined),
-                     label: Text("Add to Cart",
-                         style: GoogleFonts.montserrat(
-                             fontWeight: FontWeight.w700)),
-                     onPressed: _canAddToCart
-                         ? () async {
-                             await cart.addToCartWithDetails(
-                               productId: product['id'],
-                               name: (product['name'] ?? 'Product').toString(),
-                               price: _priceValue,
-                               image: _firstImage ?? '',
-                               quantity: _quantity,
-                               sku: product['sku']?.toString(),
-                               attributes: Map<String, String>.from(
-                                   _selectedAttributes),
-                             );
-                             ScaffoldMessenger.of(context).showSnackBar(
-                               SnackBar(
-                                 content: Text(
-                                   "$_quantity × ${product['name']} added to cart",
-                                   style:
-                                       GoogleFonts.roboto(color: Colors.white),
-                                 ),
-                                 backgroundColor: primaryColor, // Use theme color
-                                 duration: const Duration(seconds: 1),
-                                 behavior: SnackBarBehavior.floating,
-                                 margin: const EdgeInsets.all(16),
-                                 shape: RoundedRectangleBorder(
-                                     borderRadius: BorderRadius.circular(12)),
-                               ),
-                             );
-                           }
-                         : () {
-                             ScaffoldMessenger.of(context).showSnackBar(
-                               const SnackBar(
-                                 content:
-                                     Text("Please select all options."),
-                                 backgroundColor: Colors.redAccent,
-                               ),
-                             );
-                           },
-                     style: OutlinedButton.styleFrom(
-                       foregroundColor: primaryColor, // Use theme color
-                       side: BorderSide(color: primaryColor, width: 1.5), // Use theme color
-                       padding: const EdgeInsets.symmetric(vertical: 14),
-                       shape: RoundedRectangleBorder(
-                           borderRadius: BorderRadius.circular(12)),
-                     ),
-                   ),
-                 ),
-                 const SizedBox(width: 12),
-                 // Buy Now - CORRECTED VERSION
-                 Expanded(
-                   child: Container(
-                     decoration: BoxDecoration(
-                       gradient: _canAddToCart
-                           ? LinearGradient(
-                               colors: [accentColor, accentColor.withOpacity(0.8)],
-                             )
-                           : const LinearGradient(
-                               colors: [Colors.grey, Colors.grey],
-                             ),
-                       borderRadius: const BorderRadius.all(Radius.circular(12)),
-                       boxShadow: _canAddToCart
-                           ? [
-                               BoxShadow(
-                                 color: accentColor.withOpacity(0.4),
-                                 blurRadius: 12,
-                                 offset: const Offset(0, 4),
-                               ),
-                             ]
-                           : null,
-                     ),
-                     child: ElevatedButton.icon(
-                       icon: const Icon(Icons.flash_on),
-                       label: Text("Buy Now",
-                           style: GoogleFonts.montserrat(fontWeight: FontWeight.w700)),
-                       onPressed: _canAddToCart
-                           ? () async {
-                               // 1. Add to cart first
-                               await cart.addToCartWithDetails(
-                                 productId: product['id'],
-                                 name: (product['name'] ?? 'Product').toString(), // FIXED: Use product parameter
-                                 price: _priceValue,
-                                 image: _firstImage ?? '', // FIXED: Provide default value
-                                 quantity: _quantity,
-                                 sku: product['sku']?.toString(),
-                                 attributes: Map<String, String>.from(_selectedAttributes),
-                               );
+  // ---------- Bottom bar (frosted) ----------
+  Widget _frostedBottomBar(CartProvider cart, Map<String, dynamic> product,
+      Color primaryColor, Color accentColor) {
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: kGlassBlur, sigmaY: kGlassBlur),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.9),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 20,
+                  offset: const Offset(0, -6)),
+            ],
+          ),
+          child: SafeArea(
+            top: false,
+            child: Row(
+              children: [
+                // ADD TO CART
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.shopping_cart_outlined),
+                    label: Text("Add to Cart",
+                        style: GoogleFonts.montserrat(
+                            fontWeight: FontWeight.w700)),
+                    onPressed: _canAddToCart
+                        ? () async {
+                            await cart.addToCartWithDetails(
+                              productId: product['id'],
+                              name: (product['name'] ?? 'Product').toString(),
+                              price: _priceValue,
+                              image: _firstImage ?? '',
+                              quantity: _quantity,
+                              sku: product['sku']?.toString(),
+                              attributes:
+                                  Map<String, String>.from(_selectedAttributes),
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  "$_quantity × ${product['name']} added to cart",
+                                  style:
+                                      GoogleFonts.roboto(color: Colors.white),
+                                ),
+                                backgroundColor:
+                                    primaryColor, // Use theme color
+                                duration: const Duration(seconds: 1),
+                                behavior: SnackBarBehavior.floating,
+                                margin: const EdgeInsets.all(16),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                              ),
+                            );
+                          }
+                        : () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("Please select all options."),
+                                backgroundColor: Colors.redAccent,
+                              ),
+                            );
+                          },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: primaryColor, // Use theme color
+                      side: BorderSide(
+                          color: primaryColor, width: 1.5), // Use theme color
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Buy Now - CORRECTED VERSION
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: _canAddToCart
+                          ? LinearGradient(
+                              colors: [
+                                accentColor,
+                                accentColor.withOpacity(0.8)
+                              ],
+                            )
+                          : const LinearGradient(
+                              colors: [Colors.grey, Colors.grey],
+                            ),
+                      borderRadius: const BorderRadius.all(Radius.circular(12)),
+                      boxShadow: _canAddToCart
+                          ? [
+                              BoxShadow(
+                                color: accentColor.withOpacity(0.4),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.flash_on),
+                      label: Text("Buy Now",
+                          style: GoogleFonts.montserrat(
+                              fontWeight: FontWeight.w700)),
+                      onPressed: _canAddToCart
+                          ? () async {
+                              // 1. Add to cart first
+                              await cart.addToCartWithDetails(
+                                productId: product['id'],
+                                name: (product['name'] ?? 'Product')
+                                    .toString(), // FIXED: Use product parameter
+                                price: _priceValue,
+                                image: _firstImage ??
+                                    '', // FIXED: Provide default value
+                                quantity: _quantity,
+                                sku: product['sku']?.toString(),
+                                attributes: Map<String, String>.from(
+                                    _selectedAttributes),
+                              );
 
-                               // 2. Get cart totals
-                               double totalPrice = cart.getTotalPrice();
-                               double shipping = 2500.0;
-                               double total = totalPrice + shipping;
+                              // 2. Get cart totals
+                              double totalPrice = cart.getTotalPrice();
+                              double shipping = 2500.0;
+                              double total = totalPrice + shipping;
 
-                               // 3. Navigate directly to checkout
-                               Navigator.push(
-                                 context,
-                                 MaterialPageRoute(
-                                   builder: (context) => CheckoutPage(
-                                     cartItems: cart.cartItems,
-                                     subtotal: totalPrice,
-                                     shipping: shipping,
-                                     total: total,
-                                   ),
-                                 ),
-                               );
-                             }
-                           : null,
-                       style: ElevatedButton.styleFrom(
-                         backgroundColor: Colors.transparent,
-                         shadowColor: Colors.transparent,
-                         foregroundColor: Colors.white,
-                         disabledBackgroundColor: Colors.grey.shade400,
-                         padding: const EdgeInsets.symmetric(vertical: 14),
-                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                       ),
-                     ),
-                   ),
-                 ),
-               ],
-             ),
-           ),
-         ),
-       ),
-     );
-   }
+                              // 3. Navigate directly to checkout
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => CheckoutPage(
+                                    cartItems: cart.cartItems,
+                                    subtotal: totalPrice,
+                                    shipping: shipping,
+                                    total: total,
+                                  ),
+                                ),
+                              );
+                            }
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: Colors.grey.shade400,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   // ---------- Helpers ----------
-  Widget _quantityButton(IconData icon, VoidCallback onPressed, Color primaryColor) {
+  Widget _quantityButton(
+      IconData icon, VoidCallback onPressed, Color primaryColor) {
     return Container(
       decoration: BoxDecoration(
         color: primaryColor.withOpacity(0.08), // Use theme color
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: primaryColor.withOpacity(0.25), width: 1), // Use theme color
+        border: Border.all(
+            color: primaryColor.withOpacity(0.25), width: 1), // Use theme color
       ),
       child: IconButton(
         icon: Icon(icon, color: primaryColor, size: 20), // Use theme color
@@ -1067,10 +1115,9 @@ class _ProductDetailClassicState extends State<ProductDetailClassic> {
             children: [
               Positioned.fill(
                 child: BackdropFilter(
-                  filter: ImageFilter.blur(
-                      sigmaX: kGlassBlur, sigmaY: kGlassBlur),
-                  child:
-                      Container(color: Colors.white.withOpacity(0.12)),
+                  filter:
+                      ImageFilter.blur(sigmaX: kGlassBlur, sigmaY: kGlassBlur),
+                  child: Container(color: Colors.white.withOpacity(0.12)),
                 ),
               ),
               InteractiveViewer(
@@ -1131,7 +1178,8 @@ class _GlassCard extends StatelessWidget {
             color: Colors.white.withOpacity(0.86),
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-                color: accentColor.withOpacity(0.18), width: 1.5), // Use theme color
+                color: accentColor.withOpacity(0.18),
+                width: 1.5), // Use theme color
             boxShadow: [
               BoxShadow(
                   color: Colors.black.withOpacity(0.05),
@@ -1240,7 +1288,8 @@ class _Turntable360State extends State<_Turntable360> {
             errorBuilder: (_, __, ___) => Container(
               color: Colors.grey.shade100,
               alignment: Alignment.center,
-              child: const Icon(Icons.broken_image, color: Colors.grey, size: 40),
+              child:
+                  const Icon(Icons.broken_image, color: Colors.grey, size: 40),
             ),
           );
 
@@ -1282,7 +1331,8 @@ class _Turntable360State extends State<_Turntable360> {
               child: Padding(
                 padding: EdgeInsets.only(bottom: 10),
                 child: SizedBox(
-                  width: 22, height: 22,
+                  width: 22,
+                  height: 22,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
               ),
@@ -1294,7 +1344,8 @@ class _Turntable360State extends State<_Turntable360> {
             right: 0,
             child: Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.black.withOpacity(0.25),
                   borderRadius: BorderRadius.circular(999),
@@ -1304,7 +1355,8 @@ class _Turntable360State extends State<_Turntable360> {
                   children: [
                     Icon(Icons.swipe, size: 16, color: Colors.white),
                     SizedBox(width: 6),
-                    Text('Drag to rotate', style: TextStyle(color: Colors.white)),
+                    Text('Drag to rotate',
+                        style: TextStyle(color: Colors.white)),
                   ],
                 ),
               ),

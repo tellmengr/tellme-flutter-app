@@ -16,7 +16,8 @@ class NotificationService {
   static final _messaging = FirebaseMessaging.instance;
   static final _fln = FlutterLocalNotificationsPlugin();
 
-  static const AndroidNotificationChannel _highChannel = AndroidNotificationChannel(
+  static const AndroidNotificationChannel _highChannel =
+      AndroidNotificationChannel(
     'high_importance_channel',
     'High Importance Notifications',
     description: 'For important alerts.',
@@ -30,7 +31,9 @@ class NotificationService {
   }) async {
     // iOS foreground presentation
     await _messaging.setForegroundNotificationPresentationOptions(
-      alert: true, badge: true, sound: true,
+      alert: true,
+      badge: true,
+      sound: true,
     );
 
     // Initialize local notifications
@@ -54,7 +57,8 @@ class NotificationService {
 
     // Create the Android channel
     await _fln
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(_highChannel);
 
     // Ask for notification permission
@@ -79,7 +83,8 @@ class NotificationService {
     await _messaging.requestPermission(alert: true, badge: true, sound: true);
     if (Platform.isAndroid) {
       await _fln
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
           ?.requestNotificationsPermission();
     }
   }
@@ -87,7 +92,26 @@ class NotificationService {
   /// Displays a local banner notification with optional image support.
   static Future<void> _showLocal(RemoteMessage message) async {
     final n = message.notification;
-    if (n == null) return;
+    final type = (message.data['type'] ??
+            message.data['event'] ??
+            message.data['kind'] ??
+            '')
+        .toString()
+        .toLowerCase();
+    final isChat = type.contains('chat') ||
+        message.data['route'] == '/support-chat' ||
+        message.data.containsKey('chatSessionCode') ||
+        message.data.containsKey('sessionCode');
+
+    final title = n?.title ??
+        message.data['title']?.toString() ??
+        (isChat ? 'TellMe Support' : null);
+    final body = n?.body ??
+        message.data['body']?.toString() ??
+        message.data['message']?.toString() ??
+        (isChat ? 'You have a new chat message.' : null);
+
+    if (title == null && body == null) return;
 
     // Check for image in notification or data payload
     final imageUrl = message.notification?.android?.imageUrl ??
@@ -108,10 +132,10 @@ class NotificationService {
           priority: Priority.high,
           styleInformation: BigPictureStyleInformation(
             FilePathAndroidBitmap(filePath),
-            contentTitle: n.title,
-            summaryText: n.body,
+            contentTitle: title,
+            summaryText: body,
           ),
-          icon: n.android?.smallIcon ?? '@mipmap/ic_launcher',
+          icon: n?.android?.smallIcon ?? '@mipmap/ic_launcher',
         );
       } else {
         androidDetails = AndroidNotificationDetails(
@@ -120,7 +144,7 @@ class NotificationService {
           channelDescription: _highChannel.description,
           importance: Importance.high,
           priority: Priority.high,
-          icon: n.android?.smallIcon ?? '@mipmap/ic_launcher',
+          icon: n?.android?.smallIcon ?? '@mipmap/ic_launcher',
         );
       }
     } else {
@@ -130,7 +154,7 @@ class NotificationService {
         channelDescription: _highChannel.description,
         importance: Importance.high,
         priority: Priority.high,
-        icon: n.android?.smallIcon ?? '@mipmap/ic_launcher',
+        icon: n?.android?.smallIcon ?? '@mipmap/ic_launcher',
       );
     }
 
@@ -144,8 +168,8 @@ class NotificationService {
 
     await _fln.show(
       DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      n.title,
-      n.body,
+      title,
+      body,
       details,
       payload: payload,
     );
@@ -157,7 +181,8 @@ class NotificationService {
       final res = await http.get(Uri.parse(url));
       if (res.statusCode == 200) {
         final dir = await getTemporaryDirectory();
-        final f = File('${dir.path}/notif_${DateTime.now().millisecondsSinceEpoch}.img');
+        final f = File(
+            '${dir.path}/notif_${DateTime.now().millisecondsSinceEpoch}.img');
         await f.writeAsBytes(res.bodyBytes);
         return f.path;
       }

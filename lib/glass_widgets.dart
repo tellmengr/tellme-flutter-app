@@ -88,7 +88,8 @@ class GlassPrimaryButton extends StatelessWidget {
           padding: EdgeInsets.zero,
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
         child: Ink(
           decoration: BoxDecoration(
@@ -137,7 +138,8 @@ class GlassOutlineButton extends StatelessWidget {
         style: OutlinedButton.styleFrom(
           side: BorderSide(color: Colors.white.withOpacity(.6), width: 1.6),
           backgroundColor: Colors.white.withOpacity(.08),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
         child: Text(
           label,

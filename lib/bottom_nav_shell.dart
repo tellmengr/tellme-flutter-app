@@ -12,6 +12,7 @@ import 'profile_page.dart';
 import 'support_chat_page.dart';
 import 'tellme_live_chat_service.dart';
 import 'user_provider.dart';
+import 'whatsapp_helper.dart';
 
 class BottomNavShell extends StatefulWidget {
   const BottomNavShell({super.key});
@@ -22,6 +23,7 @@ class BottomNavShell extends StatefulWidget {
 
 class _BottomNavShellState extends State<BottomNavShell> {
   int _selectedIndex = 0;
+  bool _supportExpanded = false;
 
   // Persistent tabs. Cart and Profile are still opened as pushed pages.
   // Bottom nav mapping:
@@ -125,12 +127,29 @@ class _BottomNavShellState extends State<BottomNavShell> {
   }
 
   Future<void> _openLiveChat() async {
+    if (mounted) setState(() => _supportExpanded = false);
     await _reportChatPresence(currentPage: 'App: Live Chat');
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const SupportChatPage()),
     );
     await _reportChatPresence();
+  }
+
+  Future<void> _openWhatsApp() async {
+    if (mounted) setState(() => _supportExpanded = false);
+
+    final user = context.read<UserProvider>();
+    final email = user.userEmail.trim();
+    final name = user.userDisplayName.trim();
+    final identity = email.isNotEmpty
+        ? 'I am $email.'
+        : (name.isNotEmpty && name != 'Guest' ? 'I am $name.' : '');
+
+    await openWhatsAppChat(
+      prefill: 'Hello TellMe support. $identity I need help with my order.',
+      context: context,
+    );
   }
 
   Future<bool> _onWillPop() async {
@@ -203,14 +222,148 @@ class _BottomNavShellState extends State<BottomNavShell> {
             ),
           ],
         ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
-        floatingActionButton: FloatingActionButton.small(
-          heroTag: 'tellme-live-chat',
-          tooltip: 'Live chat',
-          onPressed: _openLiveChat,
-          backgroundColor: const Color(0xFF004AAD),
-          foregroundColor: Colors.white,
-          child: const Icon(Icons.support_agent_rounded),
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+        floatingActionButton: _SupportLauncher(
+          expanded: _supportExpanded,
+          onToggle: () {
+            setState(() => _supportExpanded = !_supportExpanded);
+          },
+          onLiveChat: _openLiveChat,
+          onWhatsApp: _openWhatsApp,
+        ),
+      ),
+    );
+  }
+}
+
+class _SupportLauncher extends StatelessWidget {
+  const _SupportLauncher({
+    required this.expanded,
+    required this.onToggle,
+    required this.onLiveChat,
+    required this.onWhatsApp,
+  });
+
+  final bool expanded;
+  final VoidCallback onToggle;
+  final VoidCallback onLiveChat;
+  final VoidCallback onWhatsApp;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.bottomRight,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            switchInCurve: Curves.easeOutBack,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) {
+              return FadeTransition(
+                opacity: animation,
+                child: ScaleTransition(
+                  scale: animation,
+                  alignment: Alignment.bottomRight,
+                  child: child,
+                ),
+              );
+            },
+            child: expanded
+                ? Column(
+                    key: const ValueKey('support-options'),
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      _SupportChoice(
+                        label: 'WhatsApp',
+                        icon: Icons.call_rounded,
+                        color: const Color(0xFF22C55E),
+                        onTap: onWhatsApp,
+                      ),
+                      const SizedBox(height: 10),
+                      _SupportChoice(
+                        label: 'Live chat',
+                        icon: Icons.support_agent_rounded,
+                        color: const Color(0xFF004AAD),
+                        onTap: onLiveChat,
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  )
+                : const SizedBox.shrink(key: ValueKey('support-collapsed')),
+          ),
+          FloatingActionButton(
+            heroTag: 'tellme-support-launcher',
+            tooltip: expanded ? 'Close support channels' : 'Support channels',
+            onPressed: onToggle,
+            backgroundColor:
+                expanded ? const Color(0xFF111827) : const Color(0xFF7C3AED),
+            foregroundColor: Colors.white,
+            child: AnimatedRotation(
+              duration: const Duration(milliseconds: 180),
+              turns: expanded ? 0.125 : 0,
+              child: Icon(
+                  expanded ? Icons.close_rounded : Icons.chat_bubble_rounded),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SupportChoice extends StatelessWidget {
+  const _SupportChoice({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      elevation: 8,
+      shadowColor: Colors.black26,
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 10, 16, 10),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Color(0xFF0F172A),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

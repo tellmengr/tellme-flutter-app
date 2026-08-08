@@ -36,7 +36,8 @@ class WishlistPage extends StatelessWidget {
     final currentTheme = themeProvider?.currentTheme;
     final primaryColor = currentTheme?.primaryColor ?? const Color(0xFF004AAD);
     final accentColor = currentTheme?.accentColor ?? const Color(0xFF0096FF);
-    final gradientColors = currentTheme?.gradient.colors ?? [const Color(0xFF004AAD), const Color(0xFF0096FF)];
+    final gradientColors = currentTheme?.gradient.colors ??
+        [const Color(0xFF004AAD), const Color(0xFF0096FF)];
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -93,7 +94,8 @@ class WishlistPage extends StatelessWidget {
                     ),
                     IconButton(
                       onPressed: () => _showClearConfirmation(context),
-                      icon: const Icon(Icons.delete_outline, color: Colors.white),
+                      icon:
+                          const Icon(Icons.delete_outline, color: Colors.white),
                       tooltip: "Clear All",
                     ),
                   ],
@@ -107,7 +109,8 @@ class WishlistPage extends StatelessWidget {
                   itemCount: wishlist.count,
                   itemBuilder: (context, index) {
                     final item = wishlist.items[index];
-                    return _buildWishlistCard(context, item, wishlist, primaryColor, accentColor);
+                    return _buildWishlistCard(
+                        context, item, wishlist, primaryColor, accentColor);
                   },
                 ),
               ),
@@ -124,7 +127,8 @@ class WishlistPage extends StatelessWidget {
   // ------------------------------------------------------------------
   // 💳 WISHLIST CARD - THEME AWARE
   // ------------------------------------------------------------------
-  Widget _buildWishlistCard(BuildContext context, dynamic item, WishlistProvider wishlist, Color primaryColor, Color accentColor) {
+  Widget _buildWishlistCard(BuildContext context, dynamic item,
+      WishlistProvider wishlist, Color primaryColor, Color accentColor) {
     final cart = Provider.of<CartProvider>(context, listen: false);
     final id = item['id'] ?? item['product_id'] ?? 0;
     final name = item['name'] ?? 'Unknown Product';
@@ -215,7 +219,8 @@ class WishlistPage extends StatelessWidget {
                         ),
                       );
                     },
-                    icon: Icon(Icons.shopping_cart_outlined, color: primaryColor),
+                    icon:
+                        Icon(Icons.shopping_cart_outlined, color: primaryColor),
                     tooltip: "Add to Cart",
                   ),
                   IconButton(
@@ -286,7 +291,8 @@ class WishlistPage extends StatelessWidget {
   // ------------------------------------------------------------------
   // 🔽 BOTTOM ACTIONS - THEME AWARE
   // ------------------------------------------------------------------
-  Widget _buildBottomActions(BuildContext context, WishlistProvider wishlist, Color primaryColor, Color accentColor) {
+  Widget _buildBottomActions(BuildContext context, WishlistProvider wishlist,
+      Color primaryColor, Color accentColor) {
     final cart = Provider.of<CartProvider>(context, listen: false);
 
     return Container(
@@ -369,7 +375,8 @@ class WishlistPage extends StatelessWidget {
     return 0.0;
   }
 
-  void _addAllToCart(BuildContext context, WishlistProvider wishlist, CartProvider cart) {
+  void _addAllToCart(
+      BuildContext context, WishlistProvider wishlist, CartProvider cart) {
     for (var item in wishlist.items) {
       cart.addToCartFast(item);
     }
@@ -393,8 +400,8 @@ class WishlistPage extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("Clear Wishlist?"),
-        content:
-            const Text("Are you sure you want to remove all items from your wishlist?"),
+        content: const Text(
+            "Are you sure you want to remove all items from your wishlist?"),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),

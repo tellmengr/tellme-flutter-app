@@ -1,4 +1,4 @@
-﻿class WpPost {
+class WpPost {
   final int id;
   final String slug;
   final String title;
@@ -22,7 +22,9 @@
   factory WpPost.fromJson(Map<String, dynamic> json) {
     final rawTitle = _renderedOrText(json['title']);
     final rawExcerpt = _renderedOrText(json['excerpt']);
-    final rawContent = json['bodyHtml'] ?? json['contentHtml'] ?? _renderedOrText(json['content']);
+    final rawContent = json['bodyHtml'] ??
+        json['contentHtml'] ??
+        _renderedOrText(json['content']);
     final rawImage = json['coverImageUrl'] ?? json['featuredImage'];
     final rawDate = json['publishedAt'] ?? json['date'];
 
@@ -33,7 +35,8 @@
       excerpt: _stripHtml(rawExcerpt),
       contentHtml: '$rawContent',
       date: DateTime.tryParse('$rawDate') ?? DateTime.now(),
-      featuredImage: rawImage == null || '$rawImage'.isEmpty ? null : '$rawImage',
+      featuredImage:
+          rawImage == null || '$rawImage'.isEmpty ? null : '$rawImage',
     );
   }
 

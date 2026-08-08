@@ -19,7 +19,8 @@ class MyOrdersPage extends StatefulWidget {
   State<MyOrdersPage> createState() => _MyOrdersPageState();
 }
 
-class _MyOrdersPageState extends State<MyOrdersPage> with SingleTickerProviderStateMixin {
+class _MyOrdersPageState extends State<MyOrdersPage>
+    with SingleTickerProviderStateMixin {
   List<Map<String, dynamic>> _orders = [];
   List<Map<String, dynamic>> _filteredOrders = [];
   bool _isLoading = true;
@@ -44,6 +45,8 @@ class _MyOrdersPageState extends State<MyOrdersPage> with SingleTickerProviderSt
   }
 
   Future<void> _loadOrders() async {
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -51,23 +54,29 @@ class _MyOrdersPageState extends State<MyOrdersPage> with SingleTickerProviderSt
 
     try {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
-      final userId = userProvider.user?['id'];
+      final user = userProvider.user;
+      final rawUserId = user?['id'];
+      final legacyUserId = rawUserId is int
+          ? rawUserId
+          : int.tryParse(rawUserId?.toString() ?? '');
 
-      if (userId == null) {
-        throw Exception('User not logged in');
+      if (user == null) {
+        throw Exception('Please sign in to view your orders.');
       }
 
       final wooService = WooCommerceService();
-      final orders = await wooService.getCustomerOrders(userId);
+      final orders = await wooService.getCustomerOrders(legacyUserId);
 
+      if (!mounted) return;
       setState(() {
         _orders = orders;
         _filterOrders();
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
-        _errorMessage = e.toString();
+        _errorMessage = e.toString().replaceFirst('Exception: ', '');
         _isLoading = false;
       });
     }
@@ -97,7 +106,8 @@ class _MyOrdersPageState extends State<MyOrdersPage> with SingleTickerProviderSt
     final currentTheme = themeProvider?.currentTheme;
     final primaryColor = currentTheme?.primaryColor ?? kPrimaryBlue;
     final accentColor = currentTheme?.accentColor ?? kAccentBlue;
-    final gradientColors = currentTheme?.gradient.colors ?? [kPrimaryBlue, kAccentBlue];
+    final gradientColors =
+        currentTheme?.gradient.colors ?? [kPrimaryBlue, kAccentBlue];
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -184,7 +194,8 @@ class _MyOrdersPageState extends State<MyOrdersPage> with SingleTickerProviderSt
                             delegate: SliverChildBuilderDelegate(
                               (context, index) {
                                 return TweenAnimationBuilder(
-                                  duration: Duration(milliseconds: 300 + (index * 100)),
+                                  duration: Duration(
+                                      milliseconds: 300 + (index * 100)),
                                   tween: Tween<double>(begin: 0, end: 1),
                                   builder: (context, double value, child) {
                                     return Transform.translate(
@@ -195,7 +206,8 @@ class _MyOrdersPageState extends State<MyOrdersPage> with SingleTickerProviderSt
                                       ),
                                     );
                                   },
-                                  child: _buildOrderCard(_filteredOrders[index], primaryColor, accentColor),
+                                  child: _buildOrderCard(_filteredOrders[index],
+                                      primaryColor, accentColor),
                                 );
                               },
                               childCount: _filteredOrders.length,
@@ -225,17 +237,22 @@ class _MyOrdersPageState extends State<MyOrdersPage> with SingleTickerProviderSt
         padding: const EdgeInsets.all(8),
         child: Row(
           children: [
-            _buildFilterChip('All', 'all', Icons.list_rounded, primaryColor, accentColor),
-            _buildFilterChip('Pending', 'pending', Icons.schedule_rounded, primaryColor, accentColor),
-            _buildFilterChip('Processing', 'processing', Icons.autorenew_rounded, primaryColor, accentColor),
-            _buildFilterChip('Completed', 'completed', Icons.check_circle_rounded, primaryColor, accentColor),
+            _buildFilterChip(
+                'All', 'all', Icons.list_rounded, primaryColor, accentColor),
+            _buildFilterChip('Pending', 'pending', Icons.schedule_rounded,
+                primaryColor, accentColor),
+            _buildFilterChip('Processing', 'processing',
+                Icons.autorenew_rounded, primaryColor, accentColor),
+            _buildFilterChip('Completed', 'completed',
+                Icons.check_circle_rounded, primaryColor, accentColor),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildFilterChip(String label, String value, IconData icon, Color primaryColor, Color accentColor) {
+  Widget _buildFilterChip(String label, String value, IconData icon,
+      Color primaryColor, Color accentColor) {
     final isSelected = _selectedFilter == value;
     Color chipColor;
 
@@ -374,7 +391,8 @@ class _MyOrdersPageState extends State<MyOrdersPage> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildOrderCard(Map<String, dynamic> order, Color primaryColor, Color accentColor) {
+  Widget _buildOrderCard(
+      Map<String, dynamic> order, Color primaryColor, Color accentColor) {
     final orderId = order['id']?.toString() ?? 'N/A';
     final status = order['status'] ?? 'pending';
     final total = order['total'] ?? '0.00';
@@ -495,7 +513,8 @@ class _MyOrdersPageState extends State<MyOrdersPage> with SingleTickerProviderSt
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
                         color: statusColor.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(12),
@@ -576,7 +595,8 @@ class _MyOrdersPageState extends State<MyOrdersPage> with SingleTickerProviderSt
                       ),
                       if (items.length > 1)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: primaryColor.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
@@ -706,7 +726,8 @@ class _MyOrdersPageState extends State<MyOrdersPage> with SingleTickerProviderSt
               style: ElevatedButton.styleFrom(
                 backgroundColor: primaryColor,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -767,7 +788,8 @@ class _MyOrdersPageState extends State<MyOrdersPage> with SingleTickerProviderSt
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryColor,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
@@ -781,7 +803,8 @@ class _MyOrdersPageState extends State<MyOrdersPage> with SingleTickerProviderSt
     );
   }
 
-  void _showOrderDetails(Map<String, dynamic> order, Color primaryColor, Color accentColor) {
+  void _showOrderDetails(
+      Map<String, dynamic> order, Color primaryColor, Color accentColor) {
     final items = order['line_items'] as List? ?? [];
     final shipping = order['shipping'] as Map<String, dynamic>? ?? {};
     final billing = order['billing'] as Map<String, dynamic>? ?? {};
@@ -814,7 +837,8 @@ class _MyOrdersPageState extends State<MyOrdersPage> with SingleTickerProviderSt
 
               // Header
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [primaryColor.withOpacity(0.1), Colors.white],
@@ -881,7 +905,10 @@ class _MyOrdersPageState extends State<MyOrdersPage> with SingleTickerProviderSt
                       ),
                     ),
                     const SizedBox(height: 16),
-                    ...items.map((item) => _buildOrderItem(item, order['currency'] ?? 'NGN', primaryColor)).toList(),
+                    ...items
+                        .map((item) => _buildOrderItem(
+                            item, order['currency'] ?? 'NGN', primaryColor))
+                        .toList(),
 
                     const SizedBox(height: 24),
 
@@ -898,10 +925,12 @@ class _MyOrdersPageState extends State<MyOrdersPage> with SingleTickerProviderSt
                       const SizedBox(height: 12),
                       _buildInfoCard(
                         icon: Icons.local_shipping_rounded,
-                        title: '${shipping['first_name']} ${shipping['last_name']}',
+                        title:
+                            '${shipping['first_name']} ${shipping['last_name']}',
                         details: [
                           shipping['address_1'] ?? '',
-                          if (shipping['address_2']?.isNotEmpty == true) shipping['address_2'],
+                          if (shipping['address_2']?.isNotEmpty == true)
+                            shipping['address_2'],
                           '${shipping['city']}, ${shipping['state']} ${shipping['postcode']}',
                           shipping['country'] ?? '',
                         ].where((e) => e.toString().isNotEmpty).join('\n'),
@@ -936,11 +965,18 @@ class _MyOrdersPageState extends State<MyOrdersPage> with SingleTickerProviderSt
                       ),
                       child: Column(
                         children: [
-                          _buildSummaryRow('Subtotal', order['total'] ?? '0', order['currency'] ?? 'NGN'),
-                          if (order['shipping_total'] != null && order['shipping_total'] != '0')
-                            _buildSummaryRow('Shipping', order['shipping_total'], order['currency'] ?? 'NGN'),
-                          if (order['total_tax'] != null && order['total_tax'] != '0')
-                            _buildSummaryRow('Tax', order['total_tax'], order['currency'] ?? 'NGN'),
+                          _buildSummaryRow('Subtotal', order['total'] ?? '0',
+                              order['currency'] ?? 'NGN'),
+                          if (order['shipping_total'] != null &&
+                              order['shipping_total'] != '0')
+                            _buildSummaryRow(
+                                'Shipping',
+                                order['shipping_total'],
+                                order['currency'] ?? 'NGN'),
+                          if (order['total_tax'] != null &&
+                              order['total_tax'] != '0')
+                            _buildSummaryRow('Tax', order['total_tax'],
+                                order['currency'] ?? 'NGN'),
                           const Divider(height: 24),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -954,7 +990,8 @@ class _MyOrdersPageState extends State<MyOrdersPage> with SingleTickerProviderSt
                                 ),
                               ),
                               Text(
-                                _formatCurrency(order['total'] ?? '0', order['currency'] ?? 'NGN'),
+                                _formatCurrency(order['total'] ?? '0',
+                                    order['currency'] ?? 'NGN'),
                                 style: TextStyle(
                                   fontSize: 24,
                                   fontWeight: FontWeight.w800,
@@ -976,7 +1013,8 @@ class _MyOrdersPageState extends State<MyOrdersPage> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildOrderItem(Map<String, dynamic> item, String currency, Color primaryColor) {
+  Widget _buildOrderItem(
+      Map<String, dynamic> item, String currency, Color primaryColor) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -1025,7 +1063,8 @@ class _MyOrdersPageState extends State<MyOrdersPage> with SingleTickerProviderSt
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(8),
@@ -1057,7 +1096,11 @@ class _MyOrdersPageState extends State<MyOrdersPage> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildInfoCard({required IconData icon, required String title, required String details, required Color primaryColor}) {
+  Widget _buildInfoCard(
+      {required IconData icon,
+      required String title,
+      required String details,
+      required Color primaryColor}) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1141,7 +1184,20 @@ class _MyOrdersPageState extends State<MyOrdersPage> with SingleTickerProviderSt
   String _formatDate(String dateStr) {
     try {
       final date = DateTime.parse(dateStr);
-      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      final months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec'
+      ];
       return '${months[date.month - 1]} ${date.day}, ${date.year}';
     } catch (e) {
       return dateStr;

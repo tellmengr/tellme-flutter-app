@@ -55,10 +55,8 @@ class UserSettingsProvider with ChangeNotifier {
   // =====================================================
   String _formatCurrencyFallback(double value, {bool showDecimals = true}) {
     try {
-      final formatter = NumberFormat(
-        showDecimals ? "#,##0.00" : "#,##0",
-        "en_US"
-      );
+      final formatter =
+          NumberFormat(showDecimals ? "#,##0.00" : "#,##0", "en_US");
       final formattedNumber = formatter.format(value);
       return "₦$formattedNumber";
     } catch (e) {
@@ -71,9 +69,8 @@ class UserSettingsProvider with ChangeNotifier {
   // 🛠️ Manual Currency Formatter (Ultimate Fallback)
   // =====================================================
   String _manualCurrencyFormat(double value, {bool showDecimals = true}) {
-    String numberStr = showDecimals
-        ? value.toStringAsFixed(2)
-        : value.round().toString();
+    String numberStr =
+        showDecimals ? value.toStringAsFixed(2) : value.round().toString();
 
     // Add commas for thousands separator
     List<String> parts = numberStr.split('.');
@@ -97,10 +94,12 @@ class UserSettingsProvider with ChangeNotifier {
   // =====================================================
 
   /// Format price with decimals (e.g., ₦1,500.00)
-  String formatPrice(dynamic value) => formatCurrency(value, showDecimals: true);
+  String formatPrice(dynamic value) =>
+      formatCurrency(value, showDecimals: true);
 
   /// Format price without decimals (e.g., ₦1,500)
-  String formatPriceShort(dynamic value) => formatCurrency(value, showDecimals: false);
+  String formatPriceShort(dynamic value) =>
+      formatCurrency(value, showDecimals: false);
 
   // =====================================================
   // 🔹 Initialize all settings from SharedPreferences

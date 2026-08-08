@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'wp_post.dart';
@@ -8,7 +8,8 @@ class WordPressBlogService {
 
   final http.Client _client;
 
-  WordPressBlogService({http.Client? client}) : _client = client ?? http.Client();
+  WordPressBlogService({http.Client? client})
+      : _client = client ?? http.Client();
 
   Future<List<WpPost>> fetchPosts({int page = 1, int perPage = 10}) async {
     final uri = Uri.parse(_baseUrl).replace(queryParameters: {
@@ -16,7 +17,8 @@ class WordPressBlogService {
       'perPage': perPage.toString(),
     });
 
-    final response = await _client.get(uri, headers: const {'Accept': 'application/json'});
+    final response =
+        await _client.get(uri, headers: const {'Accept': 'application/json'});
     if (response.statusCode != 200) {
       throw Exception('Failed to load posts: ${response.statusCode}');
     }
@@ -41,4 +43,3 @@ class WordPressBlogService {
     return WpPost.fromJson(data);
   }
 }
-

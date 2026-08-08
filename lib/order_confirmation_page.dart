@@ -22,9 +22,9 @@ class OrderConfirmationPage extends StatelessWidget {
       double value =
           double.tryParse(str.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0;
       final formatted = value.toStringAsFixed(0).replaceAllMapped(
-        RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-        (Match m) => '${m[1]},',
-      );
+            RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+            (Match m) => '${m[1]},',
+          );
       return '₦$formatted';
     } catch (_) {
       return '₦$str';
@@ -198,8 +198,10 @@ class OrderConfirmationPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       _buildBankRow('Bank Name', bankDetails['bank_name']!),
-                      _buildBankRow('Account Name', bankDetails['account_name']!),
-                      _buildBankRow('Account Number', bankDetails['account_number']!),
+                      _buildBankRow(
+                          'Account Name', bankDetails['account_name']!),
+                      _buildBankRow(
+                          'Account Number', bankDetails['account_number']!),
                       const SizedBox(height: 12),
                       const Text(
                         'After payment, please reply your confirmation email or contact support with your proof of payment.',
@@ -232,17 +234,15 @@ class OrderConfirmationPage extends StatelessWidget {
                       const SizedBox(height: 16),
                       ...((orderDetails['line_items'] as List).map((item) =>
                           Padding(
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 4.0),
+                            padding: const EdgeInsets.symmetric(vertical: 4.0),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Expanded(
                                   child: Text(
                                     '${item['name']} (x${item['quantity']})',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium,
+                                    style:
+                                        Theme.of(context).textTheme.bodyMedium,
                                   ),
                                 ),
                                 Text(
@@ -324,8 +324,8 @@ class OrderConfirmationPage extends StatelessWidget {
                     ),
                     child: const Text(
                       'Continue Shopping',
-                      style: TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w600),
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),
@@ -335,8 +335,7 @@ class OrderConfirmationPage extends StatelessWidget {
                     onPressed: () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content:
-                              Text('Order tracking feature coming soon!'),
+                          content: Text('Order tracking feature coming soon!'),
                           backgroundColor: Colors.blue,
                         ),
                       );
@@ -352,8 +351,8 @@ class OrderConfirmationPage extends StatelessWidget {
                     ),
                     child: const Text(
                       'Track Order',
-                      style: TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),

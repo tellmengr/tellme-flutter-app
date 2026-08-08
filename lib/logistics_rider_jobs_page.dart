@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -28,7 +28,6 @@ const _kCardBorder = Color(0xFFD9EAFB);
 const _kSoftPanel = Color(0xFFEAF6FF);
 const _kTextPrimary = Color(0xFF12215B);
 const _kTextSecondary = Color(0xFF627394);
-
 
 class _LocationCheckResult {
   final Position position;
@@ -329,8 +328,7 @@ class _LogisticsRiderJobsPageState extends State<LogisticsRiderJobsPage>
       return true;
     }
 
-    final destinationChanged =
-        _lastRouteFetchDestination == null ||
+    final destinationChanged = _lastRouteFetchDestination == null ||
         !_isSameLatLng(_lastRouteFetchDestination!, destination);
 
     if (_lastRouteFetchOrigin == null ||
@@ -1211,8 +1209,7 @@ class _LogisticsRiderJobsPageState extends State<LogisticsRiderJobsPage>
       await _updateDeliveryStatus(
         deliveryRequestId: deliveryRequestId,
         newStatus: DeliveryStatusCode.pickedUp,
-        note:
-            'Package picked up by rider | '
+        note: 'Package picked up by rider | '
             '${_gpsAuditText(pickupCheck)} | '
             'Pickup contact: ${proof.pickupContactName} | '
             'Pickup proof: ${proof.packageCondition}',
@@ -1349,8 +1346,7 @@ class _LogisticsRiderJobsPageState extends State<LogisticsRiderJobsPage>
       'otp': proof.deliveryOtp,
       'deliveryOtp': proof.deliveryOtp,
       'receiverName': proof.receiverName,
-      'deliveryNote':
-          '${proof.deliveryNote} | ${_gpsAuditText(dropoffCheck)}',
+      'deliveryNote': '${proof.deliveryNote} | ${_gpsAuditText(dropoffCheck)}',
       'latitude': dropoffCheck.position.latitude,
       'longitude': dropoffCheck.position.longitude,
     };
@@ -1377,8 +1373,7 @@ class _LogisticsRiderJobsPageState extends State<LogisticsRiderJobsPage>
         decoded['success'] == true;
 
     if (!success) {
-      final message =
-          decoded['message'] ??
+      final message = decoded['message'] ??
           decoded['error'] ??
           decoded['title'] ??
           'OTP verification failed. Please check the code and try again.';
@@ -1542,35 +1537,34 @@ class _LogisticsRiderJobsPageState extends State<LogisticsRiderJobsPage>
     _riderPositionSubscription = null;
 
     try {
-      _riderPositionSubscription =
-          Geolocator.getPositionStream(
-            locationSettings: _liveRiderLocationSettings(),
-          ).listen(
-            (position) {
-              _lastPositionStreamEventAt = DateTime.now();
-              _handleRiderPosition(
-                deliveryRequestId: deliveryRequestId,
-                item: item,
-                position: position,
-              );
-            },
-            onError: (Object error) {
-              debugPrint('[RiderTracking] Position stream error: $error');
-              if (!mounted) return;
-
-              final errorText = error.toString();
-              if (errorText.contains('FOREGROUND_SERVICE')) {
-                _showTrackingErrorOnce(
-                  'Live GPS foreground service permission is missing. Tracking will continue with periodic GPS updates while the app is open.',
-                );
-                return;
-              }
-
-              _showTrackingErrorOnce(
-                'Live GPS paused. TellMe will keep retrying your location.',
-              );
-            },
+      _riderPositionSubscription = Geolocator.getPositionStream(
+        locationSettings: _liveRiderLocationSettings(),
+      ).listen(
+        (position) {
+          _lastPositionStreamEventAt = DateTime.now();
+          _handleRiderPosition(
+            deliveryRequestId: deliveryRequestId,
+            item: item,
+            position: position,
           );
+        },
+        onError: (Object error) {
+          debugPrint('[RiderTracking] Position stream error: $error');
+          if (!mounted) return;
+
+          final errorText = error.toString();
+          if (errorText.contains('FOREGROUND_SERVICE')) {
+            _showTrackingErrorOnce(
+              'Live GPS foreground service permission is missing. Tracking will continue with periodic GPS updates while the app is open.',
+            );
+            return;
+          }
+
+          _showTrackingErrorOnce(
+            'Live GPS paused. TellMe will keep retrying your location.',
+          );
+        },
+      );
     } on PlatformException catch (e) {
       debugPrint('[RiderTracking] Could not open position stream: $e');
       if (!mounted) return;
@@ -1673,8 +1667,7 @@ class _LogisticsRiderJobsPageState extends State<LogisticsRiderJobsPage>
     final now = DateTime.now();
     final signalRConnected =
         LogisticsTrackingSignalRService.instance.isConnected;
-    final shouldPersistToApi =
-        forceApiPersistence ||
+    final shouldPersistToApi = forceApiPersistence ||
         !signalRConnected ||
         _lastApiLocationPersistedAt == null ||
         now.difference(_lastApiLocationPersistedAt!).inSeconds >= 20;
@@ -1782,8 +1775,7 @@ class _LogisticsRiderJobsPageState extends State<LogisticsRiderJobsPage>
     final dLng = endLng - startLng;
 
     final y = math.sin(dLng) * math.cos(endLat);
-    final x =
-        math.cos(startLat) * math.sin(endLat) -
+    final x = math.cos(startLat) * math.sin(endLat) -
         math.sin(startLat) * math.cos(endLat) * math.cos(dLng);
 
     final bearing = math.atan2(y, x) * 180 / math.pi;
@@ -1829,11 +1821,9 @@ class _LogisticsRiderJobsPageState extends State<LogisticsRiderJobsPage>
       return null;
     }
 
-    final lat =
-        readDoubleFromMap(delivery, latitudeKeys) ??
+    final lat = readDoubleFromMap(delivery, latitudeKeys) ??
         readDoubleFromMap(item, latitudeKeys);
-    final lng =
-        readDoubleFromMap(delivery, longitudeKeys) ??
+    final lng = readDoubleFromMap(delivery, longitudeKeys) ??
         readDoubleFromMap(item, longitudeKeys);
 
     if (lat == null || lng == null || lat == 0 || lng == 0) return null;
@@ -2025,14 +2015,15 @@ class _LogisticsRiderJobsPageState extends State<LogisticsRiderJobsPage>
   }
 
   Set<Polyline> _withoutRoutePolylines(Set<Polyline> polylines) {
-    return Set<Polyline>.from(polylines)..removeWhere(
-      (p) =>
-          p.polylineId.value == 'road_route_to_destination' ||
-          p.polylineId.value == 'road_route_to_destination_border' ||
-          p.polylineId.value == 'rider_movement_path' ||
-          p.polylineId.value == 'pickup_to_dropoff' ||
-          p.polylineId.value == 'pickup_to_dropoff_preview',
-    );
+    return Set<Polyline>.from(polylines)
+      ..removeWhere(
+        (p) =>
+            p.polylineId.value == 'road_route_to_destination' ||
+            p.polylineId.value == 'road_route_to_destination_border' ||
+            p.polylineId.value == 'rider_movement_path' ||
+            p.polylineId.value == 'pickup_to_dropoff' ||
+            p.polylineId.value == 'pickup_to_dropoff_preview',
+      );
   }
 
   Future<void> _refreshRoadRoutePolyline({
@@ -2147,8 +2138,7 @@ class _LogisticsRiderJobsPageState extends State<LogisticsRiderJobsPage>
         markerId: const MarkerId('rider_current_location'),
         position: displayRiderLatLng,
         infoWindow: const InfoWindow(title: 'You are here'),
-        icon:
-            _bikeMarkerIcon ??
+        icon: _bikeMarkerIcon ??
             BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
         anchor: const Offset(0.5, 0.5),
         flat: true,
@@ -2744,8 +2734,7 @@ class _LogisticsRiderJobsPageState extends State<LogisticsRiderJobsPage>
         .expand((polyline) => polyline.points)
         .toList();
 
-    final destination =
-        activeDestinationLatLng ??
+    final destination = activeDestinationLatLng ??
         (roadRoutePoints.isNotEmpty
             ? roadRoutePoints.last
             : pickupLatLng ?? dropoffLatLng);
@@ -2755,8 +2744,7 @@ class _LogisticsRiderJobsPageState extends State<LogisticsRiderJobsPage>
       return;
     }
 
-    final routeMatchesDestination =
-        roadRoutePoints.isNotEmpty &&
+    final routeMatchesDestination = roadRoutePoints.isNotEmpty &&
         Geolocator.distanceBetween(
               roadRoutePoints.last.latitude,
               roadRoutePoints.last.longitude,
@@ -2813,20 +2801,17 @@ class _LogisticsRiderJobsPageState extends State<LogisticsRiderJobsPage>
   }) {
     if (!isThisLive) return const SizedBox.shrink();
 
-    final pickupLatLng =
-        _activePickupLatLng ??
+    final pickupLatLng = _activePickupLatLng ??
         _jobLatLng(item, ['pickupLatitude'], ['pickupLongitude']);
 
-    final dropoffLatLng =
-        _activeDropoffLatLng ??
+    final dropoffLatLng = _activeDropoffLatLng ??
         _jobLatLng(item, ['dropoffLatitude'], ['dropoffLongitude']);
 
     final displayRiderLatLng = _animatedRiderLatLng ?? _currentRiderLatLng;
 
     // Lagos fallback prevents a blank map before the first GPS fix.
     // The bike marker is shown only after the rider GPS is available.
-    final mapTarget =
-        displayRiderLatLng ??
+    final mapTarget = displayRiderLatLng ??
         pickupLatLng ??
         dropoffLatLng ??
         const LatLng(6.5244, 3.3792);
@@ -3062,11 +3047,11 @@ class _LogisticsRiderJobsPageState extends State<LogisticsRiderJobsPage>
                     onTap: displayRiderLatLng == null
                         ? null
                         : () => _focusRouteCamera(
-                            riderLatLng: displayRiderLatLng,
-                            pickupLatLng: pickupLatLng,
-                            dropoffLatLng: dropoffLatLng,
-                            activeDestinationLatLng: navigationDestination,
-                          ),
+                              riderLatLng: displayRiderLatLng,
+                              pickupLatLng: pickupLatLng,
+                              dropoffLatLng: dropoffLatLng,
+                              activeDestinationLatLng: navigationDestination,
+                            ),
                   ),
                 ),
               ],
@@ -3207,9 +3192,9 @@ class _LogisticsRiderJobsPageState extends State<LogisticsRiderJobsPage>
               onPressed: destination == null
                   ? null
                   : () => _openGoogleMapsNavigation(
-                      destination: destination,
-                      origin: origin,
-                    ),
+                        destination: destination,
+                        origin: origin,
+                      ),
               icon: const Icon(Icons.map_outlined, size: 17),
               label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
               style: ElevatedButton.styleFrom(
@@ -3273,7 +3258,8 @@ class _LogisticsRiderJobsPageState extends State<LogisticsRiderJobsPage>
     if (isDelivered) return const SizedBox.shrink();
 
     final targetLabel = isHeadingToDropoff ? 'drop-off point' : 'pickup point';
-    final actionLabel = isHeadingToDropoff ? 'Mark Delivered' : 'Package Picked Up';
+    final actionLabel =
+        isHeadingToDropoff ? 'Mark Delivered' : 'Package Picked Up';
 
     late final IconData icon;
     late final Color color;
@@ -3284,22 +3270,26 @@ class _LogisticsRiderJobsPageState extends State<LogisticsRiderJobsPage>
       icon = Icons.lock_outline_rounded;
       color = _kYellow;
       title = '$actionLabel locked';
-      message = 'Start live tracking first. Rider must be within ${_formatDistanceMeters(allowedRadiusMeters)} of the $targetLabel before this action can be submitted.';
+      message =
+          'Start live tracking first. Rider must be within ${_formatDistanceMeters(allowedRadiusMeters)} of the $targetLabel before this action can be submitted.';
     } else if (distanceMeters == null) {
       icon = Icons.gps_not_fixed_rounded;
       color = _kYellow;
       title = 'Waiting for GPS check';
-      message = 'Live tracking is active. Waiting for rider GPS to calculate distance to the $targetLabel.';
+      message =
+          'Live tracking is active. Waiting for rider GPS to calculate distance to the $targetLabel.';
     } else if (distanceMeters > allowedRadiusMeters) {
       icon = Icons.wrong_location_outlined;
       color = _kPink;
       title = '$actionLabel blocked';
-      message = 'You are ${_formatDistanceMeters(distanceMeters)} from the $targetLabel. Move within ${_formatDistanceMeters(allowedRadiusMeters)} to continue.';
+      message =
+          'You are ${_formatDistanceMeters(distanceMeters)} from the $targetLabel. Move within ${_formatDistanceMeters(allowedRadiusMeters)} to continue.';
     } else {
       icon = Icons.verified_user_outlined;
       color = const Color(0xFF00A76F);
       title = '$actionLabel unlocked';
-      message = 'GPS verified: you are ${_formatDistanceMeters(distanceMeters)} from the $targetLabel, within the allowed ${_formatDistanceMeters(allowedRadiusMeters)} radius.';
+      message =
+          'GPS verified: you are ${_formatDistanceMeters(distanceMeters)} from the $targetLabel, within the allowed ${_formatDistanceMeters(allowedRadiusMeters)} radius.';
     }
 
     return Container(
@@ -3378,8 +3368,7 @@ class _LogisticsRiderJobsPageState extends State<LogisticsRiderJobsPage>
         _markingPickedUpDeliveryId == deliveryRequestId;
     final isMarkingThisJob = _markingDeliveredDeliveryId == deliveryRequestId;
     final isAnyStartInProgress = _startingTrackingDeliveryId != null;
-    final isAnyDeliveryUpdateInProgress =
-        _markingPickedUpDeliveryId != null ||
+    final isAnyDeliveryUpdateInProgress = _markingPickedUpDeliveryId != null ||
         _markingDeliveredDeliveryId != null;
 
     final pickupLatLng = _jobLatLng(
@@ -3408,14 +3397,13 @@ class _LogisticsRiderJobsPageState extends State<LogisticsRiderJobsPage>
             : null;
     final isWithinActionRadius = distanceToActionTargetMeters != null &&
         distanceToActionTargetMeters <= allowedActionRadiusMeters;
-    final canSubmitStatusAction = !isAnyDeliveryUpdateInProgress &&
-        isThisLive &&
-        isWithinActionRadius;
+    final canSubmitStatusAction =
+        !isAnyDeliveryUpdateInProgress && isThisLive && isWithinActionRadius;
     final statusActionLockedLabel = !isThisLive
         ? 'Start Tracking First'
         : (distanceToActionTargetMeters == null
-              ? 'Waiting for GPS'
-              : 'Move Closer');
+            ? 'Waiting for GPS'
+            : 'Move Closer');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -3600,8 +3588,8 @@ class _LogisticsRiderJobsPageState extends State<LogisticsRiderJobsPage>
                         isStartingThisJob
                             ? 'Starting...'
                             : (isHeadingToDropoff
-                                  ? 'Resume Delivery'
-                                  : "I'm on my way"),
+                                ? 'Resume Delivery'
+                                : "I'm on my way"),
                         style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
                       style: ElevatedButton.styleFrom(
@@ -3640,8 +3628,8 @@ class _LogisticsRiderJobsPageState extends State<LogisticsRiderJobsPage>
                   child: OutlinedButton.icon(
                     onPressed: canSubmitStatusAction
                         ? (isHeadingToDropoff
-                              ? () => _confirmMarkDelivered(item)
-                              : () => _markPickedUp(item))
+                            ? () => _confirmMarkDelivered(item)
+                            : () => _markPickedUp(item))
                         : null,
                     icon: isMarkingPickedUpJob || isMarkingThisJob
                         ? const SizedBox(
@@ -3659,10 +3647,10 @@ class _LogisticsRiderJobsPageState extends State<LogisticsRiderJobsPage>
                       isMarkingPickedUpJob || isMarkingThisJob
                           ? 'Updating...'
                           : (canSubmitStatusAction
-                                ? (isHeadingToDropoff
-                                      ? 'Mark Delivered'
-                                      : 'Package Picked Up')
-                                : statusActionLockedLabel),
+                              ? (isHeadingToDropoff
+                                  ? 'Mark Delivered'
+                                  : 'Package Picked Up')
+                              : statusActionLockedLabel),
                       style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                     style: OutlinedButton.styleFrom(
@@ -3673,8 +3661,8 @@ class _LogisticsRiderJobsPageState extends State<LogisticsRiderJobsPage>
                       side: BorderSide(
                         color: canSubmitStatusAction
                             ? (isHeadingToDropoff
-                                  ? const Color(0xFF00A76F)
-                                  : _kAccentBlue)
+                                ? const Color(0xFF00A76F)
+                                : _kAccentBlue)
                             : _kCardBorder,
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -3891,11 +3879,9 @@ class _LogisticsRiderJobsPageState extends State<LogisticsRiderJobsPage>
     final item = _fullScreenMapJob;
     if (item == null) return const SizedBox.shrink();
 
-    final pickupLatLng =
-        _activePickupLatLng ??
+    final pickupLatLng = _activePickupLatLng ??
         _jobLatLng(item, ['pickupLatitude'], ['pickupLongitude']);
-    final dropoffLatLng =
-        _activeDropoffLatLng ??
+    final dropoffLatLng = _activeDropoffLatLng ??
         _jobLatLng(item, ['dropoffLatitude'], ['dropoffLongitude']);
     final riderLatLng = _animatedRiderLatLng ?? _currentRiderLatLng;
     final destinationLatLng = _nextNavigationDestination(
@@ -3909,8 +3895,7 @@ class _LogisticsRiderJobsPageState extends State<LogisticsRiderJobsPage>
       dropoffLatLng: dropoffLatLng,
     );
     final routeLabel = navigationLabel.replaceFirst('Navigate', 'Heading');
-    final mapTarget =
-        riderLatLng ??
+    final mapTarget = riderLatLng ??
         destinationLatLng ??
         pickupLatLng ??
         dropoffLatLng ??
@@ -3985,9 +3970,8 @@ class _LogisticsRiderJobsPageState extends State<LogisticsRiderJobsPage>
                     }
                   },
                   markers: markers,
-                  polylines: riderLatLng == null
-                      ? <Polyline>{}
-                      : _riderMapPolylines,
+                  polylines:
+                      riderLatLng == null ? <Polyline>{} : _riderMapPolylines,
                   myLocationEnabled: false,
                   myLocationButtonEnabled: false,
                   zoomControlsEnabled: false,
@@ -4068,11 +4052,11 @@ class _LogisticsRiderJobsPageState extends State<LogisticsRiderJobsPage>
                               onPressed: riderLatLng == null
                                   ? null
                                   : () => _showFullScreenRiderRoute(
-                                      riderLatLng: riderLatLng,
-                                      pickupLatLng: pickupLatLng,
-                                      dropoffLatLng: dropoffLatLng,
-                                      destinationLatLng: destinationLatLng,
-                                    ),
+                                        riderLatLng: riderLatLng,
+                                        pickupLatLng: pickupLatLng,
+                                        dropoffLatLng: dropoffLatLng,
+                                        destinationLatLng: destinationLatLng,
+                                      ),
                               selected: !_isFollowingRider,
                             ),
                             const SizedBox(height: 10),
@@ -4082,11 +4066,11 @@ class _LogisticsRiderJobsPageState extends State<LogisticsRiderJobsPage>
                               onPressed: riderLatLng == null
                                   ? null
                                   : () => _toggleFullScreenRiderFollow(
-                                      riderLatLng: riderLatLng,
-                                      pickupLatLng: pickupLatLng,
-                                      dropoffLatLng: dropoffLatLng,
-                                      destinationLatLng: destinationLatLng,
-                                    ),
+                                        riderLatLng: riderLatLng,
+                                        pickupLatLng: pickupLatLng,
+                                        dropoffLatLng: dropoffLatLng,
+                                        destinationLatLng: destinationLatLng,
+                                      ),
                               selected: _isFollowingRider,
                             ),
                           ],

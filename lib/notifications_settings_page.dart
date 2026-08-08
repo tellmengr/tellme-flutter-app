@@ -13,7 +13,8 @@ class NotificationsSettingsPage extends StatefulWidget {
   const NotificationsSettingsPage({Key? key}) : super(key: key);
 
   @override
-  State<NotificationsSettingsPage> createState() => _NotificationsSettingsPageState();
+  State<NotificationsSettingsPage> createState() =>
+      _NotificationsSettingsPageState();
 }
 
 class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
@@ -61,7 +62,8 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
     final primaryColor = currentTheme?.primaryColor ?? kPrimaryBlue;
     final accentColor = currentTheme?.accentColor ?? kAccentBlue;
     final secondaryColor = currentTheme?.secondaryColor ?? kPrimaryBlue;
-    final gradientColors = currentTheme?.gradient.colors ?? [kPrimaryBlue, kAccentBlue];
+    final gradientColors =
+        currentTheme?.gradient.colors ?? [kPrimaryBlue, kAccentBlue];
     final badgeColor = currentTheme?.badgeColor ?? kRed;
 
     return Scaffold(
@@ -142,7 +144,6 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
             ),
           ]),
           const SizedBox(height: 24),
-
           _buildSectionHeader('Delivery Methods', themeProvider),
           const SizedBox(height: 12),
           _buildSettingsCard(themeProvider, [
@@ -188,7 +189,8 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
     );
   }
 
-  Widget _buildSectionHeader(String title, CelebrationThemeProvider? themeProvider) {
+  Widget _buildSectionHeader(
+      String title, CelebrationThemeProvider? themeProvider) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Text(
@@ -203,7 +205,8 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
     );
   }
 
-  Widget _buildSettingsCard(CelebrationThemeProvider? themeProvider, List<Widget> children) {
+  Widget _buildSettingsCard(
+      CelebrationThemeProvider? themeProvider, List<Widget> children) {
     final currentTheme = themeProvider?.currentTheme;
     final primaryColor = currentTheme?.primaryColor ?? kPrimaryBlue;
 
@@ -213,7 +216,8 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: primaryColor.withOpacity(0.08), // 🎨 Use theme-aware shadow color
+            color: primaryColor
+                .withOpacity(0.08), // 🎨 Use theme-aware shadow color
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),

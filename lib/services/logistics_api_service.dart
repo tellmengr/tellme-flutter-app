@@ -163,18 +163,17 @@ class LogisticsApiService {
     return _handleResponse(response);
   }
 
-Future<Map<String, dynamic>> getDeliveryTracking({
-  required String deliveryId,
-}) async {
-  final url = ApiConfig.trackingUrl(deliveryId);
+  Future<Map<String, dynamic>> getDeliveryTracking({
+    required String deliveryId,
+  }) async {
+    final url = ApiConfig.trackingUrl(deliveryId);
 
-  final response = await _client
-      .get(Uri.parse(url), headers: _defaultHeaders)
-      .timeout(timeout);
+    final response = await _client
+        .get(Uri.parse(url), headers: _defaultHeaders)
+        .timeout(timeout);
 
-  return _handleResponse(response);
-}
-
+    return _handleResponse(response);
+  }
 
   // ===== Rider Lookup =====
 

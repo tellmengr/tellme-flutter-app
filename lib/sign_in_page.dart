@@ -1,6 +1,7 @@
 // lib/sign_in_page.dart
 import 'dart:ui';
 import 'dart:convert';
+import 'dart:math';
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -41,6 +42,19 @@ int _stableSocialUserId(String value) {
   final digest = sha256.convert(utf8.encode(value)).toString();
   final parsed = int.parse(digest.substring(0, 12), radix: 16);
   return (parsed % 2147483000) + 1;
+}
+
+String _generateAppleNonce([int length = 32]) {
+  const charset =
+      '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+  final random = Random.secure();
+  return List.generate(length, (_) => charset[random.nextInt(charset.length)])
+      .join();
+}
+
+String _sha256ForApple(String input) {
+  final bytes = utf8.encode(input);
+  return sha256.convert(bytes).toString();
 }
 
 class SignInPage extends StatefulWidget {
@@ -609,6 +623,7 @@ class _SignInPageState extends State<SignInPage>
   }
 
   // ---------------- APPLE SIGN-IN ----------------
+
   Future<void> _signInWithApple() async {
     if (!Platform.isIOS) {
       final themeProvider = context.read<CelebrationThemeProvider?>();
@@ -666,6 +681,7 @@ class _SignInPageState extends State<SignInPage>
   }
 
   // ---------------- FINAL LOGIN FLOW HELPERS ----------------
+
   Future<void> _finishDirectSocialLogin({
     required String provider,
     required String uid,
@@ -693,7 +709,7 @@ class _SignInPageState extends State<SignInPage>
         avatarUrl: photoUrl,
       );
     } catch (e) {
-      debugPrint('Apple customer sync failed; continuing locally: $e');
+      debugPrint('$provider customer sync failed; continuing locally: $e');
       customer = {
         'id': _stableSocialUserId('$provider:$uid:$email'),
         'email': email,
@@ -717,56 +733,31 @@ class _SignInPageState extends State<SignInPage>
     UserCredential cred, {
     required String provider,
     String? fallbackName,
-    String? fallbackEmail,
   }) async {
     final firebaseUser = cred.user;
     if (firebaseUser == null) {
       throw Exception('No user returned from $provider.');
     }
 
-    final uid = firebaseUser.uid.trim();
-    final email = [
-      firebaseUser.email,
-      fallbackEmail,
-    ].whereType<String>().map((value) => value.trim()).firstWhere(
-          (value) => value.isNotEmpty,
-          orElse: () =>
-              'apple-${uid.isNotEmpty ? uid : DateTime.now().millisecondsSinceEpoch}@tellme.ng',
-        );
+    final email = firebaseUser.email?.trim();
     final displayName =
         firebaseUser.displayName ?? (fallbackName ?? 'TellMe User');
     final photoUrl = firebaseUser.photoURL;
 
+    if (email == null || email.isEmpty) {
+      throw Exception('$provider did not return an email.');
+    }
+
     final wc = WooCommerceAuthService();
     final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final nameParts = displayName
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((part) => part.isNotEmpty)
-        .toList();
-    final firstName = nameParts.isNotEmpty ? nameParts.first : 'TellMe';
-    final lastName =
-        nameParts.length > 1 ? nameParts.sublist(1).join(' ') : 'Customer';
-
-    Map<String, dynamic> customer;
-    try {
-      customer = await wc.ensureCustomer(
-        email: email,
-        firstName: firstName,
-        lastName: lastName,
-        avatarUrl: photoUrl,
-      );
-    } catch (e) {
-      debugPrint('Social login WooCommerce sync failed; continuing: $e');
-      customer = {
-        'id': DateTime.now().millisecondsSinceEpoch,
-        'email': email,
-        'first_name': firstName,
-        'last_name': lastName,
-        'username': email.split('@').first,
-        'avatar_url': photoUrl,
-      };
-    }
+    final customer = await wc.ensureCustomer(
+      email: email,
+      firstName: displayName.split(' ').first,
+      lastName: displayName.split(' ').length > 1
+          ? displayName.split(' ').sublist(1).join(' ')
+          : '',
+      avatarUrl: photoUrl,
+    );
 
     await userProvider.setLoggedInCustomer(customer);
 

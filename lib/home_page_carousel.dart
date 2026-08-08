@@ -62,7 +62,8 @@ class _ProductSnapCarouselState extends State<ProductSnapCarousel> {
 
     if (widget.autoPlayInterval.inMilliseconds > 0) {
       _timer = Timer.periodic(widget.autoPlayInterval, (_) {
-        if (!mounted || !_controller.hasClients || widget.products.isEmpty) return;
+        if (!mounted || !_controller.hasClients || widget.products.isEmpty)
+          return;
         final total = _displayList().length;
         final next = (_current + 1) % total;
         _controller.animateToPage(
@@ -117,7 +118,8 @@ class _ProductSnapCarouselState extends State<ProductSnapCarousel> {
   void _maybeAskForMore(int pageIndex) {
     // if user reached the last **real** page (before loader), ask parent to load
     final items = _filtered();
-    final lastRealIndex = 1 + items.length - 1; // ghosts at 0 and items.length+1
+    final lastRealIndex =
+        1 + items.length - 1; // ghosts at 0 and items.length+1
     if (pageIndex >= lastRealIndex && widget.canLoadMore && !_askedForMore) {
       _askedForMore = true;
       widget.onLoadMore?.call();
@@ -277,10 +279,8 @@ class _TailLoaderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final cardBg =
-        isDark ? theme.colorScheme.surface : Colors.white;
-    final shadowColor =
-        isDark ? Colors.black.withOpacity(0.5) : Colors.black12;
+    final cardBg = isDark ? theme.colorScheme.surface : Colors.white;
+    final shadowColor = isDark ? Colors.black.withOpacity(0.5) : Colors.black12;
 
     return Center(
       child: Container(
@@ -336,10 +336,8 @@ class _ProductCard extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final textColor = theme.colorScheme.onSurface;
-    final cardBg =
-        isDark ? theme.colorScheme.surface : Colors.white;
-    final shadowColor =
-        isDark ? Colors.black.withOpacity(0.5) : Colors.black12;
+    final cardBg = isDark ? theme.colorScheme.surface : Colors.white;
+    final shadowColor = isDark ? Colors.black.withOpacity(0.5) : Colors.black12;
 
     // Get theme colors
     final currentTheme = themeProvider?.currentTheme;
@@ -353,8 +351,9 @@ class _ProductCard extends StatelessWidget {
     final bool sale = reg > 0 && reg > price;
 
     final images = product['images'] as List?;
-    final String? imageUrl =
-        (images != null && images.isNotEmpty) ? (images[0]['src']?.toString()) : null;
+    final String? imageUrl = (images != null && images.isNotEmpty)
+        ? (images[0]['src']?.toString())
+        : null;
 
     final double rating =
         double.tryParse(product['average_rating']?.toString() ?? '0') ?? 0;

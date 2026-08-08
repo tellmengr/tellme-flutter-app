@@ -7,26 +7,26 @@ import 'woocommerce_service.dart';
 
 // Softer, white-forward glass palette
 const kPrimaryBlue = Color(0xFF004AAD);
-const kAccentBlue  = Color(0xFF0096FF);
+const kAccentBlue = Color(0xFF0096FF);
 
 // Background tints (very subtle)
-const kBGTopTint      = Color(0x0AF0F4F8); // ~4% white/blue haze
-const kBGBottomTint   = Color(0x0AF8FBFF); // ~4% white/blue haze
+const kBGTopTint = Color(0x0AF0F4F8); // ~4% white/blue haze
+const kBGBottomTint = Color(0x0AF8FBFF); // ~4% white/blue haze
 
 // Card/glass
 const kGlassFillLight = Color(0xCCFFFFFF); // 80% white (more white, less blue)
-const kGlassBorder    = Color(0x1A96B3FF); // faint blue border
-const kGlassShadow    = Color(0x1A004AAD); // faint blue shadow
+const kGlassBorder = Color(0x1A96B3FF); // faint blue border
+const kGlassShadow = Color(0x1A004AAD); // faint blue shadow
 
 // Input fields
-const kFieldFill      = Color(0xF2FFFFFF); // 95% white
-const kFieldBorder    = Color(0x1A000000); // very light neutral border
-const kFieldBorderFOC = kPrimaryBlue;      // focused border
+const kFieldFill = Color(0xF2FFFFFF); // 95% white
+const kFieldBorder = Color(0x1A000000); // very light neutral border
+const kFieldBorderFOC = kPrimaryBlue; // focused border
 
 // Text colors for good contrast on white
-const kTextPrimary    = Color(0xFF0F172A); // slate-900
-const kTextSecondary  = Color(0xFF475569); // slate-600
-const kTextHint       = Color(0xFF64748B); // slate-500
+const kTextPrimary = Color(0xFF0F172A); // slate-900
+const kTextSecondary = Color(0xFF475569); // slate-600
+const kTextHint = Color(0xFF64748B); // slate-500
 
 class ChangePasswordPage extends StatefulWidget {
   const ChangePasswordPage({Key? key}) : super(key: key);
@@ -69,14 +69,16 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
     try {
       // 1) Validate current password
       final email = user['email']?.toString() ?? '';
-      final probe = await _service.signInCustomerSecure(email, _currentCtrl.text);
+      final probe =
+          await _service.signInCustomerSecure(email, _currentCtrl.text);
       if (probe == null) {
         throw Exception('Current password is incorrect.');
       }
 
       // 2) Update the password in Woo
       final customerId = user['id'] as int;
-      final ok = await _service.updateCustomerPassword(customerId, _newCtrl.text);
+      final ok =
+          await _service.updateCustomerPassword(customerId, _newCtrl.text);
       if (!ok) throw Exception('Password update failed. Please try again.');
 
       // 3) Local sign-out
@@ -85,7 +87,8 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Password changed. Please sign in with your new password.'),
+          content:
+              Text('Password changed. Please sign in with your new password.'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -113,7 +116,8 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
         // White/clear app bar with blue icons/text
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text('Change Password', style: TextStyle(color: kTextPrimary)),
+        title: const Text('Change Password',
+            style: TextStyle(color: kTextPrimary)),
         iconTheme: const IconThemeData(color: kPrimaryBlue),
         foregroundColor: kPrimaryBlue,
       ),
@@ -158,8 +162,9 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                           controller: _currentCtrl,
                           label: 'Current Password',
                           obscure: _obscure,
-                          validator: (v) =>
-                              (v == null || v.isEmpty) ? 'Enter current password' : null,
+                          validator: (v) => (v == null || v.isEmpty)
+                              ? 'Enter current password'
+                              : null,
                         ),
                         const SizedBox(height: 12),
                         _glassField(
@@ -168,8 +173,10 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                           label: 'New Password',
                           obscure: _obscure,
                           validator: (v) {
-                            if (v == null || v.isEmpty) return 'Enter a new password';
-                            if (v.length < 6) return 'Use at least 6 characters';
+                            if (v == null || v.isEmpty)
+                              return 'Enter a new password';
+                            if (v.length < 6)
+                              return 'Use at least 6 characters';
                             return null;
                           },
                         ),
@@ -179,15 +186,17 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                           controller: _confirmCtrl,
                           label: 'Confirm New Password',
                           obscure: _obscure,
-                          validator: (v) =>
-                              (v != _newCtrl.text) ? 'Passwords do not match' : null,
+                          validator: (v) => (v != _newCtrl.text)
+                              ? 'Passwords do not match'
+                              : null,
                         ),
                         const SizedBox(height: 8),
                         Row(
                           children: [
                             Checkbox(
                               value: !_obscure,
-                              onChanged: (val) => setState(() => _obscure = !(val ?? false)),
+                              onChanged: (val) =>
+                                  setState(() => _obscure = !(val ?? false)),
                               activeColor: kPrimaryBlue,
                               checkColor: Colors.white,
                             ),
@@ -216,7 +225,8 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                                 ? const SizedBox(
                                     height: 20,
                                     width: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: Colors.white),
                                   )
                                 : const Text('Update Password'),
                           ),
@@ -254,7 +264,8 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
             labelStyle: const TextStyle(color: kTextHint),
             filled: true,
             fillColor: kFieldFill,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             enabledBorder: OutlineInputBorder(
               borderSide: const BorderSide(color: kFieldBorder),
               borderRadius: BorderRadius.circular(12),

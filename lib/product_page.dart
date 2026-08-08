@@ -1,22 +1,20 @@
 import 'dart:async';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:html_unescape/html_unescape.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:shimmer/shimmer.dart';
-import 'package:html_unescape/html_unescape.dart';
-import 'dart:ui'; // for BackdropFilter
+
+import 'app_header.dart';
 import 'cart_provider.dart';
+import 'celebration_theme_provider.dart';
+import 'product_detail_page.dart';
 import 'wishlist_provider.dart';
 import 'woocommerce_service.dart';
-import 'app_header.dart';
-import 'product_detail_page.dart';
-import 'celebration_theme_provider.dart';
 
-// 🎨 Glass Theme Colors (fallback colors only - will use celebration theme colors)
 const kPrimaryBlue = Color(0xFF004AAD);
 const kAccentBlue = Color(0xFF0096FF);
-const kLightBlue = Color(0xFFE3F2FD);
-const kVeryLightBlue = Color(0xFFF5F8FF);
 const kRed = Color(0xFFE53935);
 const kGreen = Color(0xFF43A047);
 
@@ -27,13 +25,13 @@ class ProductPage extends StatefulWidget {
   final String? categoryId;
 
   const ProductPage({
-    Key? key,
+    super.key,
     required this.title,
     this.categoryId,
-  }) : super(key: key);
+  });
 
   @override
-  _ProductPageState createState() => _ProductPageState();
+  State<ProductPage> createState() => _ProductPageState();
 }
 
 class _ProductPageState extends State<ProductPage>
@@ -42,14 +40,17 @@ class _ProductPageState extends State<ProductPage>
   bool get wantKeepAlive => true;
 
   final WooCommerceService _service = WooCommerceService();
-  static final Map<String, List<dynamic>> _cache = {};
-
-  List<dynamic> _products = [];
-  List<dynamic> _filteredProducts = [];
-  bool _isLoading = true;
-  int _currentPage = 1;
-  bool _hasMorePages = true;
   final ScrollController _scrollController = ScrollController();
+
+  static final Map<String, List<Map<String, dynamic>>> _cache = {};
+
+  List<Map<String, dynamic>> _products = [];
+  List<Map<String, dynamic>> _filteredProducts = [];
+
+  bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMorePages = true;
+  int _currentPage = 1;
   SortType _sort = SortType.newest;
 
   @override
@@ -66,122 +67,157 @@ class _ProductPageState extends State<ProductPage>
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels ==
-            _scrollController.position.maxScrollExtent &&
-        !_isLoading &&
-        _hasMorePages) {
+    if (!_scrollController.hasClients || _isLoading || _isLoadingMore) return;
+
+    final position = _scrollController.position;
+    final nearBottom = position.pixels >= position.maxScrollExtent - 240;
+
+    if (nearBottom && _hasMorePages) {
       _loadMoreProducts();
     }
   }
 
-  Future<void> _loadProducts() async {
-    final cacheKey = widget.categoryId ?? 'all';
+  String get _cacheKey => widget.categoryId?.trim().isNotEmpty == true
+      ? widget.categoryId!.trim()
+      : 'all';
 
-    if (_cache.containsKey(cacheKey) && _cache[cacheKey]!.isNotEmpty) {
-      setState(() {
-        _products = _cache[cacheKey]!;
-        _filterAndSort();
-        _isLoading = false;
-      });
+  List<Map<String, dynamic>> _normalizeProducts(List<dynamic> items) {
+    return items
+        .whereType<Map>()
+        .map((item) => item.cast<String, dynamic>())
+        .toList();
+  }
+
+  Future<List<dynamic>> _fetchProductsPage(int page) {
+    final categoryId = widget.categoryId?.trim();
+
+    if (categoryId == null || categoryId.isEmpty) {
+      return _service.getProducts(page: page);
     }
 
+    return _service.getProductsByCategory(categoryId, page: page);
+  }
+
+  Future<void> _loadProducts() async {
+    final cached = _cache[_cacheKey];
+
+    if (cached != null && cached.isNotEmpty) {
+      setState(() {
+        _products = List<Map<String, dynamic>>.from(cached);
+        _isLoading = false;
+      });
+      _filterAndSort();
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _currentPage = 1;
+      _hasMorePages = true;
+    });
+
     try {
-      setState(() => _isLoading = true);
-
       List<dynamic> items = [];
-      for (int attempt = 0; attempt < 2; attempt++) {
-        items = widget.categoryId == null
-            ? await _service.getProducts(page: _currentPage)
-            : await _service.getProductsByCategory(
-                int.parse(widget.categoryId!),
-                page: _currentPage,
-              );
 
+      for (int attempt = 0; attempt < 2; attempt++) {
+        items = await _fetchProductsPage(_currentPage);
         if (items.isNotEmpty) break;
         await Future.delayed(const Duration(seconds: 2));
       }
 
-      if (mounted) {
-        final cartProvider = Provider.of<CartProvider>(context, listen: false);
+      if (!mounted) return;
 
-        setState(() {
-          _products = items.cast<Map<String, dynamic>>();
-          _isLoading = false;
-          _hasMorePages = items.length >= 10;
-        });
+      final products = _normalizeProducts(items);
+      final cartProvider = Provider.of<CartProvider>(context, listen: false);
 
-        _cache[cacheKey] = _products;
-        await cartProvider.cacheProducts(_products.cast<Map<String, dynamic>>());
-        _filterAndSort();
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        final themeProvider = context.read<CelebrationThemeProvider?>();
-        final errorColor = themeProvider?.currentTheme.badgeColor ?? kRed;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Connection issue — tap to retry'),
-            action: SnackBarAction(
-              label: 'Retry',
-              onPressed: _loadProducts,
-              textColor: Colors.white,
-            ),
-            duration: const Duration(seconds: 5),
-            backgroundColor: errorColor,
+      setState(() {
+        _products = products;
+        _isLoading = false;
+        _hasMorePages = products.length >= 10;
+      });
+
+      _cache[_cacheKey] = products;
+      await cartProvider.cacheProducts(products);
+      _filterAndSort();
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() => _isLoading = false);
+
+      final themeProvider = context.read<CelebrationThemeProvider?>();
+      final errorColor = themeProvider?.currentTheme.badgeColor ?? kRed;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Connection issue - tap to retry'),
+          action: SnackBarAction(
+            label: 'Retry',
+            onPressed: _refreshProducts,
+            textColor: Colors.white,
           ),
-        );
-      }
+          duration: const Duration(seconds: 5),
+          backgroundColor: errorColor,
+        ),
+      );
     }
   }
 
   Future<void> _loadMoreProducts() async {
+    if (_isLoadingMore || !_hasMorePages) return;
+
+    setState(() => _isLoadingMore = true);
+
     try {
-      setState(() => _isLoading = true);
-      _currentPage++;
+      final nextPage = _currentPage + 1;
+      final items = await _fetchProductsPage(nextPage);
+      final products = _normalizeProducts(items);
 
-      final items = widget.categoryId == null
-          ? await _service.getProducts(page: _currentPage)
-          : await _service.getProductsByCategory(
-              int.parse(widget.categoryId!), page: _currentPage);
+      if (!mounted) return;
 
-      if (mounted && items.isNotEmpty) {
+      setState(() {
+        _currentPage = nextPage;
+        _products.addAll(products);
+        _hasMorePages = products.length >= 10;
+        _isLoadingMore = false;
+      });
+
+      _cache[_cacheKey] = List<Map<String, dynamic>>.from(_products);
+
+      if (products.isNotEmpty) {
         final cartProvider = Provider.of<CartProvider>(context, listen: false);
-
-        setState(() {
-          _products.addAll(items.cast<Map<String, dynamic>>());
-          _hasMorePages = items.length >= 10;
-          _isLoading = false;
-        });
-
-        _cache[widget.categoryId ?? 'all'] = _products;
-        await cartProvider.cacheProducts(items.cast<Map<String, dynamic>>());
-        _filterAndSort();
-      } else {
-        setState(() => _isLoading = false);
+        await cartProvider.cacheProducts(products);
       }
-    } catch (e) {
-      setState(() => _isLoading = false);
+
+      _filterAndSort();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoadingMore = false);
     }
   }
 
   Future<void> _refreshProducts() async {
-    _currentPage = 1;
-    _cache.remove(widget.categoryId ?? 'all');
+    _cache.remove(_cacheKey);
+
+    setState(() {
+      _currentPage = 1;
+      _products = [];
+      _filteredProducts = [];
+      _hasMorePages = true;
+    });
+
     await _loadProducts();
   }
 
   void _filterAndSort() {
     final filtered = _products.where((p) {
-      if (p == null) return false;
       final price = double.tryParse(p['price']?.toString() ?? '') ?? 0;
       final name = p['name']?.toString().trim() ?? '';
       final stock = p['stock_status']?.toString().toLowerCase() ?? '';
-      final images = p['images'];
+
       if (price <= 0) return false;
-      if (stock == 'outofstock') return false;
-      if (images == null || (images is List && images.isEmpty)) return false;
+      if (stock == 'outofstock' || stock == 'out_of_stock') return false;
       if (name.isEmpty) return false;
+
       return true;
     }).toList();
 
@@ -193,46 +229,48 @@ class _ProductPageState extends State<ProductPage>
         filtered.sort((a, b) => _num(b['price']).compareTo(_num(a['price'])));
         break;
       case SortType.rating:
-        filtered.sort((a, b) =>
-            _num(b['average_rating']).compareTo(_num(a['average_rating'])));
+        filtered.sort(
+          (a, b) =>
+              _num(b['average_rating']).compareTo(_num(a['average_rating'])),
+        );
         break;
       case SortType.popularity:
-        filtered.sort((a, b) =>
-            _num(b['total_sales']).compareTo(_num(a['total_sales'])));
+        filtered.sort(
+          (a, b) => _num(b['total_sales']).compareTo(_num(a['total_sales'])),
+        );
         break;
       case SortType.newest:
-      default:
         filtered.sort((a, b) {
-          try {
-            final da = DateTime.parse(a['date_created']);
-            final db = DateTime.parse(b['date_created']);
-            return db.compareTo(da);
-          } catch (_) {
-            return 0;
-          }
+          final da = _dateValue(a['date_created']);
+          final db = _dateValue(b['date_created']);
+          return db.compareTo(da);
         });
+        break;
     }
 
+    if (!mounted) return;
     setState(() => _filteredProducts = filtered);
   }
 
-  num _num(dynamic v) => num.tryParse(v?.toString() ?? '0') ?? 0;
+  num _num(dynamic value) {
+    return num.tryParse(value?.toString() ?? '0') ?? 0;
+  }
+
+  DateTime _dateValue(dynamic value) {
+    return DateTime.tryParse(value?.toString() ?? '') ??
+        DateTime.fromMillisecondsSinceEpoch(0);
+  }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final decodedTitle = HtmlUnescape().convert(widget.title);
 
-    // 🎨 CELEBRATION THEME INTEGRATION - Listen for theme changes
+    final decodedTitle = HtmlUnescape().convert(widget.title);
     final themeProvider = context.watch<CelebrationThemeProvider?>();
     final currentTheme = themeProvider?.currentTheme;
 
-    // Use celebration theme colors or fallback to brand colors
     final primaryColor = currentTheme?.primaryColor ?? kPrimaryBlue;
     final accentColor = currentTheme?.accentColor ?? kAccentBlue;
-    final secondaryColor = currentTheme?.secondaryColor ?? kPrimaryBlue;
-    final gradientColors = currentTheme?.gradient.colors ?? [kPrimaryBlue, kAccentBlue];
-    final badgeColor = currentTheme?.badgeColor ?? kRed;
 
     return Scaffold(
       appBar: AppHeader(
@@ -250,8 +288,8 @@ class _ProductPageState extends State<ProductPage>
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              accentColor.withOpacity(0.3), // 🎨 Use celebration theme accent color
-              primaryColor.withOpacity(0.1), // 🎨 Use celebration theme primary color
+              accentColor.withOpacity(0.3),
+              primaryColor.withOpacity(0.1),
               Colors.white,
             ],
             begin: Alignment.topCenter,
@@ -261,21 +299,23 @@ class _ProductPageState extends State<ProductPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildFilterRow(primaryColor, accentColor), // 🎨 Pass theme colors
+            _buildFilterRow(primaryColor, accentColor),
             Expanded(
               child: _isLoading && _products.isEmpty
-                  ? _buildShimmerLoading(primaryColor, accentColor) // 🎨 Pass theme colors
+                  ? _buildShimmerLoading(primaryColor, accentColor)
                   : _filteredProducts.isEmpty
-                      ? _buildEmpty(primaryColor, accentColor) // 🎨 Pass theme colors
+                      ? _buildEmpty(primaryColor, accentColor)
                       : RefreshIndicator(
                           onRefresh: _refreshProducts,
-                          color: accentColor, // 🎨 Use celebration theme accent color
+                          color: accentColor,
                           child: GridView.builder(
                             controller: _scrollController,
                             padding: const EdgeInsets.all(12),
-                            physics: const BouncingScrollPhysics(),
-                            itemCount:
-                                _filteredProducts.length + (_isLoading ? 2 : 0),
+                            physics: const BouncingScrollPhysics(
+                              parent: AlwaysScrollableScrollPhysics(),
+                            ),
+                            itemCount: _filteredProducts.length +
+                                (_isLoadingMore ? 2 : 0),
                             gridDelegate:
                                 SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount:
@@ -290,11 +330,12 @@ class _ProductPageState extends State<ProductPage>
                               if (index >= _filteredProducts.length) {
                                 return Center(
                                   child: CircularProgressIndicator(
-                                    color: accentColor, // 🎨 Use celebration theme accent color
+                                    color: accentColor,
                                     strokeWidth: 2.5,
                                   ),
                                 );
                               }
+
                               return ProductCard(
                                 product: _filteredProducts[index],
                                 index: index,
@@ -309,53 +350,89 @@ class _ProductPageState extends State<ProductPage>
     );
   }
 
-  Widget _buildFilterRow(Color primaryColor, Color accentColor) => Container( // 🎨 Add theme colors
-        margin: const EdgeInsets.fromLTRB(8, 8, 8, 4),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.7),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: accentColor.withOpacity(0.15), // 🎨 Use celebration theme accent color
-                  width: 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: primaryColor.withOpacity(0.08), // 🎨 Use celebration theme primary color
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+  Widget _buildFilterRow(Color primaryColor, Color accentColor) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.7),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: accentColor.withOpacity(0.15),
+                width: 1.5,
               ),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    const SizedBox(width: 8),
-                    _filterChip('Newest', SortType.newest, Icons.new_releases, primaryColor, accentColor), // 🎨 Pass theme colors
-                    _filterChip(
-                        'Low Price', SortType.priceLow, Icons.trending_down, primaryColor, accentColor), // 🎨 Pass theme colors
-                    _filterChip(
-                        'High Price', SortType.priceHigh, Icons.trending_up, primaryColor, accentColor), // 🎨 Pass theme colors
-                    _filterChip('Top Rated', SortType.rating, Icons.star, primaryColor, accentColor), // 🎨 Pass theme colors
-                    _filterChip('Popular', SortType.popularity,
-                        Icons.local_fire_department, primaryColor, accentColor), // 🎨 Pass theme colors
-                    const SizedBox(width: 8),
-                  ],
+              boxShadow: [
+                BoxShadow(
+                  color: primaryColor.withOpacity(0.08),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
                 ),
+              ],
+            ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  const SizedBox(width: 8),
+                  _filterChip(
+                    'Newest',
+                    SortType.newest,
+                    Icons.new_releases,
+                    primaryColor,
+                    accentColor,
+                  ),
+                  _filterChip(
+                    'Low Price',
+                    SortType.priceLow,
+                    Icons.trending_down,
+                    primaryColor,
+                    accentColor,
+                  ),
+                  _filterChip(
+                    'High Price',
+                    SortType.priceHigh,
+                    Icons.trending_up,
+                    primaryColor,
+                    accentColor,
+                  ),
+                  _filterChip(
+                    'Top Rated',
+                    SortType.rating,
+                    Icons.star,
+                    primaryColor,
+                    accentColor,
+                  ),
+                  _filterChip(
+                    'Popular',
+                    SortType.popularity,
+                    Icons.local_fire_department,
+                    primaryColor,
+                    accentColor,
+                  ),
+                  const SizedBox(width: 8),
+                ],
               ),
             ),
           ),
         ),
-      );
+      ),
+    );
+  }
 
-  Widget _filterChip(String label, SortType type, IconData icon, Color primaryColor, Color accentColor) { // 🎨 Add theme colors
+  Widget _filterChip(
+    String label,
+    SortType type,
+    IconData icon,
+    Color primaryColor,
+    Color accentColor,
+  ) {
     final selected = _sort == type;
+
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: ClipRRect(
@@ -365,22 +442,20 @@ class _ProductPageState extends State<ProductPage>
           child: Container(
             decoration: BoxDecoration(
               gradient: selected
-                  ? LinearGradient(
-                      colors: [primaryColor, accentColor], // 🎨 Use celebration theme gradient
-                    )
+                  ? LinearGradient(colors: [primaryColor, accentColor])
                   : null,
               color: selected ? null : Colors.white.withOpacity(0.5),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: selected
-                    ? accentColor.withOpacity(0.5) // 🎨 Use celebration theme accent color
+                    ? accentColor.withOpacity(0.5)
                     : Colors.grey.withOpacity(0.3),
                 width: 1.5,
               ),
               boxShadow: selected
                   ? [
                       BoxShadow(
-                        color: accentColor.withOpacity(0.3), // 🎨 Use celebration theme accent color
+                        color: accentColor.withOpacity(0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 4),
                       ),
@@ -426,123 +501,129 @@ class _ProductPageState extends State<ProductPage>
     );
   }
 
-  Widget _buildShimmerLoading(Color primaryColor, Color accentColor) => Center( // 🎨 Add theme colors
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(
-              padding: const EdgeInsets.all(32),
-              margin: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.8),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: accentColor.withOpacity(0.2), // 🎨 Use celebration theme accent color
-                  width: 1.5,
+  Widget _buildShimmerLoading(Color primaryColor, Color accentColor) {
+    return Center(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: const EdgeInsets.all(32),
+            margin: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.8),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: accentColor.withOpacity(0.2),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: primaryColor.withOpacity(0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: primaryColor.withOpacity(0.1), // 🎨 Use celebration theme primary color
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(
+                  strokeWidth: 3,
+                  color: accentColor,
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Loading products...',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
+                    fontWeight: FontWeight.w500,
                   ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(
-                    strokeWidth: 3,
-                    color: accentColor, // 🎨 Use celebration theme accent color
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    "Loading products...",
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
-      );
+      ),
+    );
+  }
 
-  Widget _buildEmpty(Color primaryColor, Color accentColor) => Center( // 🎨 Add theme colors
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(
-              padding: const EdgeInsets.all(32),
-              margin: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.8),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: accentColor.withOpacity(0.2), // 🎨 Use celebration theme accent color
-                  width: 1.5,
+  Widget _buildEmpty(Color primaryColor, Color accentColor) {
+    return Center(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: const EdgeInsets.all(32),
+            margin: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.8),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: accentColor.withOpacity(0.2),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: primaryColor.withOpacity(0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: primaryColor.withOpacity(0.1), // 🎨 Use celebration theme primary color
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          primaryColor.withOpacity(0.1), // 🎨 Use celebration theme primary color
-                          accentColor.withOpacity(0.08), // 🎨 Use celebration theme accent color
-                        ],
-                      ),
-                      shape: BoxShape.circle,
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        primaryColor.withOpacity(0.1),
+                        accentColor.withOpacity(0.08),
+                      ],
                     ),
-                    child: Icon(
-                      Icons.shopping_bag_outlined,
-                      size: 64,
-                      color: primaryColor.withOpacity(0.7), // 🎨 Use celebration theme primary color
-                    ),
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    "No Products Found",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
+                  child: Icon(
+                    Icons.shopping_bag_outlined,
+                    size: 64,
+                    color: primaryColor.withOpacity(0.7),
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    "Try adjusting your filters.",
-                    style: TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'No Products Found',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Try adjusting your filters.',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ],
             ),
           ),
         ),
-      );
+      ),
+    );
+  }
 }
 
-// ------------------------------------------------------------
-// PRODUCT CARD WITH GLASS EFFECT
-// ------------------------------------------------------------
 class ProductCard extends StatefulWidget {
-  final dynamic product;
+  final Map<String, dynamic> product;
   final int index;
-  const ProductCard({super.key, required this.product, required this.index});
+
+  const ProductCard({
+    super.key,
+    required this.product,
+    required this.index,
+  });
 
   @override
   State<ProductCard> createState() => _ProductCardState();
@@ -567,6 +648,97 @@ class _ProductCardState extends State<ProductCard>
     super.dispose();
   }
 
+  String? _readImageUrl(dynamic value) {
+    final text = value?.toString().trim() ?? '';
+    return text.isEmpty ? null : text;
+  }
+
+  String? _productImageUrl(Map<String, dynamic> product) {
+    final images = product['images'];
+
+    if (images is List) {
+      for (final item in images) {
+        if (item is String) {
+          final url = _readImageUrl(item);
+          if (url != null) return url;
+        }
+
+        if (item is Map) {
+          final url = _readImageUrl(
+            item['src'] ??
+                item['url'] ??
+                item['image'] ??
+                item['imageUrl'] ??
+                item['thumbnail'] ??
+                item['thumbnailUrl'],
+          );
+
+          if (url != null) return url;
+        }
+      }
+    }
+
+    return _readImageUrl(
+      product['imageUrl'] ??
+          product['image_url'] ??
+          product['image'] ??
+          product['thumbnailUrl'] ??
+          product['thumbnail_url'] ??
+          product['thumbnail'] ??
+          product['featuredImage'] ??
+          product['featured_image'],
+    );
+  }
+
+  double _ratingValue(Map<String, dynamic> product) {
+    for (final key in const [
+      'average_rating',
+      'averageRating',
+      'rating_average',
+      'ratingAverage',
+      'review_average',
+      'reviewAverage',
+      'rating',
+    ]) {
+      final parsed = double.tryParse(product[key]?.toString() ?? '');
+      if (parsed != null && parsed > 0) return parsed.clamp(0, 5).toDouble();
+    }
+
+    final reviews = product['reviews'];
+    if (reviews is Map) {
+      for (final key in const ['average', 'rating', 'averageRating']) {
+        final parsed = double.tryParse(reviews[key]?.toString() ?? '');
+        if (parsed != null && parsed > 0) return parsed.clamp(0, 5).toDouble();
+      }
+    }
+
+    return 0;
+  }
+
+  int _ratingCount(Map<String, dynamic> product) {
+    for (final key in const [
+      'rating_count',
+      'ratingCount',
+      'review_count',
+      'reviewCount',
+      'reviews_count',
+      'reviewsCount',
+    ]) {
+      final parsed = int.tryParse(product[key]?.toString() ?? '');
+      if (parsed != null && parsed > 0) return parsed;
+    }
+
+    final reviews = product['reviews'];
+    if (reviews is Map) {
+      for (final key in const ['count', 'total', 'reviewCount']) {
+        final parsed = int.tryParse(reviews[key]?.toString() ?? '');
+        if (parsed != null && parsed > 0) return parsed;
+      }
+    }
+
+    return 0;
+  }
+
   @override
   Widget build(BuildContext context) {
     final cart = Provider.of<CartProvider>(context);
@@ -574,23 +746,23 @@ class _ProductCardState extends State<ProductCard>
     final p = widget.product;
     final unescape = HtmlUnescape();
 
-    // 🎨 CELEBRATION THEME INTEGRATION for ProductCard
     final themeProvider = context.watch<CelebrationThemeProvider?>();
     final currentTheme = themeProvider?.currentTheme;
     final primaryColor = currentTheme?.primaryColor ?? kPrimaryBlue;
     final accentColor = currentTheme?.accentColor ?? kAccentBlue;
     final badgeColor = currentTheme?.badgeColor ?? kRed;
 
-    final name = unescape.convert(p['name'] ?? 'Unknown Product');
+    final name = unescape.convert(p['name']?.toString() ?? 'Unknown Product');
     final price = double.tryParse(p['price']?.toString() ?? '0') ?? 0;
     final reg = double.tryParse(p['regular_price']?.toString() ?? '0') ?? 0;
     final sale = reg > price && reg > 0;
     final int? offPct = sale ? (((reg - price) / reg) * 100).round() : null;
-
-    final img = (p['images'] is List && p['images'].isNotEmpty)
-        ? p['images'][0]['src']
-        : null;
-    final f = NumberFormat("#,##0", "en_US");
+    final rating = _ratingValue(p);
+    final ratingCount = _ratingCount(p);
+    final stock = p['stock_status']?.toString().toLowerCase() ?? '';
+    final inStock = stock.isEmpty || stock == 'instock' || stock == 'in_stock';
+    final img = _productImageUrl(p);
+    final f = NumberFormat('#,##0', 'en_US');
 
     return FadeTransition(
       opacity: CurvedAnimation(parent: _ctrl, curve: Curves.easeOut),
@@ -615,12 +787,12 @@ class _ProductCardState extends State<ProductCard>
                   color: Colors.white.withOpacity(0.85),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: accentColor.withOpacity(0.2), // 🎨 Use celebration theme accent color
+                    color: accentColor.withOpacity(0.2),
                     width: 1.5,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: primaryColor.withOpacity(0.12), // 🎨 Use celebration theme primary color
+                      color: primaryColor.withOpacity(0.12),
                       blurRadius: 16,
                       offset: const Offset(0, 6),
                     ),
@@ -629,50 +801,62 @@ class _ProductCardState extends State<ProductCard>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 🖼️ Product image + discount badge
                     Expanded(
                       flex: 3,
                       child: Stack(
                         children: [
                           ClipRRect(
                             borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(20)),
+                              top: Radius.circular(20),
+                            ),
                             child: img != null
                                 ? Image.network(
                                     img,
+                                    key: ValueKey(img),
                                     width: double.infinity,
+                                    height: double.infinity,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
+                                    loadingBuilder:
+                                        (context, child, loadingProgress) {
+                                      if (loadingProgress == null) return child;
+
                                       return Container(
-                                        color: accentColor.withOpacity(0.3), // 🎨 Use celebration theme accent color
-                                        child: Icon(
-                                          Icons.image,
-                                          size: 40,
-                                          color: primaryColor.withOpacity(0.5), // 🎨 Use celebration theme primary color
+                                        color: accentColor.withOpacity(0.2),
+                                        alignment: Alignment.center,
+                                        child: SizedBox(
+                                          width: 22,
+                                          height: 22,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: primaryColor,
+                                          ),
                                         ),
                                       );
                                     },
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return _ImageFallback(
+                                        primaryColor: primaryColor,
+                                        accentColor: accentColor,
+                                      );
+                                    },
                                   )
-                                : Container(
-                                    color: accentColor.withOpacity(0.3), // 🎨 Use celebration theme accent color
-                                    child: Icon(
-                                      Icons.image,
-                                      size: 40,
-                                      color: primaryColor.withOpacity(0.5), // 🎨 Use celebration theme primary color
-                                    ),
+                                : _ImageFallback(
+                                    primaryColor: primaryColor,
+                                    accentColor: accentColor,
                                   ),
                           ),
                           if (offPct != null)
                             Positioned(
                               top: 10,
                               left: 10,
-                              child: _DiscountBadge(text: "-$offPct%", primaryColor: primaryColor), // 🎨 Pass theme color
+                              child: _DiscountBadge(
+                                text: '-$offPct%',
+                                primaryColor: primaryColor,
+                              ),
                             ),
                         ],
                       ),
                     ),
-
-                    // 🧾 Product info
                     Expanded(
                       flex: 3,
                       child: Padding(
@@ -691,33 +875,25 @@ class _ProductCardState extends State<ProductCard>
                               ),
                             ),
                             const Spacer(),
-                            if (p['average_rating'] != null &&
-                                p['average_rating'] != '0')
-                              Row(
-                                children: List.generate(5, (index) {
-                                  final rating = double.tryParse(
-                                          p['average_rating'].toString()) ??
-                                      0;
-                                  return Icon(
-                                    index < rating.floor()
-                                        ? Icons.star
-                                        : index < rating
-                                            ? Icons.star_half
-                                            : Icons.star_border,
-                                    color: Colors.amber[600],
-                                    size: 14,
-                                  );
-                                }),
-                              ),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _RatingStars(
+                                    value: rating,
+                                    count: ratingCount,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                _StockMiniPill(inStock: inStock),
+                              ],
+                            ),
                             const SizedBox(height: 6),
                             Row(
                               children: [
                                 _NairaTight(
                                   amount: f.format(price),
                                   bold: true,
-                                  color: sale
-                                      ? badgeColor // 🎨 Use celebration theme badge color for sale price
-                                      : primaryColor, // 🎨 Use celebration theme primary color
+                                  color: sale ? badgeColor : primaryColor,
                                 ),
                                 if (sale) ...[
                                   const SizedBox(width: 8),
@@ -740,11 +916,11 @@ class _ProductCardState extends State<ProductCard>
                                     gradient: LinearGradient(
                                       colors: [
                                         wish.contains(p)
-                                            ? badgeColor.withOpacity(0.15) // 🎨 Use celebration theme badge color
-                                            : accentColor.withOpacity(0.3), // 🎨 Use celebration theme accent color
+                                            ? badgeColor.withOpacity(0.15)
+                                            : accentColor.withOpacity(0.3),
                                         wish.contains(p)
-                                            ? badgeColor.withOpacity(0.1) // 🎨 Use celebration theme badge color
-                                            : accentColor.withOpacity(0.2), // 🎨 Use celebration theme accent color
+                                            ? badgeColor.withOpacity(0.1)
+                                            : accentColor.withOpacity(0.2),
                                       ],
                                     ),
                                     borderRadius: BorderRadius.circular(12),
@@ -756,8 +932,8 @@ class _ProductCardState extends State<ProductCard>
                                           ? Icons.favorite
                                           : Icons.favorite_border,
                                       color: wish.contains(p)
-                                          ? badgeColor // 🎨 Use celebration theme badge color
-                                          : primaryColor, // 🎨 Use celebration theme primary color
+                                          ? badgeColor
+                                          : primaryColor,
                                       size: 20,
                                     ),
                                   ),
@@ -767,12 +943,12 @@ class _ProductCardState extends State<ProductCard>
                                   child: Container(
                                     decoration: BoxDecoration(
                                       gradient: LinearGradient(
-                                        colors: [primaryColor, accentColor], // 🎨 Use celebration theme gradient
+                                        colors: [primaryColor, accentColor],
                                       ),
                                       borderRadius: BorderRadius.circular(14),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: accentColor.withOpacity(0.3), // 🎨 Use celebration theme accent color
+                                          color: accentColor.withOpacity(0.3),
                                           blurRadius: 8,
                                           offset: const Offset(0, 4),
                                         ),
@@ -781,8 +957,14 @@ class _ProductCardState extends State<ProductCard>
                                     child: ElevatedButton(
                                       onPressed: () {
                                         cart.addToCartFast(p);
-                                        final themeProvider = context.read<CelebrationThemeProvider?>();
-                                        final successColor = themeProvider?.currentTheme.accentColor ?? kGreen;
+
+                                        final successColor = context
+                                                .read<
+                                                    CelebrationThemeProvider?>()
+                                                ?.currentTheme
+                                                .accentColor ??
+                                            kGreen;
+
                                         ScaffoldMessenger.of(context)
                                             .showSnackBar(
                                           SnackBar(
@@ -790,7 +972,7 @@ class _ProductCardState extends State<ProductCard>
                                                 Text('$name added to cart!'),
                                             duration:
                                                 const Duration(seconds: 1),
-                                            backgroundColor: successColor, // 🎨 Use celebration theme accent color for success
+                                            backgroundColor: successColor,
                                             behavior: SnackBarBehavior.floating,
                                             margin: const EdgeInsets.all(16),
                                             shape: RoundedRectangleBorder(
@@ -820,7 +1002,7 @@ class _ProductCardState extends State<ProductCard>
                                           Icon(Icons.shopping_cart, size: 15),
                                           SizedBox(width: 4),
                                           Text(
-                                            "Add",
+                                            'Add',
                                             style: TextStyle(
                                               fontSize: 12,
                                               fontWeight: FontWeight.w700,
@@ -848,7 +1030,107 @@ class _ProductCardState extends State<ProductCard>
   }
 }
 
-// ₦ Compact price display
+class _ImageFallback extends StatelessWidget {
+  final Color primaryColor;
+  final Color accentColor;
+
+  const _ImageFallback({
+    required this.primaryColor,
+    required this.accentColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      color: accentColor.withOpacity(0.3),
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.image,
+        size: 40,
+        color: primaryColor.withOpacity(0.5),
+      ),
+    );
+  }
+}
+
+class _RatingStars extends StatelessWidget {
+  final dynamic value;
+  final int count;
+
+  const _RatingStars({
+    required this.value,
+    this.count = 0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final rating = double.tryParse(value?.toString() ?? '0') ?? 0;
+    final hasRating = rating > 0;
+
+    return Row(
+      children: [
+        ...List.generate(5, (index) {
+          return Icon(
+            index < rating.floor()
+                ? Icons.star_rounded
+                : (hasRating && index < rating
+                    ? Icons.star_half_rounded
+                    : Icons.star_border_rounded),
+            color: hasRating ? Colors.amber[600] : Colors.grey.shade400,
+            size: 14,
+          );
+        }),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            hasRating
+                ? (count > 0
+                    ? '(${count.toString()})'
+                    : rating.toStringAsFixed(1))
+                : 'New',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+              color: hasRating ? Colors.grey.shade700 : Colors.grey.shade500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StockMiniPill extends StatelessWidget {
+  final bool inStock;
+
+  const _StockMiniPill({required this.inStock});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = inStock ? kGreen : kRed;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withOpacity(0.25)),
+      ),
+      child: Text(
+        inStock ? 'In stock' : 'Out',
+        style: TextStyle(
+          fontSize: 9.5,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+
 class _NairaTight extends StatelessWidget {
   final String amount;
   final bool bold;
@@ -878,7 +1160,7 @@ class _NairaTight extends StatelessWidget {
     return Text.rich(
       TextSpan(
         children: [
-          TextSpan(text: '\u20A6', style: style), // ₦ symbol
+          TextSpan(text: '\u20A6', style: style),
           TextSpan(text: amount, style: style),
         ],
       ),
@@ -888,14 +1170,14 @@ class _NairaTight extends StatelessWidget {
   }
 }
 
-// ------------------------------------------------------------
-// Discount badge widget with glass effect
-// ------------------------------------------------------------
 class _DiscountBadge extends StatelessWidget {
   final String text;
-  final Color primaryColor; // 🎨 Theme color
+  final Color primaryColor;
 
-  const _DiscountBadge({required this.text, required this.primaryColor});
+  const _DiscountBadge({
+    required this.text,
+    required this.primaryColor,
+  });
 
   @override
   Widget build(BuildContext context) {

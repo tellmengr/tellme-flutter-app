@@ -5,8 +5,8 @@ import 'wishlist_provider.dart';
 import 'cart_page.dart';
 import 'wishlist_page.dart';
 import 'celebration_theme_provider.dart';
-import 'notification_provider.dart';           // ✅ NEW
-import 'notifications_settings_page.dart';     // ✅ tap target (or your notifications page)
+import 'notification_provider.dart'; // ✅ NEW
+import 'notifications_settings_page.dart'; // ✅ tap target (or your notifications page)
 
 class AppHeader extends StatelessWidget implements PreferredSizeWidget {
   final String title;
@@ -20,7 +20,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
   final bool showTitle;
   final bool showWishlist;
   final bool showCart;
-  final bool showNotifications;                // ✅ NEW
+  final bool showNotifications; // ✅ NEW
 
   const AppHeader({
     Key? key,
@@ -35,7 +35,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
     this.showTitle = true,
     this.showWishlist = false,
     this.showCart = true,
-    this.showNotifications = false,            // ✅ NEW (defaults to off)
+    this.showNotifications = false, // ✅ NEW (defaults to off)
   }) : super(key: key);
 
   @override
@@ -44,13 +44,16 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
     final currentTheme = themeProvider?.currentTheme;
 
     final gradientColors = useGradient
-        ? (currentTheme?.gradient.colors ?? [const Color(0xFF004AAD), const Color(0xFF0096FF)])
+        ? (currentTheme?.gradient.colors ??
+            [const Color(0xFF004AAD), const Color(0xFF0096FF)])
         : null;
 
     // Use primaryColor for background when celebration theme is active
     final bgColor = useGradient
         ? Colors.transparent
-        : (backgroundColor ?? currentTheme?.primaryColor ?? const Color(0xFF1565C0));
+        : (backgroundColor ??
+            currentTheme?.primaryColor ??
+            const Color(0xFF1565C0));
 
     // Ensure proper contrast - always use white for foreground when celebration theme is active
     final fgColor = foregroundColor ?? Colors.white;
@@ -72,7 +75,6 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
         elevation: useGradient ? 0 : 4,
         shadowColor: Colors.black26,
         centerTitle: true,
-
         leading: showMenu
             ? IconButton(
                 icon: const Icon(Icons.menu, color: Colors.white),
@@ -80,11 +82,11 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
               )
             : (showBackButton
                 ? IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+                    icon: const Icon(Icons.arrow_back_ios_new,
+                        color: Colors.white),
                     onPressed: () => Navigator.pop(context),
                   )
                 : const SizedBox()),
-
         title: showTitle
             ? Text(
                 title,
@@ -98,7 +100,6 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
                     ),
               )
             : null,
-
         actions: [
           if (actions != null) ...actions!,
 
@@ -111,14 +112,17 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
                   clipBehavior: Clip.none,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.notifications_none_rounded, color: Colors.white),
+                      icon: const Icon(Icons.notifications_none_rounded,
+                          color: Colors.white),
                       onPressed: () async {
                         // mark as read and open page
                         await notif.markAllRead();
                         if (context.mounted) {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => const NotificationsSettingsPage()),
+                            MaterialPageRoute(
+                                builder: (_) =>
+                                    const NotificationsSettingsPage()),
                           );
                         }
                       },
@@ -128,19 +132,22 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
                         right: 8,
                         top: 8,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: currentTheme?.badgeColor ?? Colors.red,
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
-                                color: (currentTheme?.badgeColor ?? Colors.red).withOpacity(0.3),
+                                color: (currentTheme?.badgeColor ?? Colors.red)
+                                    .withOpacity(0.3),
                                 blurRadius: 4,
                                 offset: const Offset(0, 2),
                               ),
                             ],
                           ),
-                          constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                          constraints:
+                              const BoxConstraints(minWidth: 18, minHeight: 18),
                           child: Text(
                             count > 99 ? '99+' : '$count',
                             style: const TextStyle(
@@ -164,11 +171,13 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
                 return Stack(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.favorite_border, color: Colors.white),
+                      icon: const Icon(Icons.favorite_border,
+                          color: Colors.white),
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const WishlistPage()),
+                          MaterialPageRoute(
+                              builder: (_) => const WishlistPage()),
                         );
                       },
                     ),
@@ -177,19 +186,22 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
                         right: 8,
                         top: 8,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: currentTheme?.badgeColor ?? Colors.pink,
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
-                                color: (currentTheme?.badgeColor ?? Colors.pink).withOpacity(0.3),
+                                color: (currentTheme?.badgeColor ?? Colors.pink)
+                                    .withOpacity(0.3),
                                 blurRadius: 4,
                                 offset: const Offset(0, 2),
                               ),
                             ],
                           ),
-                          constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                          constraints:
+                              const BoxConstraints(minWidth: 18, minHeight: 18),
                           child: Text(
                             wishlist.count > 99 ? '99+' : '${wishlist.count}',
                             style: const TextStyle(
@@ -213,7 +225,8 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
                 return Stack(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white),
+                      icon: const Icon(Icons.shopping_cart_outlined,
+                          color: Colors.white),
                       onPressed: () {
                         Navigator.pushNamed(context, '/cart');
                       },
@@ -223,21 +236,26 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
                         right: 8,
                         top: 8,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: currentTheme?.badgeColor ?? Colors.red,
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
-                                color: (currentTheme?.badgeColor ?? Colors.red).withOpacity(0.3),
+                                color: (currentTheme?.badgeColor ?? Colors.red)
+                                    .withOpacity(0.3),
                                 blurRadius: 4,
                                 offset: const Offset(0, 2),
                               ),
                             ],
                           ),
-                          constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                          constraints:
+                              const BoxConstraints(minWidth: 18, minHeight: 18),
                           child: Text(
-                            cart.totalQuantity > 99 ? '99+' : '${cart.totalQuantity}',
+                            cart.totalQuantity > 99
+                                ? '99+'
+                                : '${cart.totalQuantity}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 11,

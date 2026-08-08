@@ -54,7 +54,8 @@ class _SearchPageState extends State<SearchPage> {
     super.initState();
 
     // Use provided type for the first search (e.g., 'id' from push)
-    if (widget.initialSearchType != null && widget.initialSearchType!.isNotEmpty) {
+    if (widget.initialSearchType != null &&
+        widget.initialSearchType!.isNotEmpty) {
       _searchType = widget.initialSearchType!;
     }
 
@@ -135,7 +136,8 @@ class _SearchPageState extends State<SearchPage> {
         setState(() {}); // update UI before navigating
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => ProductDetailPage(product: product)),
+          MaterialPageRoute(
+              builder: (_) => ProductDetailPage(product: product)),
         );
         return;
       }
@@ -151,7 +153,8 @@ class _SearchPageState extends State<SearchPage> {
         _isSearching = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Search failed: $e'), backgroundColor: Colors.red),
+        SnackBar(
+            content: Text('Search failed: $e'), backgroundColor: Colors.red),
       );
     }
   }
@@ -237,7 +240,8 @@ class _SearchPageState extends State<SearchPage> {
               : null,
           filled: true,
           fillColor: Colors.white,
-          contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 20),
+          contentPadding:
+              const EdgeInsets.symmetric(vertical: 0, horizontal: 20),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(30),
             borderSide: const BorderSide(color: Colors.white),
@@ -276,14 +280,16 @@ class _SearchPageState extends State<SearchPage> {
             _chip('Name', 'name', Icons.title, primaryColor, accentColor),
             _chip('SKU', 'sku', Icons.qr_code, primaryColor, accentColor),
             _chip('Product ID', 'id', Icons.numbers, primaryColor, accentColor),
-            _chip('Category', 'category', Icons.category, primaryColor, accentColor),
+            _chip('Category', 'category', Icons.category, primaryColor,
+                accentColor),
           ],
         ),
       ),
     );
   }
 
-  Widget _chip(String label, String value, IconData icon, Color primaryColor, Color accentColor) {
+  Widget _chip(String label, String value, IconData icon, Color primaryColor,
+      Color accentColor) {
     final isSelected = _searchType == value;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
@@ -291,7 +297,8 @@ class _SearchPageState extends State<SearchPage> {
         label: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 16, color: isSelected ? Colors.white : primaryColor),
+            Icon(icon,
+                size: 16, color: isSelected ? Colors.white : primaryColor),
             const SizedBox(width: 4),
             Text(label),
           ],
@@ -331,7 +338,8 @@ class _SearchPageState extends State<SearchPage> {
           children: [
             CircularProgressIndicator(color: primaryColor),
             const SizedBox(height: 12),
-            Text("Searching products...", style: TextStyle(color: Colors.grey[600])),
+            Text("Searching products...",
+                style: TextStyle(color: Colors.grey[600])),
           ],
         ),
       );
@@ -372,7 +380,8 @@ class _SearchPageState extends State<SearchPage> {
   // ------------------------------------------------------------------
   // 💳 PRODUCT CARD
   // ------------------------------------------------------------------
-  Widget _productCard(dynamic product, CelebrationThemeProvider? themeProvider) {
+  Widget _productCard(
+      dynamic product, CelebrationThemeProvider? themeProvider) {
     final name = product['name'] ?? 'Unknown Product';
     final price = _parsePrice(product['price']);
     final imageUrl = _getImageUrl(product);
@@ -389,7 +398,8 @@ class _SearchPageState extends State<SearchPage> {
         onTap: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => ProductDetailPage(product: product)),
+            MaterialPageRoute(
+                builder: (_) => ProductDetailPage(product: product)),
           );
         },
         borderRadius: BorderRadius.circular(12),
@@ -401,7 +411,8 @@ class _SearchPageState extends State<SearchPage> {
               child: Stack(
                 children: [
                   ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(12)),
                     child: imageUrl != null
                         ? CachedNetworkImage(
                             imageUrl: imageUrl,
@@ -425,13 +436,15 @@ class _SearchPageState extends State<SearchPage> {
                 children: [
                   Text(
                     name,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.bold),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                   if (sku.isNotEmpty)
                     Text('SKU: $sku',
-                        style: TextStyle(fontSize: 10, color: Colors.grey[600])),
+                        style:
+                            TextStyle(fontSize: 10, color: Colors.grey[600])),
                   const SizedBox(height: 4),
                   Text(
                     "₦${price.toStringAsFixed(0)}",

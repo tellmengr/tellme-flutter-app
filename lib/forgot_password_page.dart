@@ -5,9 +5,9 @@ import 'woocommerce_auth_service.dart';
 
 // Brand colors
 const kPrimaryBlue = Color(0xFF004AAD);
-const kAccentBlue  = Color(0xFF0096FF);
-const kRed         = Color(0xFFE53935);
-const kGreen       = Color(0xFF43A047);
+const kAccentBlue = Color(0xFF0096FF);
+const kRed = Color(0xFFE53935);
+const kGreen = Color(0xFF43A047);
 
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({Key? key}) : super(key: key);
@@ -111,8 +111,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.88),
                       borderRadius: BorderRadius.circular(22),
-                      border:
-                          Border.all(color: Colors.white.withOpacity(0.7)),
+                      border: Border.all(color: Colors.white.withOpacity(0.7)),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withOpacity(0.06),
@@ -226,7 +225,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                           const SizedBox(height: 8),
                           TextButton.icon(
                             onPressed: () => Navigator.pop(context),
-                            icon: const Icon(Icons.arrow_back, color: kAccentBlue),
+                            icon: const Icon(Icons.arrow_back,
+                                color: kAccentBlue),
                             label: const Text(
                               'Back to Sign In',
                               style: TextStyle(
