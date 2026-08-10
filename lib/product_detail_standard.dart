@@ -288,7 +288,7 @@ class _ProductDetailStandardState extends State<ProductDetailStandard>
                   if (p['id'] != null ||
                       (p['sku']?.toString().isNotEmpty ?? false))
                     Text(
-                      "ID: ${p['id'] ?? '-'}  •  SKU: ${p['sku']?.toString().isNotEmpty == true ? p['sku'] : '-'}",
+                      "SKU: ${p['sku']?.toString().isNotEmpty == true ? p['sku'] : '-'}",
                       style: const TextStyle(
                           fontSize: 12.5, color: Colors.black54),
                     ),

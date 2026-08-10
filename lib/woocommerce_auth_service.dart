@@ -77,6 +77,12 @@ class WooCommerceAuthService {
   String _formatNaira(double amount) => 'NGN ${amount.toStringAsFixed(2)}';
 
   String? _extractVariantId(Map<dynamic, dynamic> item) {
+    String normalizeOptionKey(String value) => value
+        .toString()
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]'), '');
+
     final direct = _firstText(item, [
       'variantId',
       'variant_id',
@@ -85,10 +91,75 @@ class WooCommerceAuthService {
     ]);
     if (_isHex32(direct)) return direct;
 
+    final selectedOptions = <String, String>{};
+    selectedOptions.addAll(_stringOptions(item['attributes']));
+    selectedOptions.addAll(_stringOptions(item['selectedOptions']));
+    selectedOptions.addAll(_stringOptions(item['options']));
+
+    final color = _cleanString(item['color']);
+    if (color.isNotEmpty) selectedOptions.putIfAbsent('Color', () => color);
+
+    final size = _cleanString(item['size']);
+    if (size.isNotEmpty) {
+      selectedOptions.putIfAbsent('Size', () => size);
+      selectedOptions.putIfAbsent('Shoe Size', () => size);
+    }
+
+    final normalizedSelected = <String, String>{};
+    selectedOptions.forEach((key, value) {
+      final cleanedValue = value.trim().toLowerCase();
+      if (cleanedValue.isNotEmpty) {
+        normalizedSelected[normalizeOptionKey(key)] = cleanedValue;
+      }
+    });
+
     final variants = item['variants'];
-    if (variants is List && variants.isNotEmpty && variants.first is Map) {
-      final variantId = _firstText(variants.first as Map, ['id', 'variantId']);
-      if (_isHex32(variantId)) return variantId;
+    if (variants is List && variants.isNotEmpty) {
+      if (normalizedSelected.isEmpty && variants.length == 1) {
+        final only = variants.first;
+        if (only is Map) {
+          final value = _firstText(only, [
+            'id',
+            'variantId',
+            'variant_id',
+            'backendVariantId',
+            'backend_variant_id',
+          ]);
+          if (_isHex32(value)) return value;
+        }
+      }
+
+      for (final raw in variants) {
+        if (raw is! Map) continue;
+        final options = <String, String>{};
+        options.addAll(_stringOptions(raw['attributes']));
+        options.addAll(_stringOptions(raw['options']));
+
+        final normalizedVariant = <String, String>{};
+        options.forEach((key, value) {
+          final cleanedValue = value.trim().toLowerCase();
+          if (cleanedValue.isNotEmpty) {
+            normalizedVariant[normalizeOptionKey(key)] = cleanedValue;
+          }
+        });
+
+        if (normalizedSelected.isNotEmpty && normalizedVariant.isNotEmpty) {
+          final matches = normalizedSelected.entries.every((entry) {
+            final actual = normalizedVariant[entry.key] ?? '';
+            return actual == entry.value;
+          });
+          if (matches) {
+            final value = _firstText(raw, [
+              'id',
+              'variantId',
+              'variant_id',
+              'backendVariantId',
+              'backend_variant_id',
+            ]);
+            if (_isHex32(value)) return value;
+          }
+        }
+      }
     }
 
     return null;
@@ -101,12 +172,60 @@ class WooCommerceAuthService {
     );
   }
 
-  Map<String, dynamic>? _normalizeCatalogProduct(Map<String, dynamic> product) {
+  String _baseTellMeSku(String value) {
+    final match =
+        RegExp(r'(TELLME\d+)', caseSensitive: false).firstMatch(value.trim());
+    return match?.group(1)?.toUpperCase() ?? '';
+  }
+
+  Set<String> _lookupCandidates(String value) {
+    final raw = value.trim();
+    final baseSku = _baseTellMeSku(raw);
+    return {
+      if (raw.isNotEmpty) raw.toUpperCase(),
+      if (baseSku.isNotEmpty) baseSku,
+    };
+  }
+
+  String _lookupText(dynamic value) =>
+      value?.toString().trim().toUpperCase() ?? '';
+
+  Map<String, dynamic>? _findVariantByLookup(
+    List<dynamic> variants,
+    Set<String> candidates,
+  ) {
+    if (candidates.isEmpty) return null;
+
+    for (final raw in variants) {
+      if (raw is! Map) continue;
+      final variant = raw.cast<String, dynamic>();
+      for (final key in const ['sku', 'variantSku', 'variant_sku']) {
+        if (candidates.contains(_lookupText(variant[key]))) return variant;
+      }
+    }
+
+    for (final raw in variants) {
+      if (raw is! Map) continue;
+      final variant = raw.cast<String, dynamic>();
+      final sku = _lookupText(
+          variant['sku'] ?? variant['variantSku'] ?? variant['variant_sku']);
+      final baseSku = _baseTellMeSku(sku);
+      if (baseSku.isNotEmpty && candidates.contains(baseSku)) return variant;
+    }
+
+    return null;
+  }
+
+  Map<String, dynamic>? _normalizeCatalogProduct(
+    Map<String, dynamic> product, {
+    Map<String, dynamic>? preferredVariant,
+  }) {
     final variants =
         product['variants'] is List ? product['variants'] as List : <dynamic>[];
-    final firstVariant = variants.whereType<Map>().isNotEmpty
-        ? variants.whereType<Map>().first.cast<String, dynamic>()
-        : <String, dynamic>{};
+    final firstVariant = preferredVariant ??
+        (variants.whereType<Map>().isNotEmpty
+            ? variants.whereType<Map>().first.cast<String, dynamic>()
+            : <String, dynamic>{});
     final price = firstVariant['price'] is Map
         ? (firstVariant['price'] as Map)['amount']
         : product['price'];
@@ -648,11 +767,19 @@ class WooCommerceAuthService {
   // ———————————————————————————————————————————————————————————————
 
   /// 📦 Get detailed product information including shipping class
-  Future<Map<String, dynamic>?> getProductDetails(int productId) async {
+  Future<Map<String, dynamic>?> getProductDetails(dynamic productId) async {
     try {
-      print('Fetching product details from TellMe catalog for ID: $productId');
+      final requestedProductId = productId?.toString().trim() ?? '';
+      if (requestedProductId.isEmpty) return null;
+
+      final candidates = _lookupCandidates(requestedProductId);
+      final baseSku = _baseTellMeSku(requestedProductId);
+      final query = baseSku.isNotEmpty ? baseSku : requestedProductId;
+
+      print(
+          'Fetching product details from TellMe catalog for ID/SKU: $requestedProductId');
       final response = await http.get(
-        _apiUri('products', {'q': productId.toString(), 'per_page': '20'}),
+        _apiUri('products', {'q': query, 'per_page': '20'}),
         headers: {'Accept': 'application/json'},
       );
 
@@ -663,11 +790,29 @@ class WooCommerceAuthService {
             : <dynamic>[];
 
         for (final product in products.whereType<Map>()) {
-          final legacyId = int.tryParse(product['legacyId']?.toString() ?? '');
-          final id = int.tryParse(product['id']?.toString() ?? '');
-          if (legacyId == productId || id == productId) {
-            final normalized =
-                _normalizeCatalogProduct(product.cast<String, dynamic>());
+          final productMap = product.cast<String, dynamic>();
+          final variants = productMap['variants'] is List
+              ? productMap['variants'] as List
+              : <dynamic>[];
+          final matchedVariant = _findVariantByLookup(variants, candidates);
+
+          final legacyId = _lookupText(productMap['legacyId']);
+          final id = _lookupText(productMap['id']);
+          final sku = _lookupText(productMap['sku']);
+          final baseProductSku = _baseTellMeSku(sku);
+          final productMatches = candidates.contains(legacyId) ||
+              candidates.contains(id) ||
+              candidates.contains(sku) ||
+              (baseProductSku.isNotEmpty &&
+                  candidates.contains(baseProductSku));
+
+          if (productMatches ||
+              matchedVariant != null ||
+              products.length == 1) {
+            final normalized = _normalizeCatalogProduct(
+              productMap,
+              preferredVariant: matchedVariant,
+            );
             if (normalized != null) {
               print('Product details loaded: ${normalized['name']}');
               return normalized;
@@ -1369,6 +1514,7 @@ class WooCommerceAuthService {
           'shipping_method': 'No Method Available',
           'shipping_cost': 0.0,
           'formatted_cost': _formatNaira(0),
+          'shipping_options': [],
         };
       }
 
@@ -1796,15 +1942,37 @@ class WooCommerceAuthService {
 
   /// 💸 Debit funds from wallet using the correct /wallet/v1/debit endpoint
   Future<Map<String, dynamic>> debitWalletFunds(
-    int userId,
+    int? userId,
     double amount, {
+    String? userIdText,
     String? orderId,
     String? description,
   }) async {
     try {
-      print('💸 Debiting ₦$amount from wallet for user: $userId');
+      print(
+          'Debiting wallet through TellMe backend for user: ${userIdText ?? userId}');
 
-      // ✅ USE THE CORRECT DEBIT ENDPOINT (from PHP code)
+      final apiResult = await _accountApi.debitWallet(
+        userId: userId,
+        userIdText: userIdText,
+        amount: amount,
+        orderId: orderId,
+        description: description ?? 'Payment for Order #$orderId',
+      );
+      if (apiResult['success'] == true) {
+        return apiResult;
+      }
+
+      final numericOrderId = int.tryParse(orderId ?? '');
+      if (numericOrderId == null || userId == null || userId <= 0) {
+        return {
+          ...apiResult,
+          'success': false,
+          'error': apiResult['error'] ??
+              'Wallet debit is not available for this backend order yet.',
+        };
+      }
+
       final response = await http.post(
         Uri.parse('$baseUrl/wp-json/wallet/v1/debit'),
         headers: {
@@ -1812,33 +1980,31 @@ class WooCommerceAuthService {
         },
         body: json.encode({
           'user_id': userId,
-          'amount':
-              amount, // ✅ POSITIVE amount (plugin handles conversion internally)
+          'amount': amount,
           'description': description ?? 'Payment for Order #$orderId',
-          if (orderId != null) 'order_id': int.parse(orderId),
+          'order_id': numericOrderId,
         }),
       );
 
-      print('💸 Wallet debit response: ${response.statusCode}');
-      print('💸 Response body: ${response.body}');
+      print('Wallet debit response: ${response.statusCode}');
+      print('Response body: ${response.body}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = json.decode(response.body);
-        print('✅ Wallet debited successfully via /wallet/v1/debit endpoint');
         return {
           'success': true,
           'data': data,
-          'endpoint_used': 'debit',
+          'endpoint_used': 'legacy_debit',
         };
-      } else {
-        final errorData = json.decode(response.body);
-        throw Exception(
-          errorData['message'] ??
-              'Wallet debit failed with status ${response.statusCode}',
-        );
       }
+
+      final errorData = json.decode(response.body);
+      throw Exception(
+        errorData['message'] ??
+            'Wallet debit failed with status ${response.statusCode}',
+      );
     } catch (e) {
-      print('❌ Wallet debit error: $e');
+      print('Wallet debit error: $e');
       return {
         'success': false,
         'error': e.toString(),
@@ -1846,7 +2012,7 @@ class WooCommerceAuthService {
     }
   }
 
-  /// 💵 Format wallet balance for display in UI - FIXED VERSION
+  /// Format wallet balance for display in UI - FIXED VERSION
   String formatWalletBalance(Map<String, dynamic> balanceData) {
     if (balanceData['success'] == true && balanceData['balance'] != null) {
       final balance = balanceData['balance'];
@@ -2194,7 +2360,8 @@ class WooCommerceAuthService {
 
   /// 💰 Process wallet payment and create order (FIXED VERSION)
   Future<Map<String, dynamic>> processWalletPayment({
-    required int userId,
+    required int? userId,
+    required String? userIdText,
     required double totalAmount,
     required List<Map<String, dynamic>> lineItems,
     required Map<String, String> billing,
@@ -2203,7 +2370,7 @@ class WooCommerceAuthService {
     String? customerNote,
   }) async {
     try {
-      print('💰 Starting wallet payment process for user: $userId');
+      print('Wallet payment process for user: ${userIdText ?? userId}');
       print('💰 Total amount: ₦$totalAmount');
 
       // 1️⃣ Check wallet balance
@@ -2228,7 +2395,7 @@ class WooCommerceAuthService {
       // 3️⃣ Create WooCommerce order
       print('📦 Creating WooCommerce order...');
       final orderResult = await createOrder(
-        customerId: userId,
+        customerId: userId ?? 0,
         lineItems: lineItems,
         billing: billing,
         shipping: shipping,
@@ -2255,6 +2422,7 @@ class WooCommerceAuthService {
       final debitResult = await debitWalletFunds(
         userId,
         totalAmount,
+        userIdText: userIdText,
         orderId: orderId,
         description: 'Payment for Order #$orderId',
       );

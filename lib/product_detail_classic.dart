@@ -298,7 +298,7 @@ class _ProductDetailClassicState extends State<ProductDetailClassic> {
                           if (product['id'] != null ||
                               (product['sku']?.toString().isNotEmpty ?? false))
                             Text(
-                              "ID: ${product['id'] ?? '-'}  •  SKU: ${product['sku']?.toString().isNotEmpty == true ? product['sku'] : '-'}",
+                              "SKU: ${product['sku']?.toString().isNotEmpty == true ? product['sku'] : '-'}",
                               style: GoogleFonts.roboto(
                                 fontSize: 12.5,
                                 color: Colors.grey[700],

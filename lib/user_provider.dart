@@ -90,7 +90,7 @@ class UserProvider with ChangeNotifier {
         }
       }
 
-      await checkAdminStatus();
+      Future<void>.microtask(checkAdminStatus);
     } catch (e) {
       debugPrint('Error loading user data: $e');
     }
@@ -115,11 +115,11 @@ class UserProvider with ChangeNotifier {
 
       bool isAdminFound = false;
 
-      final snapA = await refByEmail.get();
+      final snapA = await refByEmail.get().timeout(const Duration(seconds: 3));
       if (snapA.exists && snapA.value == true) {
         isAdminFound = true;
       } else {
-        final snapB = await refList.get();
+        final snapB = await refList.get().timeout(const Duration(seconds: 3));
 
         if (snapB.exists && snapB.value is List) {
           final list = (snapB.value as List)
@@ -173,7 +173,7 @@ class UserProvider with ChangeNotifier {
       if (email.isNotEmpty) {
         final ref = FirebaseDatabase.instance
             .ref('app_settings/admins_by_email/${safeKey(email)}');
-        await ref.set(isAdmin);
+        await ref.set(isAdmin).timeout(const Duration(seconds: 3));
       }
 
       debugPrint('Admin flag set: $_isAdmin');
@@ -194,7 +194,7 @@ class UserProvider with ChangeNotifier {
       if (email.isNotEmpty) {
         final ref = FirebaseDatabase.instance
             .ref('app_settings/admins_by_email/${safeKey(email)}');
-        await ref.set(true);
+        await ref.set(true).timeout(const Duration(seconds: 3));
       }
 
       debugPrint('Admin user set: ${adminData['email']}');
@@ -223,7 +223,7 @@ class UserProvider with ChangeNotifier {
       debugPrint('Logged-in customer stored: ${_user?['email']}');
       notifyListeners();
 
-      await checkAdminStatus();
+      Future<void>.microtask(checkAdminStatus);
     } catch (e) {
       debugPrint('Error setting logged-in customer: $e');
     }

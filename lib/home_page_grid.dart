@@ -567,7 +567,9 @@ class _ProductCardState extends State<ProductCard>
     final primaryColor = currentTheme?.primaryColor ?? const Color(0xFF1565C0);
     final badgeColor = currentTheme?.badgeColor ?? Colors.redAccent;
 
-    final isVariable = p['type'] == 'variable';
+    final variants = p['variants'] ?? p['variations'];
+    final isVariable =
+        p['type'] == 'variable' || (variants is List && variants.length > 1);
     final price = double.tryParse(p['price']?.toString() ?? '0') ?? 0;
     final reg = double.tryParse(p['regular_price']?.toString() ?? '0') ?? 0;
     final sale = reg > price && reg > 0;

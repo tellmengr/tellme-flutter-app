@@ -701,7 +701,7 @@ class _ProductDetailGalleryState extends State<ProductDetailGallery> {
                           if (product['id'] != null ||
                               (product['sku']?.toString().isNotEmpty ?? false))
                             Text(
-                              "ID: ${product['id'] ?? '-'}  •  SKU: ${product['sku']?.toString().isNotEmpty == true ? product['sku'] : '-'}",
+                              "SKU: ${product['sku']?.toString().isNotEmpty == true ? product['sku'] : '-'}",
                               style: GoogleFonts.roboto(
                                 fontSize: 13,
                                 color: Colors.grey[700],

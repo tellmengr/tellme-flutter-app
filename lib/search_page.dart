@@ -386,6 +386,10 @@ class _SearchPageState extends State<SearchPage> {
     final price = _parsePrice(product['price']);
     final imageUrl = _getImageUrl(product);
     final sku = product['sku'] ?? '';
+    final variants = product['variants'] ?? product['variations'];
+    final isVariable =
+        product['type']?.toString().toLowerCase() == 'variable' ||
+            (variants is List && variants.length > 1);
 
     final currentTheme = themeProvider?.currentTheme;
     final primaryColor = currentTheme?.primaryColor ?? kPrimaryBlue;
@@ -459,6 +463,17 @@ class _SearchPageState extends State<SearchPage> {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: () {
+                        if (isVariable) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  ProductDetailPage(product: product),
+                            ),
+                          );
+                          return;
+                        }
+
                         final cart = context.read<CartProvider>();
                         cart.addToCartFast(product);
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -469,8 +484,10 @@ class _SearchPageState extends State<SearchPage> {
                           ),
                         );
                       },
-                      icon: const Icon(Icons.shopping_cart, size: 16),
-                      label: const Text('Add', style: TextStyle(fontSize: 12)),
+                      icon: Icon(isVariable ? Icons.tune : Icons.shopping_cart,
+                          size: 16),
+                      label: Text(isVariable ? 'Select' : 'Add',
+                          style: const TextStyle(fontSize: 12)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: primaryColor,
                         foregroundColor: Colors.white,

@@ -545,7 +545,7 @@ class _ProductDetailModernState extends State<ProductDetailModern>
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
-                      "Product ID: ${widget.product['id']}",
+                      "Item: ${(widget.product['sku'] ?? widget.product['legacyId'] ?? widget.product['product_id'] ?? '-').toString()}",
                       style: TextStyle(color: Colors.grey[600], fontSize: 12),
                     ),
                   ),

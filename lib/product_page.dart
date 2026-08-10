@@ -956,6 +956,25 @@ class _ProductCardState extends State<ProductCard>
                                     ),
                                     child: ElevatedButton(
                                       onPressed: () {
+                                        final variants =
+                                            p['variants'] ?? p['variations'];
+                                        final isVariable = p['type']
+                                                    ?.toString()
+                                                    .toLowerCase() ==
+                                                'variable' ||
+                                            (variants is List &&
+                                                variants.length > 1);
+                                        if (isVariable) {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  ProductDetailPage(product: p),
+                                            ),
+                                          );
+                                          return;
+                                        }
+
                                         cart.addToCartFast(p);
 
                                         final successColor = context

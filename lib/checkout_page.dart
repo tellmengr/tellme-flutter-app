@@ -1681,6 +1681,53 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   // 💰 FIXED: Wallet Payment Processing with guaranteed navigation
+  Map<String, dynamic> _confirmationOrderDetails(
+    dynamic rawOrder, {
+    required String paymentMethod,
+    required String paymentMethodTitle,
+  }) {
+    final details = rawOrder is Map
+        ? Map<String, dynamic>.from(
+            rawOrder.map((key, value) => MapEntry(key.toString(), value)),
+          )
+        : <String, dynamic>{};
+
+    final finalTotal = _calculateFinalTotal();
+    final shippingCost = _calculatedShippingCost ?? 0.0;
+    final displayStatus = switch (paymentMethod) {
+      'wallet' => 'Processing',
+      'bank_transfer' => 'Awaiting Bank Transfer',
+      'card' => 'Paid',
+      _ => 'Order Received',
+    };
+
+    details['displayTotal'] = finalTotal;
+    details['subtotal'] ??= widget.subtotal;
+    details['shipping_total'] ??= shippingCost;
+    details['shippingTotal'] ??= shippingCost;
+    details['displayStatus'] = displayStatus;
+    details['displayPaymentMethod'] = paymentMethodTitle;
+    details['payment_method'] ??= paymentMethod;
+    details['paymentMethod'] ??= paymentMethod;
+    details['payment_method_title'] ??= paymentMethodTitle;
+    details['paymentMethodTitle'] ??= paymentMethodTitle;
+    details['date_created'] ??= details['createdAt'] ??
+        details['created_at'] ??
+        DateTime.now().toIso8601String();
+
+    final raw = details['raw'];
+    if (raw is Map) {
+      final rawOrder = raw['order'];
+      if (rawOrder is Map) {
+        details['orderNumber'] ??= rawOrder['orderNumber'];
+        details['number'] ??= rawOrder['orderNumber'];
+        details['totalAmount'] ??= rawOrder['totalAmount'];
+      }
+    }
+
+    return details;
+  }
+
   Future<void> _processWalletPayment() async {
     try {
       setState(() => _isLoading = true);
@@ -1737,7 +1784,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
           context,
           MaterialPageRoute(
             builder: (context) => OrderConfirmationPage(
-              orderDetails: result['orderData'] ?? result,
+              orderDetails: _confirmationOrderDetails(
+                result['orderData'] ?? result,
+                paymentMethod: 'wallet',
+                paymentMethodTitle: 'TellMe Wallet',
+              ),
             ),
           ),
           (route) => false, // Remove all previous routes
@@ -1813,7 +1864,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
           context,
           MaterialPageRoute(
             builder: (context) => OrderConfirmationPage(
-              orderDetails: result['orderData'] ?? result,
+              orderDetails: _confirmationOrderDetails(
+                result['orderData'] ?? result,
+                paymentMethod: 'bank_transfer',
+                paymentMethodTitle: 'Bank Transfer',
+              ),
             ),
           ),
           (route) => false, // Remove all previous routes
@@ -2039,7 +2094,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
           context,
           MaterialPageRoute(
             builder: (_) => OrderConfirmationPage(
-              orderDetails: result['orderData'],
+              orderDetails: _confirmationOrderDetails(
+                result['orderData'],
+                paymentMethod: 'card',
+                paymentMethodTitle: 'Paystack',
+              ),
             ),
           ),
           (route) => false,

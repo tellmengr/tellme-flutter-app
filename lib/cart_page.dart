@@ -826,14 +826,15 @@ class _CartPageState extends State<CartPage> {
 
   void _showSignInDialog(
       BuildContext context, CartProvider cart, double subtotal) {
+    final parentContext = context;
     final themeProvider =
-        Provider.of<CelebrationThemeProvider?>(context, listen: false);
+        Provider.of<CelebrationThemeProvider?>(parentContext, listen: false);
     final currentTheme = themeProvider?.currentTheme;
     final primaryColor = currentTheme?.primaryColor ?? kPrimaryBlue;
 
     showDialog(
-      context: context,
-      builder: (BuildContext context) {
+      context: parentContext,
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -850,15 +851,15 @@ class _CartPageState extends State<CartPage> {
               style: GoogleFonts.inter(fontSize: 16)),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: Text('Cancel',
                   style: GoogleFonts.inter(
                       color: Colors.grey[600], fontWeight: FontWeight.w500)),
             ),
             ElevatedButton(
               onPressed: () {
-                Navigator.pop(context);
-                _navigateToSignIn(context, cart, subtotal);
+                Navigator.pop(dialogContext);
+                _navigateToSignIn(parentContext, cart, subtotal);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: primaryColor,
@@ -877,11 +878,11 @@ class _CartPageState extends State<CartPage> {
 
   // 🔐 After sign-in, also fetch loyalty before pushing CheckoutPage
   void _navigateToSignIn(
-      BuildContext context, CartProvider cart, double subtotal) {
+      BuildContext parentContext, CartProvider cart, double subtotal) {
     Navigator.push(
-      context,
+      parentContext,
       MaterialPageRoute(
-        builder: (context) => SignInPage(
+        builder: (_) => SignInPage(
           pendingCheckoutData: {
             'cartItems': cart.cartItems,
             'subtotal': subtotal,
@@ -890,7 +891,7 @@ class _CartPageState extends State<CartPage> {
           },
           onSignedIn: () {
             final userProvider =
-                Provider.of<UserProvider>(context, listen: false);
+                Provider.of<UserProvider>(parentContext, listen: false);
             final int userId = userProvider.userId ?? 0;
 
             // fetch loyalty asynchronously, then navigate
@@ -899,7 +900,7 @@ class _CartPageState extends State<CartPage> {
               cartTotal: subtotal,
             ).then((loyalty) {
               Navigator.pushReplacement(
-                context,
+                parentContext,
                 MaterialPageRoute(
                   builder: (_) => CheckoutPage(
                     cartItems: cart.cartItems,
@@ -913,7 +914,7 @@ class _CartPageState extends State<CartPage> {
             }).catchError((e) {
               print('Loyalty fetch error (after sign-in): $e');
               Navigator.pushReplacement(
-                context,
+                parentContext,
                 MaterialPageRoute(
                   builder: (_) => CheckoutPage(
                     cartItems: cart.cartItems,

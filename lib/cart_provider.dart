@@ -14,9 +14,128 @@ class CartProvider with ChangeNotifier {
   final Map<dynamic, Map<String, dynamic>> _productCache = {};
   final Map<int, Map<String, dynamic>> _shippingClassCache = {};
 
-  // ———————————————————————————————————————————————————————————————
-  // 🔧 EXISTING GETTERS (PRESERVED FROM YOUR ORIGINAL CODE)
-  // ———————————————————————————————————————————————————————————————
+  String _cartText(dynamic value) => value?.toString().trim() ?? '';
+
+  Map<String, String> _cartStringMap(dynamic value) {
+    if (value is! Map) return <String, String>{};
+    return value.map(
+      (key, item) => MapEntry(key.toString(), item?.toString() ?? ''),
+    );
+  }
+
+  Map<String, String> _cartSelectedAttributes(Map<String, dynamic> product) {
+    final selected = <String, String>{};
+
+    void addAll(dynamic value) {
+      final map = _cartStringMap(value);
+      for (final entry in map.entries) {
+        final key = entry.key.trim();
+        final item = entry.value.trim();
+        if (key.isNotEmpty && item.isNotEmpty) selected[key] = item;
+      }
+    }
+
+    addAll(product['attributes']);
+    addAll(product['selectedOptions']);
+    addAll(product['options']);
+
+    final color = _cartText(product['color']);
+    if (color.isNotEmpty) selected.putIfAbsent('Color', () => color);
+
+    final size = _cartText(product['size']);
+    if (size.isNotEmpty) {
+      selected.putIfAbsent('Size', () => size);
+      selected.putIfAbsent('Shoe Size', () => size);
+    }
+
+    return selected;
+  }
+
+  String _resolveVariantIdForCart(
+    dynamic productId,
+    Map<String, String>? attributes, [
+    Map<String, dynamic>? source,
+  ]) {
+    String normalizeOptionKey(String value) => value
+        .toString()
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]'), '');
+
+    final cached = productId != null ? _productCache[productId] : null;
+    final product = <String, dynamic>{
+      if (cached != null) ...cached,
+      if (source != null) ...source,
+    };
+
+    for (final key in const [
+      'variantId',
+      'variant_id',
+      'backendVariantId',
+      'backend_variant_id',
+    ]) {
+      final value = _cartText(product[key]);
+      if (RegExp(r'^[a-fA-F0-9]{32}$').hasMatch(value)) return value;
+    }
+
+    final selected = <String, String>{};
+    selected.addAll(_cartStringMap(attributes));
+    selected.addAll(_cartSelectedAttributes(product));
+
+    final normalizedSelected = <String, String>{};
+    selected.forEach((key, value) {
+      final cleanedValue = value.trim().toLowerCase();
+      if (cleanedValue.isNotEmpty) {
+        normalizedSelected[normalizeOptionKey(key)] = cleanedValue;
+      }
+    });
+
+    final variants = product['variants'];
+    if (variants is List && variants.isNotEmpty) {
+      if (normalizedSelected.isEmpty && variants.length == 1) {
+        final first = variants.first;
+        if (first is Map) {
+          final value = _cartText(first['id'] ??
+              first['variantId'] ??
+              first['variant_id'] ??
+              first['backendVariantId']);
+          if (RegExp(r'^[a-fA-F0-9]{32}$').hasMatch(value)) return value;
+        }
+      }
+
+      for (final raw in variants) {
+        if (raw is! Map) continue;
+        final options = <String, String>{};
+        options.addAll(_cartStringMap(raw['attributes']));
+        options.addAll(_cartStringMap(raw['options']));
+
+        final normalizedVariant = <String, String>{};
+        options.forEach((key, value) {
+          final cleanedValue = value.trim().toLowerCase();
+          if (cleanedValue.isNotEmpty) {
+            normalizedVariant[normalizeOptionKey(key)] = cleanedValue;
+          }
+        });
+
+        if (normalizedSelected.isNotEmpty && normalizedVariant.isNotEmpty) {
+          final matches = normalizedSelected.entries.every((entry) {
+            final actual = normalizedVariant[entry.key] ?? '';
+            return actual == entry.value;
+          });
+          if (matches) {
+            final value = _cartText(raw['id'] ??
+                raw['variantId'] ??
+                raw['variant_id'] ??
+                raw['backendVariantId']);
+            if (RegExp(r'^[a-fA-F0-9]{32}$').hasMatch(value)) return value;
+          }
+        }
+      }
+    }
+
+    return '';
+  }
+
   List<Map<String, dynamic>> get cartItems => getUniqueProductsWithQuantity();
 
   int get itemCount => getUniqueProductsWithQuantity().length;
@@ -61,18 +180,46 @@ class CartProvider with ChangeNotifier {
       // Only fetch if not already cached
       if (_productCache[productId] != null &&
           _productCache[productId]!['shipping_class'] == null) {
+        final cachedProduct = _productCache[productId] ?? <String, dynamic>{};
+        final detailId = cachedProduct['sku'] ??
+            cachedProduct['variant_sku'] ??
+            cachedProduct['backendId'] ??
+            cachedProduct['backend_id'] ??
+            productId;
         final productDetails =
-            await _wooCommerceService.getProductDetails(productId);
+            await _wooCommerceService.getProductDetails(detailId);
 
         if (productDetails != null) {
-          // Update cache with detailed info
+          final selected = _cartSelectedAttributes(_productCache[productId]!);
+          final resolvedVariantId = _resolveVariantIdForCart(
+            productId,
+            selected,
+            productDetails,
+          );
+
+          // Update cache with detailed info and backend variant context.
           _productCache[productId]!.addAll({
+            'id': productDetails['id'] ?? _productCache[productId]!['id'],
+            'backendId': productDetails['backendId'] ??
+                productDetails['backend_id'] ??
+                productDetails['id'] ??
+                _productCache[productId]!['backendId'],
+            'backend_id': productDetails['backend_id'] ??
+                productDetails['backendId'] ??
+                productDetails['id'] ??
+                _productCache[productId]!['backend_id'],
+            'variants': productDetails['variants'] ??
+                _productCache[productId]!['variants'],
+            'variant_id': resolvedVariantId,
+            'variantId': resolvedVariantId,
+            'backendVariantId': resolvedVariantId,
             'shipping_class': productDetails['shipping_class'] ?? '',
             'shipping_class_id': productDetails['shipping_class_id'] ?? 0,
             'weight': productDetails['weight'] ?? '',
             'dimensions': productDetails['dimensions'] ?? {},
             'stock_status': productDetails['stock_status'] ?? 'instock',
-            'sku': productDetails['sku'] ?? '', // ✅ NEW: Cache SKU
+            'sku':
+                productDetails['sku'] ?? _productCache[productId]!['sku'] ?? '',
           });
 
           // Cache shipping class details if available
@@ -120,10 +267,26 @@ class CartProvider with ChangeNotifier {
         enhancedProduct.addAll({
           'backendId':
               cachedProduct['backendId'] ?? cachedProduct['backend_id'] ?? '',
-          'variant_id':
-              cachedProduct['variant_id'] ?? cachedProduct['variantId'] ?? '',
-          'variantId':
-              cachedProduct['variantId'] ?? cachedProduct['variant_id'] ?? '',
+          'variant_id': _resolveVariantIdForCart(
+            productId,
+            _cartSelectedAttributes(enhancedProduct),
+            cachedProduct,
+          ),
+          'variantId': _resolveVariantIdForCart(
+            productId,
+            _cartSelectedAttributes(enhancedProduct),
+            cachedProduct,
+          ),
+          'backendVariantId': _resolveVariantIdForCart(
+            productId,
+            _cartSelectedAttributes(enhancedProduct),
+            cachedProduct,
+          ),
+          'variants':
+              cachedProduct['variants'] ?? enhancedProduct['variants'] ?? [],
+          'selectedOptions': enhancedProduct['selectedOptions'] ??
+              enhancedProduct['attributes'] ??
+              {},
           'shipping_class': cachedProduct['shipping_class'] ?? '',
           'shipping_class_id': cachedProduct['shipping_class_id'] ?? 0,
           'shipping_class_name': cachedProduct['shipping_class_name'] ?? '',
@@ -217,8 +380,13 @@ class CartProvider with ChangeNotifier {
 
       // 📦 Fetch detailed product information including shipping class if we have an ID
       if (productId != null) {
+        final detailId = product['sku'] ??
+            product['variant_sku'] ??
+            product['backendId'] ??
+            product['backend_id'] ??
+            productId;
         final productDetails =
-            await _wooCommerceService.getProductDetails(productId);
+            await _wooCommerceService.getProductDetails(detailId);
 
         if (productDetails != null) {
           // Add shipping class information
@@ -230,12 +398,31 @@ class CartProvider with ChangeNotifier {
               productDetails['backend_id'] ??
               enhancedProduct['backendId'] ??
               '';
-          enhancedProduct['variant_id'] = productDetails['variant_id'] ??
-              productDetails['variantId'] ??
-              enhancedProduct['variant_id'] ??
-              '';
-          enhancedProduct['variantId'] = productDetails['variantId'] ??
-              productDetails['variant_id'] ??
+          final selected = _cartSelectedAttributes(enhancedProduct);
+          final resolvedVariantId = _resolveVariantIdForCart(
+            productId,
+            selected,
+            {
+              ...productDetails,
+              'selectedOptions': selected,
+              'attributes': selected,
+            },
+          );
+          enhancedProduct['variants'] =
+              productDetails['variants'] ?? enhancedProduct['variants'];
+          enhancedProduct['variant_id'] = resolvedVariantId.isNotEmpty
+              ? resolvedVariantId
+              : productDetails['variant_id'] ??
+                  productDetails['variantId'] ??
+                  enhancedProduct['variant_id'] ??
+                  '';
+          enhancedProduct['variantId'] = resolvedVariantId.isNotEmpty
+              ? resolvedVariantId
+              : productDetails['variantId'] ??
+                  productDetails['variant_id'] ??
+                  enhancedProduct['variantId'] ??
+                  '';
+          enhancedProduct['backendVariantId'] = enhancedProduct['variant_id'] ??
               enhancedProduct['variantId'] ??
               '';
           enhancedProduct['weight'] = productDetails['weight'] ?? '';
@@ -302,45 +489,58 @@ class CartProvider with ChangeNotifier {
     int quantity = 1,
     String? color,
     String? size,
-    String? sku, // ✅ NEW: Added SKU parameter
+    String? sku,
+    String? variantId,
     Map<String, String>? attributes,
   }) async {
     try {
       _setLoading(true);
       _clearError();
 
-      // Create unique product identifier including attributes
       String attributeKey = '';
       if (attributes != null && attributes.isNotEmpty) {
-        // Sort attributes for consistent key generation
         final sortedKeys = attributes.keys.toList()..sort();
         attributeKey =
             sortedKeys.map((key) => '$key:${attributes[key]}').join('|');
       }
 
+      final resolvedVariantId = variantId ??
+          _resolveVariantIdForCart(
+            productId,
+            attributes,
+            {
+              'sku': sku ?? '',
+              'color': color,
+              'size': size,
+              'attributes': attributes ?? <String, String>{},
+              'selectedOptions': attributes ?? <String, String>{},
+            },
+          );
+
       final product = {
         'id': productId,
-        'sku': sku ?? '', // ✅ NEW: Save SKU
-        'variant_id': '',
-        'variantId': '',
+        'sku': sku ?? '',
+        'variant_id': resolvedVariantId,
+        'variantId': resolvedVariantId,
+        'backendVariantId': resolvedVariantId,
         'name': name,
         'price': price,
         'image': image,
         'color': color,
         'size': size,
-        'attributes': attributes ?? {}, // ✅ Include attributes
-        'attribute_key': attributeKey, // For unique identification
+        'attributes': attributes ?? <String, String>{},
+        'selectedOptions': attributes ?? <String, String>{},
+        'attribute_key': attributeKey,
       };
 
-      // Add the specified quantity
       for (int i = 0; i < quantity; i++) {
         await addToCartFast(product);
       }
 
-      print('✅ Added $quantity × $name with attributes: $attributes');
+      print('Added $quantity x $name with attributes: $attributes');
     } catch (e) {
       _setError('Failed to add item with attributes: $e');
-      print('❌ Error adding item with attributes: $e');
+      print('Error adding item with attributes: $e');
     } finally {
       _setLoading(false);
     }
@@ -520,8 +720,10 @@ class CartProvider with ChangeNotifier {
   String getProductIdSku(Map<String, dynamic> cartItem) {
     final id = cartItem['id']?.toString() ?? '';
     final sku = cartItem['sku']?.toString() ?? '';
-    if (id.isEmpty && sku.isEmpty) return '';
-    return 'Product ID: $id | SKU: $sku';
+    if (sku.isNotEmpty) return 'SKU: $sku';
+    if (id.isEmpty) return '';
+    if (id.length > 12) return 'Item: ${id.substring(0, 8).toUpperCase()}';
+    return 'Product ID: $id';
   }
 
   /// 🔍 Check if two items have the same attributes
@@ -574,69 +776,73 @@ class CartProvider with ChangeNotifier {
       _setLoading(true);
       _clearError();
 
-      print('🔄 Refreshing shipping class data for cart items...');
-
       final uniqueProducts = getUniqueProductsWithQuantity();
 
       for (var product in uniqueProducts) {
         final productId = product['id'];
+        if (productId == null) continue;
 
-        if (productId != null) {
-          final productDetails =
-              await _wooCommerceService.getProductDetails(productId);
+        final detailId = product['sku'] ??
+            product['variant_sku'] ??
+            product['backendId'] ??
+            product['backend_id'] ??
+            productId;
+        final productDetails =
+            await _wooCommerceService.getProductDetails(detailId);
 
-          if (productDetails != null) {
-            // Update all instances of this product in _cartItems
-            final String productKey =
-                product['id']?.toString() ?? product['name'] ?? '';
+        if (productDetails == null) continue;
 
-            for (int i = 0; i < _cartItems.length; i++) {
-              String itemKey = _cartItems[i]['id']?.toString() ??
-                  _cartItems[i]['name'] ??
-                  '';
-              if (itemKey == productKey) {
-                _cartItems[i]['shipping_class'] =
-                    productDetails['shipping_class'] ?? '';
-                _cartItems[i]['shipping_class_id'] =
-                    productDetails['shipping_class_id'] ?? 0;
-                _cartItems[i]['weight'] = productDetails['weight'] ?? '';
-                _cartItems[i]['dimensions'] =
-                    productDetails['dimensions'] ?? {};
-                _cartItems[i]['sku'] =
-                    productDetails['sku'] ?? ''; // ✅ NEW: Update SKU
+        final productKey = product['id']?.toString() ?? product['name'] ?? '';
 
-                // Update shipping class name if available
-                final shippingClass = productDetails['shipping_class'] ?? '';
-                if (shippingClass.isNotEmpty) {
-                  final shippingClassId = productDetails['shipping_class_id'];
-                  if (shippingClassId != null && shippingClassId > 0) {
-                    final classDetails = await _wooCommerceService
-                        .getShippingClassDetails(shippingClassId);
-                    if (classDetails != null) {
-                      _cartItems[i]['shipping_class_name'] =
-                          classDetails['name'] ?? shippingClass;
-                    }
-                  }
-                }
-              }
-            }
-          }
+        for (int i = 0; i < _cartItems.length; i++) {
+          final itemKey =
+              _cartItems[i]['id']?.toString() ?? _cartItems[i]['name'] ?? '';
+          if (itemKey != productKey) continue;
+
+          final selected = _cartSelectedAttributes(_cartItems[i]);
+          final resolvedVariantId = _resolveVariantIdForCart(
+            productId,
+            selected,
+            {
+              ...productDetails,
+              'selectedOptions': selected,
+              'attributes': selected,
+            },
+          );
+
+          _cartItems[i].addAll({
+            'backendId': productDetails['backendId'] ??
+                productDetails['backend_id'] ??
+                productDetails['id'] ??
+                _cartItems[i]['backendId'],
+            'backend_id': productDetails['backend_id'] ??
+                productDetails['backendId'] ??
+                productDetails['id'] ??
+                _cartItems[i]['backend_id'],
+            'variants': productDetails['variants'] ?? _cartItems[i]['variants'],
+            if (resolvedVariantId.isNotEmpty) 'variant_id': resolvedVariantId,
+            if (resolvedVariantId.isNotEmpty) 'variantId': resolvedVariantId,
+            if (resolvedVariantId.isNotEmpty)
+              'backendVariantId': resolvedVariantId,
+            'shipping_class': productDetails['shipping_class'] ?? '',
+            'shipping_class_id': productDetails['shipping_class_id'] ?? 0,
+            'weight': productDetails['weight'] ?? '',
+            'dimensions': productDetails['dimensions'] ?? {},
+            'sku': productDetails['sku'] ?? _cartItems[i]['sku'] ?? '',
+          });
         }
       }
 
       await _saveCartToStorage();
       notifyListeners();
-
-      print('✅ Shipping class data refreshed for all items');
     } catch (e) {
       _setError('Failed to refresh shipping class data: $e');
-      print('❌ Error refreshing shipping class data: $e');
+      print('Error refreshing shipping class data: $e');
     } finally {
       _setLoading(false);
     }
   }
 
-  /// ⚠️ Get cart items missing shipping class information
   List<Map<String, dynamic>> getItemsMissingShippingClass() {
     final uniqueProducts = getUniqueProductsWithQuantity();
     return uniqueProducts.where((item) {
@@ -668,7 +874,7 @@ class CartProvider with ChangeNotifier {
       }
 
       // Use the enhanced shipping calculation with unique products
-      final result = await _wooCommerceService.calculateEnhancedShippingForCity(
+      var result = await _wooCommerceService.calculateEnhancedShippingForCity(
         cityData: cityData,
         cartItems: uniqueProducts,
       );

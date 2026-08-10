@@ -77,7 +77,8 @@ class PaymentIntegration {
               'order_created': true, // Explicit confirmation
             };
 
-            await _triggerOrderConfirmation(result['orderData']['id']);
+            await _triggerOrderConfirmationIfLegacyNumeric(
+                result['orderData']['id']);
           } else {
             print(
                 '❌ Bank transfer order creation failed: ${result?['message']}');
@@ -100,7 +101,8 @@ class PaymentIntegration {
           // Trigger confirmation email for successful card payments
           if (result?['success'] == true &&
               result?['orderData']?['id'] != null) {
-            await _triggerOrderConfirmation(result!['orderData']['id']);
+            await _triggerOrderConfirmationIfLegacyNumeric(
+                result!['orderData']['id']);
           }
           break;
 
@@ -123,6 +125,44 @@ class PaymentIntegration {
   // ============================================================
   // ✅ WALLET PAYMENT - FIXED VERSION
   // ============================================================
+  String _walletFriendlyError(dynamic error) {
+    final message = error.toString();
+    final lower = message.toLowerCase();
+    if (lower.contains('insufficient') || lower.contains('balance')) {
+      return 'Insufficient wallet balance. Please top up your wallet or choose another payment method.';
+    }
+    if (lower.contains('debit')) {
+      return 'Your wallet could not be debited. No card was used. Please retry or contact support.';
+    }
+    if (lower.contains('order')) {
+      return 'The wallet order could not be completed. Please retry or contact support.';
+    }
+    return 'Wallet payment could not be completed. Please retry or contact support.';
+  }
+
+  Map<String, dynamic> _confirmationData(
+    dynamic rawOrder, {
+    required double totalAmount,
+    required String paymentMethod,
+    required String paymentMethodTitle,
+  }) {
+    final order = rawOrder is Map
+        ? Map<String, dynamic>.from(
+            rawOrder.map((key, value) => MapEntry(key.toString(), value)),
+          )
+        : <String, dynamic>{};
+    order['displayTotal'] = totalAmount;
+    order['displayPaymentMethod'] = paymentMethodTitle;
+    order['payment_method'] ??= paymentMethod;
+    order['paymentMethod'] ??= paymentMethod;
+    order['payment_method_title'] ??= paymentMethodTitle;
+    order['paymentMethodTitle'] ??= paymentMethodTitle;
+    order['date_created'] ??= order['createdAt'] ??
+        order['created_at'] ??
+        DateTime.now().toIso8601String();
+    return order;
+  }
+
   Future<Map<String, dynamic>?> _processWalletPayment({
     required List<dynamic> cartItems,
     required double totalAmount,
@@ -132,8 +172,9 @@ class PaymentIntegration {
     Map<String, dynamic>? shippingAddress,
   }) async {
     try {
-      final int customerId = _getCustomerId(context, customerData);
-      print('💰 Processing wallet payment for customer: $customerId');
+      final customerIdText = customerData?['id']?.toString().trim();
+      final customerId = int.tryParse(customerIdText ?? '');
+      print('Wallet payment for customer: ${customerIdText ?? customerId}');
 
       final List<Map<String, dynamic>> lineItems = _buildLineItems(cartItems);
       final Map<String, String> billing =
@@ -143,6 +184,7 @@ class PaymentIntegration {
 
       final paymentResult = await wooCommerceService.processWalletPayment(
         userId: customerId,
+        userIdText: customerIdText,
         totalAmount: totalAmount,
         lineItems: lineItems,
         billing: billing,
@@ -172,7 +214,12 @@ class PaymentIntegration {
 
         return {
           'success': true,
-          'orderData': paymentResult['order_data'],
+          'orderData': _confirmationData(
+            paymentResult['order_data'],
+            totalAmount: totalAmount,
+            paymentMethod: 'wallet',
+            paymentMethodTitle: 'TellMe Wallet',
+          ),
           'paymentReference': orderIdString,
           'orderId': orderIdInt,
           'message': 'Wallet payment completed successfully',
@@ -202,7 +249,7 @@ class PaymentIntegration {
       }
     } catch (e) {
       print('❌ Wallet payment error: $e');
-      final friendlyError = _getFriendlyErrorMessage(e);
+      final friendlyError = _walletFriendlyError(e);
       return {
         'success': false,
         'message': friendlyError,
@@ -284,6 +331,12 @@ class PaymentIntegration {
 
       if (orderData != null && orderData['error'] != true) {
         print('✅ Order created successfully: ${orderData['id']}');
+        orderData.addAll(_confirmationData(
+          orderData,
+          totalAmount: totalAmount,
+          paymentMethod: paymentMethod,
+          paymentMethodTitle: paymentMethodTitle,
+        ));
 
         final orderSummary = _generateOrderSummary(
           cartItems: cartItems,
@@ -378,6 +431,16 @@ class PaymentIntegration {
       print('❌ Failed to trigger confirmation email: $e');
       return false;
     }
+  }
+
+  Future<bool> _triggerOrderConfirmationIfLegacyNumeric(dynamic orderId) async {
+    final parsed = _safeParseInt(orderId);
+    if (parsed == null || parsed <= 0) {
+      print(
+          'Skipping legacy Woo order confirmation for non-numeric order id: $orderId');
+      return false;
+    }
+    return _triggerOrderConfirmation(parsed);
   }
 
   // ============================================================
@@ -634,16 +697,113 @@ class PaymentIntegration {
     );
   }
 
+  String _paymentText(dynamic value) => value?.toString().trim() ?? '';
+
+  Map<String, String> _paymentStringOptions(dynamic value) {
+    if (value is! Map) return <String, String>{};
+    return value.map(
+      (key, item) => MapEntry(key.toString(), item?.toString() ?? ''),
+    );
+  }
+
+  String _resolveVariantIdForPayment(dynamic item) {
+    if (item is! Map) return '';
+
+    String normalizeOptionKey(String value) => value
+        .toString()
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]'), '');
+
+    for (final key in const [
+      'variantId',
+      'variant_id',
+      'backendVariantId',
+      'backend_variant_id',
+    ]) {
+      final value = _paymentText(item[key]);
+      if (RegExp(r'^[a-fA-F0-9]{32}$').hasMatch(value)) return value;
+    }
+
+    final selected = <String, String>{};
+    selected.addAll(_paymentStringOptions(item['attributes']));
+    selected.addAll(_paymentStringOptions(item['selectedOptions']));
+    selected.addAll(_paymentStringOptions(item['options']));
+
+    final color = _paymentText(item['color']);
+    if (color.isNotEmpty) selected.putIfAbsent('Color', () => color);
+
+    final size = _paymentText(item['size']);
+    if (size.isNotEmpty) {
+      selected.putIfAbsent('Size', () => size);
+      selected.putIfAbsent('Shoe Size', () => size);
+    }
+
+    final normalizedSelected = <String, String>{};
+    selected.forEach((key, value) {
+      final cleanedValue = value.trim().toLowerCase();
+      if (cleanedValue.isNotEmpty) {
+        normalizedSelected[normalizeOptionKey(key)] = cleanedValue;
+      }
+    });
+
+    final variants = item['variants'];
+    if (variants is List && variants.isNotEmpty) {
+      if (normalizedSelected.isEmpty && variants.length == 1) {
+        final only = variants.first;
+        if (only is Map) {
+          final value = _paymentText(
+            only['id'] ??
+                only['variantId'] ??
+                only['variant_id'] ??
+                only['backendVariantId'],
+          );
+          if (RegExp(r'^[a-fA-F0-9]{32}$').hasMatch(value)) return value;
+        }
+      }
+
+      for (final raw in variants) {
+        if (raw is! Map) continue;
+        final options = <String, String>{};
+        options.addAll(_paymentStringOptions(raw['attributes']));
+        options.addAll(_paymentStringOptions(raw['options']));
+
+        final normalizedVariant = <String, String>{};
+        options.forEach((key, value) {
+          final cleanedValue = value.trim().toLowerCase();
+          if (cleanedValue.isNotEmpty) {
+            normalizedVariant[normalizeOptionKey(key)] = cleanedValue;
+          }
+        });
+
+        if (normalizedSelected.isNotEmpty && normalizedVariant.isNotEmpty) {
+          final matches = normalizedSelected.entries.every((entry) {
+            final actual = normalizedVariant[entry.key] ?? '';
+            return actual == entry.value;
+          });
+          if (matches) {
+            final value = _paymentText(
+              raw['id'] ??
+                  raw['variantId'] ??
+                  raw['variant_id'] ??
+                  raw['backendVariantId'],
+            );
+            if (RegExp(r'^[a-fA-F0-9]{32}$').hasMatch(value)) return value;
+          }
+        }
+      }
+    }
+
+    return '';
+  }
+
   List<Map<String, dynamic>> _buildLineItems(List<dynamic> cartItems) {
     return cartItems.map((item) {
       // FIXED: Use non-nullable values for calculations
       final price = _safeParseDouble(item['price']);
       final quantity = _safeParseInt(item['quantity']) ?? 1; // Provide default
       final subtotal = price * quantity;
-      final variantId = item['variantId'] ??
-          item['variant_id'] ??
-          item['backendVariantId'] ??
-          item['backend_variant_id'];
+      final variantId = _resolveVariantIdForPayment(item);
       final selectedOptions = _stringOptions(
         item['selectedOptions'] ?? item['attributes'] ?? item['options'],
       );
@@ -657,6 +817,9 @@ class PaymentIntegration {
             item['sku']?.toString() ??
             '',
         if (selectedOptions.isNotEmpty) 'selectedOptions': selectedOptions,
+        if (selectedOptions.isNotEmpty) 'attributes': selectedOptions,
+        if (item['variants'] is List) 'variants': item['variants'],
+        'sku': item['sku']?.toString() ?? '',
         'quantity': quantity,
         'name': item['name']?.toString() ?? 'Unknown Product',
         'price': price.toString(),

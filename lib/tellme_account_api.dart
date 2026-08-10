@@ -282,6 +282,49 @@ class TellmeAccountApi {
     return _failure(response);
   }
 
+  Future<Map<String, dynamic>> debitWallet({
+    int? userId,
+    String? userIdText,
+    required double amount,
+    String? orderId,
+    String? description,
+    Map<String, dynamic>? metadata,
+  }) async {
+    final response = await http
+        .post(
+          _uri('wallet/debit'),
+          headers: await _headers(),
+          body: json.encode({
+            if (userIdText != null && userIdText.trim().isNotEmpty)
+              'user_id': userIdText.trim()
+            else if (userId != null && userId > 0)
+              'user_id': userId,
+            if (userIdText != null && userIdText.trim().isNotEmpty)
+              'userId': userIdText.trim()
+            else if (userId != null && userId > 0)
+              'userId': userId,
+            'amount': amount,
+            if (orderId != null && orderId.isNotEmpty) 'order_id': orderId,
+            if (orderId != null && orderId.isNotEmpty) 'orderId': orderId,
+            if (description != null && description.isNotEmpty)
+              'description': description,
+            if (metadata != null) 'metadata': metadata,
+          }),
+        )
+        .timeout(timeout);
+
+    final body = _decodeBody(response);
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return {
+        ...body,
+        'success': body['success'] ?? true,
+        'data': body,
+      };
+    }
+
+    return _failure(response);
+  }
+
   Future<Map<String, dynamic>> initializePaystackTransaction({
     required String email,
     required double amount,

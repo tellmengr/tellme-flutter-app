@@ -567,7 +567,7 @@ class _SignInPageState extends State<SignInPage>
       final themeProvider = context.read<CelebrationThemeProvider?>();
       final successColor = themeProvider?.currentTheme.accentColor ?? kGreen;
       _showSnack('Signed in successfully!', successColor);
-      _postLoginRedirect();
+      _safePostLoginRedirect();
     } catch (e) {
       // 🎨 Use celebration theme colors for error message
       final themeProvider = context.read<CelebrationThemeProvider?>();
@@ -726,7 +726,7 @@ class _SignInPageState extends State<SignInPage>
     final themeProvider = context.read<CelebrationThemeProvider?>();
     final successColor = themeProvider?.currentTheme.accentColor ?? kGreen;
     _showSnack('Signed in with $provider successfully!', successColor);
-    _postLoginRedirect();
+    _safePostLoginRedirect();
   }
 
   Future<void> _finishSocialLogin(
@@ -765,12 +765,30 @@ class _SignInPageState extends State<SignInPage>
     final themeProvider = context.read<CelebrationThemeProvider?>();
     final successColor = themeProvider?.currentTheme.accentColor ?? kGreen;
     _showSnack('Signed in with $provider successfully!', successColor);
-    _postLoginRedirect();
+    _safePostLoginRedirect();
+  }
+
+  void _safePostLoginRedirect() {
+    try {
+      _postLoginRedirect();
+    } catch (e) {
+      debugPrint('Post-login redirect failed: $e');
+      final themeProvider = context.read<CelebrationThemeProvider?>();
+      final warningColor =
+          themeProvider?.currentTheme.accentColor ?? Colors.orange;
+      _showSnack(
+        'Signed in, but checkout could not continue. Please open your cart again.',
+        warningColor,
+      );
+      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+    }
   }
 
   void _postLoginRedirect() {
     if (widget.onSignedIn != null) {
-      widget.onSignedIn!.call();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onSignedIn!.call();
+      });
     } else if (widget.pendingCheckoutData != null) {
       Navigator.pushReplacementNamed(context, '/checkout');
     } else {
@@ -782,9 +800,8 @@ class _SignInPageState extends State<SignInPage>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         backgroundColor: bg,
-        behavior: SnackBarBehavior.floating,
+        behavior: SnackBarBehavior.fixed,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(16),
         content: Row(
           children: [
             Icon(

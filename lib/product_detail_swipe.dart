@@ -491,7 +491,7 @@ class _ProductDetailSwipeState extends State<ProductDetailSwipe>
                         if (p['id'] != null ||
                             (p['sku']?.toString().isNotEmpty ?? false))
                           Text(
-                            "ID: ${p['id'] ?? '-'}  •  SKU: ${p['sku']?.toString().isNotEmpty == true ? p['sku'] : '-'}",
+                            "SKU: ${p['sku']?.toString().isNotEmpty == true ? p['sku'] : '-'}",
                             style: GoogleFonts.roboto(
                                 fontSize: 12.5, color: Colors.black54),
                           ),
