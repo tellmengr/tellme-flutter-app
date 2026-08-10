@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'user_provider.dart';
 import 'woocommerce_service.dart';
 import 'celebration_theme_provider.dart';
+import 'order_data.dart';
+import 'order_tracking_page.dart';
 
 // 🎨 Brand Colors (fallback when no celebration theme)
 const kPrimaryBlue = Color(0xFF004AAD);
@@ -87,8 +89,27 @@ class _MyOrdersPageState extends State<MyOrdersPage>
       _filteredOrders = _orders;
     } else {
       _filteredOrders = _orders.where((order) {
-        final status = (order['status'] ?? '').toString().toLowerCase();
-        return status == _selectedFilter;
+        final status = OrderData(order).statusKey;
+        return switch (_selectedFilter) {
+          'pending' => const {
+              'pending',
+              'payment_required',
+              'awaiting_payment',
+              'on_hold',
+            }.contains(status),
+          'processing' => const {
+              'processing',
+              'confirmed',
+              'paid',
+              'payment_received',
+              'ready_to_ship',
+              'shipped',
+              'in_transit',
+              'out_for_delivery',
+            }.contains(status),
+          'completed' => const {'completed', 'delivered'}.contains(status),
+          _ => status == _selectedFilter,
+        };
       }).toList();
     }
   }
@@ -393,12 +414,13 @@ class _MyOrdersPageState extends State<MyOrdersPage>
 
   Widget _buildOrderCard(
       Map<String, dynamic> order, Color primaryColor, Color accentColor) {
-    final orderId = order['id']?.toString() ?? 'N/A';
-    final status = order['status'] ?? 'pending';
-    final total = order['total'] ?? '0.00';
-    final currency = order['currency'] ?? 'USD';
-    final dateCreated = order['date_created'] ?? '';
-    final items = order['line_items'] as List? ?? [];
+    final data = OrderData(order);
+    final orderId = data.orderNumber;
+    final status = data.statusKey;
+    final total = data.total.toString();
+    final currency = data.currency;
+    final dateCreated = data.createdAt?.toIso8601String() ?? '';
+    final items = data.items;
 
     Color statusColor;
     String statusText;
@@ -411,14 +433,29 @@ class _MyOrdersPageState extends State<MyOrdersPage>
         statusIcon = Icons.check_circle_rounded;
         break;
       case 'processing':
+      case 'confirmed':
+      case 'paid':
+      case 'payment_received':
+      case 'ready_to_ship':
+      case 'shipped':
+      case 'in_transit':
+      case 'out_for_delivery':
         statusColor = accentColor;
-        statusText = 'Processing';
+        statusText = data.statusLabel;
         statusIcon = Icons.autorenew_rounded;
         break;
       case 'pending':
+      case 'payment_required':
+      case 'awaiting_payment':
+      case 'on_hold':
         statusColor = kYellow;
-        statusText = 'Pending';
+        statusText = data.statusLabel;
         statusIcon = Icons.schedule_rounded;
+        break;
+      case 'delivered':
+        statusColor = kGreen;
+        statusText = data.statusLabel;
+        statusIcon = Icons.check_circle_rounded;
         break;
       case 'cancelled':
       case 'failed':
@@ -428,7 +465,7 @@ class _MyOrdersPageState extends State<MyOrdersPage>
         break;
       default:
         statusColor = Colors.grey;
-        statusText = status;
+        statusText = data.statusLabel;
         statusIcon = Icons.info_rounded;
     }
 
@@ -456,7 +493,14 @@ class _MyOrdersPageState extends State<MyOrdersPage>
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          onTap: () => _showOrderDetails(order, primaryColor, accentColor),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => OrderTrackingPage(
+                orderNumber: data.orderNumber,
+                initialOrder: order,
+              ),
+            ),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
@@ -573,7 +617,7 @@ class _MyOrdersPageState extends State<MyOrdersPage>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '${items.length} Item${items.length != 1 ? 's' : ''}',
+                              '${data.itemCount} Item${data.itemCount != 1 ? 's' : ''}',
                               style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,

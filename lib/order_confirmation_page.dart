@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'cart_provider.dart';
+import 'order_data.dart';
+import 'order_tracking_page.dart';
 import 'user_provider.dart';
 
 class OrderConfirmationPage extends StatelessWidget {
@@ -194,11 +196,13 @@ class OrderConfirmationPage extends StatelessWidget {
                   const SizedBox(width: 14),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () =>
-                          ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content:
-                                Text('Open My Orders to track this order.')),
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => OrderTrackingPage(
+                            orderNumber: OrderData(orderDetails).orderNumber,
+                            initialOrder: orderDetails,
+                          ),
+                        ),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue,

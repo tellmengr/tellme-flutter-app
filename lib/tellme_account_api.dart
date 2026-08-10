@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'order_data.dart';
+
 class TellmeAccountApi {
   static const String baseUrl = 'https://tellme.ng/api/v1';
   static const Duration timeout = Duration(seconds: 25);
@@ -118,6 +120,33 @@ class TellmeAccountApi {
 
     final body = _decodeBody(response);
     return _normalizeList(body['orders'] ?? body['data']);
+  }
+
+  Future<Map<String, dynamic>?> getOrderByNumber(String orderNumber) async {
+    String canonical(dynamic value) =>
+        value.toString().trim().replaceFirst(RegExp(r'^#'), '').toUpperCase();
+
+    final target = canonical(orderNumber);
+    if (target.isEmpty) return null;
+
+    final orders = await getOrders();
+    for (final order in orders) {
+      final candidates = [
+        OrderData(order).orderNumber,
+        order['displayOrderNumber'],
+        order['orderNumber'],
+        order['order_number'],
+        order['number'],
+        order['reference'],
+        order['id'],
+      ];
+      if (candidates.any(
+        (value) => value != null && canonical(value) == target,
+      )) {
+        return order;
+      }
+    }
+    return null;
   }
 
   Future<Map<String, dynamic>?> updateProfile({
